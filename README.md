@@ -1,4 +1,4 @@
-# 산불피해목 BSI 자동측정 앱 (bsi_field)
+# 다시숲 (ReForest) — 산불피해목 진단·복원 지원 앱 (bsi_field)
 
 착수보고 v6 설계에 따른 **현장형 스마트폰 BSI 분석 앱**. Flutter(iOS/Android 단일 코드베이스),
 **완전 오프라인**(AI 모델 내장), on-device 추론.

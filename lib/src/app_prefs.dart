@@ -10,8 +10,5 @@ final ValueNotifier<bool> showGuides = ValueNotifier(true);
 /// Default flash mode when the camera opens (false = off, true = auto).
 final ValueNotifier<bool> defaultFlashAuto = ValueNotifier(false);
 
-/// Coordinate display format (false = WGS84 lat/lon, true = UTM).
-final ValueNotifier<bool> coordUtm = ValueNotifier(false);
-
 /// 수고봉 전체 길이 (m) — 촬영 사진의 픽셀→미터 스케일 기준.
 final ValueNotifier<double> poleLengthM = ValueNotifier(3.0);

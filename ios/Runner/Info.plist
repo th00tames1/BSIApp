@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>산불피해목 BSI</string>
+	<string>다시숲</string>
 	<key>NSCameraUsageDescription</key>
 	<string>피해목 4방위 사진 촬영에 사용됩니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

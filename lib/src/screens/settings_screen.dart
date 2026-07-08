@@ -29,13 +29,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onSelect: (i) => setState(
                         () => themeMode.value = i == 0 ? ThemeMode.light : ThemeMode.dark),
                   )),
-              Divider(height: 1, color: p.line),
-              _row(p, Icons.my_location, '좌표 형식',
-                  trailing: _Segmented(
-                    options: const ['WGS84', 'UTM'],
-                    index: coordUtm.value ? 1 : 0,
-                    onSelect: (i) => setState(() => coordUtm.value = i == 1),
-                  )),
             ]),
           ),
           _section(p, '촬영'),

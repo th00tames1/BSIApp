@@ -1,5 +1,5 @@
 name: bsi_field
-description: "산불피해목 BSI 자동측정 현장 앱 (BSI field survey)"
+description: "다시숲 (ReForest) — 산불피해목 진단·복원 지원 현장 앱"
 publish_to: 'none'
 version: 0.1.0+1
 
