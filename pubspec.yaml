@@ -29,6 +29,12 @@ dependencies:
   # Location
   geolocator: 14.0.2
   permission_handler: 12.0.3
+  flutter_compass: ^0.8.1
+
+  # Map (online tiles + pins, with offline disk cache)
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
@@ -39,3 +45,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/models/
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Pretendard-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Pretendard-Bold.otf
+          weight: 700

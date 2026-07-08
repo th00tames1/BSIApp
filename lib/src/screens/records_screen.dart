@@ -37,7 +37,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('조사 기록'),
-        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             tooltip: '전체 CSV 내보내기',
@@ -63,6 +62,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Widget _tile(SurveyRecord r) {
+    final p = context.palette;
     final cut = r.verdict == '벌채';
     return Dismissible(
       key: ValueKey(r.dbId),
@@ -70,7 +70,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(color: AppColors.stemRed, borderRadius: BorderRadius.circular(14)),
+        decoration:
+            BoxDecoration(color: p.danger, borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (_) async {
@@ -78,31 +79,47 @@ class _RecordsScreenState extends State<RecordsScreen> {
         _load();
       },
       child: Card(
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
           onTap: () => Navigator.push(
               context, MaterialPageRoute(builder: (_) => SavedScreen(record: r))),
-          leading: CircleAvatar(
-            backgroundColor: AppColors.navy.withValues(alpha: 0.1),
-            child: const Icon(Icons.park, color: AppColors.navy),
-          ),
-          title: Text(r.treeId, style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(
-              '${r.site.isEmpty ? '' : '${r.site} · '}BSI ${r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2)} · ${_date(r.createdAt)}',
-              style: const TextStyle(fontSize: 12)),
-          trailing: r.verdict.isEmpty
-              ? null
-              : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                    color: p.navy.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.park_outlined, color: p.navy),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.treeId,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${r.site.isEmpty ? '' : '${r.site} · '}BSI ${r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2)} · ${_date(r.createdAt)}',
+                    style: TextStyle(fontSize: 12, color: p.muted, fontFamily: 'monospace'),
+                  ),
+                ]),
+              ),
+              if (r.verdict.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                   decoration: BoxDecoration(
-                      color: (cut ? AppColors.stemRed : AppColors.green).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(20)),
+                      color: (cut ? p.danger : p.green).withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999)),
                   child: Text(r.verdict,
                       style: TextStyle(
-                          color: cut ? AppColors.stemRed : AppColors.green,
-                          fontWeight: FontWeight.w800,
+                          color: cut ? p.danger : p.green,
+                          fontWeight: FontWeight.w700,
                           fontSize: 12)),
                 ),
+            ]),
+          ),
         ),
       ),
     );
@@ -115,11 +132,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
 class _Empty extends StatelessWidget {
   const _Empty();
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.inbox_outlined, size: 56, color: AppColors.textSecondary),
-          SizedBox(height: 12),
-          Text('저장된 조사 기록이 없습니다', style: TextStyle(color: AppColors.textSecondary)),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.inbox_outlined, size: 56, color: p.muted),
+        const SizedBox(height: 12),
+        Text('저장된 조사 기록이 없습니다', style: TextStyle(color: p.muted)),
+      ]),
+    );
+  }
 }

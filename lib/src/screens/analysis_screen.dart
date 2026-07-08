@@ -19,7 +19,7 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   double _progress = 0;
-  String _status = '모델을 불러오는 중...';
+  String _status = '모델 준비 중';
   String? _currentOverlay;
   String? _error;
 
@@ -42,7 +42,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       for (int i = 0; i < azimuths.length; i++) {
         final az = azimuths[i];
         if (mounted) {
-          setState(() => _status = '${az.ko} 방위 분석 중... (${i + 1}/${azimuths.length})');
+          setState(() => _status = '${az.ko} 분석 중 · ${i + 1}/${azimuths.length}');
         }
         final overlayPath =
             p.join(overlayDir.path, '${d.treeId}_${az.code}_overlay.png');
@@ -71,65 +71,89 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 분석 중')),
+      appBar: AppBar(title: const Text('AI 분석')),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(children: [
-          const SizedBox(height: 6),
-          Text(_error == null ? '분석을 기다리세요.' : '분석 오류',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 16),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: _error != null
-                  ? _errorView()
+                  ? _errorView(p)
                   : (_currentOverlay != null
                       ? Image.file(File(_currentOverlay!),
                           key: ValueKey(_currentOverlay), fit: BoxFit.contain)
                       : Container(
-                          color: Colors.black12,
+                          color: p.surface2,
                           child: const Center(child: CircularProgressIndicator()))),
             ),
           ),
           const SizedBox(height: 14),
-          _legend(),
+          _legend(p),
           const SizedBox(height: 16),
-          if (_error == null) ...[
-            LinearProgressIndicator(
-              value: _progress,
-              minHeight: 8,
-              backgroundColor: AppColors.border,
-              color: AppColors.navy,
+          if (_error == null)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(_status,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    ),
+                    Text('${(_progress * 100).round()}%',
+                        style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                            color: p.navy)),
+                  ]),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: _progress,
+                      minHeight: 9,
+                      backgroundColor: p.surface2,
+                      color: p.navy,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('YOLO26s-seg · 온디바이스',
+                        style: TextStyle(
+                            fontFamily: 'monospace', fontSize: 12, color: p.muted)),
+                  ),
+                ]),
+              ),
             ),
-            const SizedBox(height: 10),
-            Text('$_status  ${(_progress * 100).round()}%',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          ],
         ]),
       ),
     );
   }
 
-  Widget _errorView() => Container(
-        color: Colors.black12,
+  Widget _errorView(AppPalette p) => Container(
+        color: p.surface2,
         padding: const EdgeInsets.all(20),
         child: Center(
-            child: Text(_error!, textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary))),
+            child: Text(_error!,
+                textAlign: TextAlign.center, style: TextStyle(color: p.muted))),
       );
 
-  Widget _legend() {
+  Widget _legend(AppPalette p) {
     Widget dot(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 12, height: 12, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+          Container(width: 11, height: 11, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
           const SizedBox(width: 6),
-          Text(t, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(t, style: TextStyle(fontSize: 12.5, color: p.muted)),
         ]);
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      dot(AppColors.stemRed, '수간 영역'),
-      const SizedBox(width: 22),
-      dot(AppColors.sootGreen, '그을음 영역'),
+      dot(p.stem, '수간'),
+      const SizedBox(width: 20),
+      dot(p.soot, '그을음'),
+      const SizedBox(width: 20),
+      dot(p.pole, '수고봉'),
     ]);
   }
 }

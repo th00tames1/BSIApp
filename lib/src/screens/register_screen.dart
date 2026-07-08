@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app_prefs.dart';
 import '../models/draft.dart';
 import '../services/location_service.dart';
 import '../theme.dart';
-import '../widgets.dart';
 import 'capture_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -44,8 +44,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
     if (pos == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('위치를 가져올 수 없습니다 (권한/GPS 확인)')));
+      final st = await LocationService.ensure();
+      if (!mounted) return;
+      final msg = st == GpsStatus.ok
+          ? '위치 신호를 받지 못했습니다 · 트인 곳에서 다시 시도하세요'
+          : LocationService.message(st);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -59,88 +63,132 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ..dbhCm = double.tryParse(_dbh.text.trim()) ?? 0
       ..memo = _memo.text.trim()
       ..lat = _lat
-      ..lon = _lon;
+      ..lon = _lon
+      ..poleLengthM = poleLengthM.value;
     Navigator.push(
         context, MaterialPageRoute(builder: (_) => CaptureScreen(draft: draft)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: const Text('조사목 등록')),
+      appBar: AppBar(title: const Text('조사 등록')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
           children: [
-            const FieldLabel('조사목 ID'),
+            _label(p, '조사목 번호', required: true),
             TextFormField(
               controller: _id,
               decoration: const InputDecoration(hintText: 'TA205-001'),
               validator: (v) => (v == null || v.trim().isEmpty) ? '필수 항목입니다' : null,
             ),
-            const FieldLabel('조사지'),
-            TextFormField(controller: _site, decoration: const InputDecoration(hintText: '예: 홍길동')),
-            const FieldLabel('조사 위치'),
+            _label(p, '조사지'),
+            TextFormField(
+                controller: _site,
+                decoration: const InputDecoration(hintText: '예: 인제 남면 3-2 임반')),
+            _label(p, '위치'),
             TextFormField(
               controller: _address,
-              maxLines: 2,
-              decoration: const InputDecoration(hintText: '강원특별자치도 인제군 남면'),
+              decoration: const InputDecoration(hintText: '강원 인제군 남면'),
             ),
-            const SizedBox(height: 10),
-            _mapCard(),
-            const FieldLabel('수종'),
-            TextFormField(controller: _species),
-            const FieldLabel('흉고직경(DBH)'),
-            TextFormField(
-              controller: _dbh,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-              decoration: const InputDecoration(hintText: '28.4', suffixText: 'cm'),
-            ),
-            const FieldLabel('메모'),
+            const SizedBox(height: 12),
+            _gpsCard(p),
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label(p, '수종'),
+                  TextFormField(controller: _species),
+                ]),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label(p, '흉고직경'),
+                  TextFormField(
+                    controller: _dbh,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                    decoration: const InputDecoration(hintText: '28.4', suffixText: 'cm'),
+                  ),
+                ]),
+              ),
+            ]),
+            _label(p, '메모'),
             TextFormField(
                 controller: _memo,
-                maxLines: 2,
-                decoration: const InputDecoration(hintText: '메모 입력 (선택)')),
-            const SizedBox(height: 28),
-            ElevatedButton(onPressed: _submit, child: const Text('등록 완료')),
+                decoration: const InputDecoration(hintText: '선택 입력')),
+            const SizedBox(height: 26),
+            ElevatedButton(
+              onPressed: _submit,
+              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                Text('촬영 시작'),
+                SizedBox(width: 6),
+                Icon(Icons.chevron_right, size: 20),
+              ]),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _mapCard() {
+  Widget _label(AppPalette p, String text, {bool required = false}) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 6),
+        child: Row(children: [
+          Text(text,
+              style: TextStyle(color: p.muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+          if (required)
+            Text('  *', style: TextStyle(color: p.ember, fontWeight: FontWeight.w700)),
+        ]),
+      );
+
+  Widget _gpsCard(AppPalette p) {
     final has = _lat != null && _lon != null;
     return Container(
-      height: 96,
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF0E7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        color: p.field,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.line),
       ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       child: Row(children: [
-        const SizedBox(width: 16),
-        const Icon(Icons.location_on, color: AppColors.green, size: 30),
+        Icon(Icons.location_on, color: p.green, size: 26),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            has
-                ? '${_lat!.toStringAsFixed(6)}, ${_lon!.toStringAsFixed(6)}'
-                : '현재 위치 좌표를 기록합니다',
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('GPS · 촬영 시 자동',
+                style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: p.muted)),
+            const SizedBox(height: 3),
+            Text(
+              has
+                  ? '${_lat!.toStringAsFixed(6)}, ${_lon!.toStringAsFixed(6)}'
+                  : '4방위 촬영 지점 평균으로 기록',
+              style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: p.ink),
+            ),
+          ]),
         ),
         TextButton.icon(
           onPressed: _locating ? null : _getLocation,
+          style: TextButton.styleFrom(foregroundColor: p.green),
           icon: _locating
-              ? const SizedBox(
-                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.my_location, size: 18),
-          label: const Text('현재 위치'),
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: p.green))
+              : Icon(has ? Icons.check : Icons.my_location, size: 18),
+          label: Text(has ? '기록됨' : '측정'),
         ),
-        const SizedBox(width: 6),
       ]),
     );
   }
