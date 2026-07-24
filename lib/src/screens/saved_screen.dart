@@ -4,12 +4,30 @@ import 'package:flutter/material.dart';
 
 import '../models/survey.dart';
 import '../services/csv_export.dart';
+import '../services/db_service.dart';
 import '../theme.dart';
 
 /// Detail view for a saved survey record (opened from the map pin / 기록).
 class SavedScreen extends StatelessWidget {
   final SurveyRecord record;
   const SavedScreen({super.key, required this.record});
+
+  Future<void> _delete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('조사목 삭제'),
+        content: Text('조사목 ${record.treeId}을(를) 삭제합니다. 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (record.dbId != null) await DbService.instance.delete(record.dbId!);
+    if (context.mounted) Navigator.pop(context, true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +41,11 @@ class SavedScreen extends StatelessWidget {
             tooltip: 'CSV 내보내기',
             onPressed: () => CsvExport.share([record]),
             icon: const Icon(Icons.ios_share),
+          ),
+          IconButton(
+            tooltip: '삭제',
+            onPressed: () => _delete(context),
+            icon: Icon(Icons.delete_outline, color: p.danger),
           ),
         ],
       ),

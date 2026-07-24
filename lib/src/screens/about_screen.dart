@@ -27,16 +27,9 @@ class AboutScreen extends StatelessWidget {
                 child: const Icon(Icons.gps_fixed, color: Colors.white, size: 34),
               ),
               const SizedBox(height: 12),
-              const Text('다시숲',
+              const Text('ReForest',
                   style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-              const SizedBox(height: 2),
-              Text('ReForest',
-                  style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      letterSpacing: 2,
-                      color: p.muted)),
+                      fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
               const SizedBox(height: 8),
               Text('산불피해목 진단·복원 지원 · v0.1',
                   style: TextStyle(

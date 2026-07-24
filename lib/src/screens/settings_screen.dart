@@ -22,48 +22,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _section(p, '일반'),
           Card(
             child: Column(children: [
-              _row(p, Icons.light_mode_outlined, '테마',
+              _row(p, Icons.brightness_6_outlined, '테마',
                   trailing: _Segmented(
-                    options: const ['현장', '저조도'],
+                    options: const ['라이트', '다크'],
                     index: themeMode.value == ThemeMode.dark ? 1 : 0,
-                    onSelect: (i) => setState(
-                        () => themeMode.value = i == 0 ? ThemeMode.light : ThemeMode.dark),
+                    onSelect: (i) => setState(() =>
+                        setThemeMode(i == 0 ? ThemeMode.light : ThemeMode.dark)),
                   )),
             ]),
           ),
           _section(p, '촬영'),
           Card(
             child: Column(children: [
-              _row(p, Icons.gps_fixed, '촬영 안내선', sub: '수직선·크로스헤어 표시',
+              _row(p, Icons.straighten, '촬영 안내선', sub: '수고봉 정렬선 표시',
                   trailing: Switch(
                     value: showGuides.value,
-                    onChanged: (v) => setState(() => showGuides.value = v),
+                    onChanged: (v) => setState(() => setShowGuides(v)),
                   )),
-              Divider(height: 1, color: p.line),
-              _row(p, Icons.bolt_outlined, '플래시 기본값',
-                  trailing: _Segmented(
-                    options: const ['끔', '자동'],
-                    index: defaultFlashAuto.value ? 1 : 0,
-                    onSelect: (i) => setState(() => defaultFlashAuto.value = i == 1),
-                  )),
-            ]),
-          ),
-          _section(p, '계측'),
-          Card(
-            child: Column(children: [
-              _row(p, Icons.straighten, '수고봉 길이', sub: '촬영 시 픽셀→미터 스케일 기준',
-                  trailing: _Stepper(
-                    value: poleLengthM.value,
-                    onChanged: (v) => setState(() => poleLengthM.value = v),
-                  )),
-              Divider(height: 1, color: p.line),
-              _row(p, Icons.memory, '분할 모델',
-                  trailing: Text('YOLO26s @640',
-                      style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: p.navy))),
             ]),
           ),
           const SizedBox(height: 14),
@@ -123,8 +98,8 @@ class _Segmented extends StatelessWidget {
     final p = context.palette;
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-          color: p.surface2, borderRadius: BorderRadius.circular(9)),
+      decoration:
+          BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(9)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         for (int i = 0; i < options.length; i++)
           GestureDetector(
@@ -147,37 +122,5 @@ class _Segmented extends StatelessWidget {
           ),
       ]),
     );
-  }
-}
-
-class _Stepper extends StatelessWidget {
-  final double value;
-  final ValueChanged<double> onChanged;
-  const _Stepper({required this.value, required this.onChanged});
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    Widget btn(IconData ic, VoidCallback? onTap) => Material(
-          color: p.surface2,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: SizedBox(
-                width: 30,
-                height: 30,
-                child: Icon(ic, size: 18, color: onTap == null ? p.muted : p.navy)),
-          ),
-        );
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      btn(Icons.remove, value > 1.0 ? () => onChanged((value - 0.5).clamp(1.0, 6.0)) : null),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Text('${value.toStringAsFixed(1)} m',
-            style: TextStyle(
-                fontFamily: 'monospace', fontWeight: FontWeight.w700, color: p.navy)),
-      ),
-      btn(Icons.add, value < 6.0 ? () => onChanged((value + 0.5).clamp(1.0, 6.0)) : null),
-    ]);
   }
 }

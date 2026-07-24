@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import '../services/analysis_service.dart';
@@ -107,4 +109,67 @@ class SurveyDraft {
         verdict: integ?.verdict ?? '',
         createdAt: DateTime.now(),
       );
+
+  /// Has the surveyor started capturing (worth resuming after a close/kill)?
+  bool get isInProgress => photos.isNotEmpty;
+
+  // ── Resume persistence ──────────────────────────────────────────────
+  // Serialized up to the capture stage (scalars + photo paths + standpoints);
+  // analysis results are recomputed on resume, so they are not stored.
+  Map<String, dynamic> toJson() => {
+        'treeId': treeId,
+        'site': site,
+        'address': address,
+        'lat': lat,
+        'lon': lon,
+        'gapOffsetSet': gapOffsetSet,
+        'species': species,
+        'dbhCm': dbhCm,
+        'memo': memo,
+        'poleLengthM': poleLengthM,
+        'modelName': modelName,
+        'modelAsset': modelAsset,
+        'photos': photos.map((k, v) => MapEntry(k.name, v)),
+        'photoPos': photoPos.map((k, v) =>
+            MapEntry(k.name, {'lat': v.lat, 'lon': v.lon, 'sigma': v.sigma})),
+      };
+
+  String toJsonString() => jsonEncode(toJson());
+
+  static SurveyDraft? fromJsonString(String s) {
+    try {
+      final j = jsonDecode(s) as Map<String, dynamic>;
+      final d = SurveyDraft()
+        ..treeId = j['treeId'] as String? ?? ''
+        ..site = j['site'] as String? ?? ''
+        ..address = j['address'] as String? ?? ''
+        ..lat = (j['lat'] as num?)?.toDouble()
+        ..lon = (j['lon'] as num?)?.toDouble()
+        ..gapOffsetSet = j['gapOffsetSet'] as bool? ?? false
+        ..species = j['species'] as String? ?? '소나무'
+        ..dbhCm = (j['dbhCm'] as num?)?.toDouble() ?? 0
+        ..memo = j['memo'] as String? ?? ''
+        ..poleLengthM = (j['poleLengthM'] as num?)?.toDouble() ?? 3.0
+        ..modelName = j['modelName'] as String? ?? 'YOLO26s@640'
+        ..modelAsset = j['modelAsset'] as String? ??
+            'assets/models/bsi_seg_yolo26s_640.onnx';
+      (j['photos'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
+        // Only restore shots whose file survived (a wiped cache would otherwise
+        // crash the analysis step later).
+        final path = v as String;
+        if (File(path).existsSync()) d.photos[Azimuth.values.byName(k)] = path;
+      });
+      (j['photoPos'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
+        final m = v as Map<String, dynamic>;
+        d.photoPos[Azimuth.values.byName(k)] = (
+          lat: (m['lat'] as num).toDouble(),
+          lon: (m['lon'] as num).toDouble(),
+          sigma: (m['sigma'] as num).toDouble(),
+        );
+      });
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
 }

@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+/// NaN is not valid JSON and breaks sqflite; store it as null (round-trips
+/// back to NaN via the `?? double.nan` fallbacks on read).
+Object? _n(double v) => v.isNaN ? null : v;
+
 /// Per-azimuth analysis result for one captured face.
 class AzimuthResult {
   final String azimuth; // 'E' | 'W' | 'S' | 'N'
@@ -66,13 +70,13 @@ class AzimuthResult {
         'azimuth': azimuth,
         'imagePath': imagePath,
         'overlayPath': overlayPath,
-        'sootProportion': sootProportion,
-        'sootProportionWhole': sootProportionWhole,
-        'sootHeightM': sootHeightM,
-        'sootWidthM': sootWidthM,
-        'visibleStemHeightM': visibleStemHeightM,
-        'pxPerMetre': pxPerMetre,
-        'dbhEstM': dbhEstM,
+        'sootProportion': _n(sootProportion),
+        'sootProportionWhole': _n(sootProportionWhole),
+        'sootHeightM': _n(sootHeightM),
+        'sootWidthM': _n(sootWidthM),
+        'visibleStemHeightM': _n(visibleStemHeightM),
+        'pxPerMetre': _n(pxPerMetre),
+        'dbhEstM': _n(dbhEstM),
         'sootPx': sootPx,
         'treePx': treePx,
         'analysed': analysed,
@@ -172,8 +176,8 @@ class SurveyRecord {
         'modelName': modelName,
         'poleLengthM': poleLengthM,
         'faces': jsonEncode(faces.map((f) => f.toJson()).toList()),
-        'bsi': bsi,
-        'mortalityProb': mortalityProb,
+        'bsi': _n(bsi),
+        'mortalityProb': _n(mortalityProb),
         'verdict': verdict,
         'createdAt': createdAt.toIso8601String(),
       };

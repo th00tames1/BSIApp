@@ -59,6 +59,15 @@ class DbService {
     await db.delete('surveys', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Re-key saved records when a project (조사지) is renamed, so its trees stay
+  /// linked to the (mutable) site name the map filters on.
+  Future<void> renameSite(String oldSite, String newSite) async {
+    if (oldSite == newSite) return;
+    final db = await _database;
+    await db.update('surveys', {'site': newSite},
+        where: 'site = ?', whereArgs: [oldSite]);
+  }
+
   Future<int> count() async {
     final db = await _database;
     final r = await db.rawQuery('SELECT COUNT(*) c FROM surveys');

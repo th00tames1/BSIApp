@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>다시숲</string>
+	<string>ReForest</string>
 	<key>NSCameraUsageDescription</key>
 	<string>피해목 4방위 사진 촬영에 사용됩니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>조사목 위치(GPS 좌표) 기록에 사용됩니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>촬영/분석 결과 사진 저장 및 공유에 사용됩니다.</string>
+	<string>기존 사진 불러오기, 분석 결과 저장 및 공유에 사용됩니다.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

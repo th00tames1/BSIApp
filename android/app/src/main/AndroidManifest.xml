@@ -6,7 +6,7 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
 
     <application
-        android:label="다시숲"
+        android:label="ReForest"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

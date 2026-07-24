@@ -81,8 +81,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => SavedScreen(record: r))),
+          onTap: () async {
+            await Navigator.push(
+                context, MaterialPageRoute(builder: (_) => SavedScreen(record: r)));
+            _load();
+          },
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(children: [

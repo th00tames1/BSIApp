@@ -3,9 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../app_prefs.dart';
 import '../models/draft.dart';
 import '../models/survey.dart';
+import '../services/analysis_service.dart';
 import '../services/db_service.dart';
+import '../services/mortality.dart';
 import '../theme.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -18,6 +21,8 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late Azimuth _sel;
   bool _saving = false;
+  late final TextEditingController _dbh =
+      TextEditingController(text: d.dbhCm > 0 ? d.dbhCm.toStringAsFixed(0) : '');
 
   SurveyDraft get d => widget.draft;
 
@@ -27,12 +32,39 @@ class _ResultScreenState extends State<ResultScreen> {
     _sel = d.capturedAzimuths.isNotEmpty ? d.capturedAzimuths.first : Azimuth.east;
   }
 
+  @override
+  void dispose() {
+    _dbh.dispose();
+    super.dispose();
+  }
+
+  /// DBH drives the mortality logistic — recompute the verdict when it changes.
+  void _setDbh(String s) {
+    final v = double.tryParse(s.trim()) ?? 0;
+    d.dbhCm = v;
+    final integ = d.integ;
+    if (integ != null && !integ.bsi.isNaN) {
+      d.integ = BsiIntegration(integ.bsi, v, Mortality.probability(integ.bsi, v),
+          Mortality.verdict(integ.bsi, v));
+    }
+    setState(() {});
+  }
+
   String _m(double v) => v.isNaN ? '–' : '${v.toStringAsFixed(2)} m';
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    final rec = d.toRecord();
-    await DbService.instance.insert(rec);
+    try {
+      await DbService.instance.insert(d.toRecord());
+      await clearDraft(); // survey saved — no longer an in-progress draft
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      return;
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context)
@@ -84,6 +116,9 @@ class _ResultScreenState extends State<ResultScreen> {
                 style: TextStyle(
                     fontFamily: 'monospace', fontSize: 11.5, color: p.muted)),
           ]),
+          const SizedBox(height: 12),
+
+          _dbhField(p),
           const SizedBox(height: 12),
 
           _verdictCard(p, bsi, prob, verdict),
@@ -218,30 +253,61 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Widget _faceChips(AppPalette p) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: d.capturedAzimuths.map((a) {
-        final sel = a == _sel;
-        final v = d.results[a]?.sootProportion ?? double.nan;
-        final label = '${a.ko} ${v.isNaN ? '–' : '${(v * 100).round()}%'}';
-        return GestureDetector(
-          onTap: () => setState(() => _sel = a),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: sel ? p.green.withValues(alpha: 0.12) : p.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: sel ? p.green : p.line, width: 1.5),
+    final az = d.capturedAzimuths;
+    return Row(children: [
+      for (int i = 0; i < az.length; i++) ...[
+        if (i > 0) const SizedBox(width: 8),
+        Expanded(child: _faceChip(p, az[i])),
+      ],
+    ]);
+  }
+
+  Widget _faceChip(AppPalette p, Azimuth a) {
+    final sel = a == _sel;
+    final v = d.results[a]?.sootProportion ?? double.nan;
+    final label = '${a.ko} ${v.isNaN ? '–' : '${(v * 100).round()}%'}';
+    return GestureDetector(
+      onTap: () => setState(() => _sel = a),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: sel ? p.green.withValues(alpha: 0.12) : p.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: sel ? p.green : p.line, width: 1.5),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: sel ? p.green : p.muted,
+                fontWeight: FontWeight.w700,
+                fontSize: 13)),
+      ),
+    );
+  }
+
+  Widget _dbhField(AppPalette p) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+        child: Row(children: [
+          Icon(Icons.straighten, size: 20, color: p.green),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text('흉고직경 (DBH)',
+                  style: TextStyle(fontSize: 13.5, color: p.muted))),
+          SizedBox(
+            width: 96,
+            child: TextField(
+              controller: _dbh,
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration:
+                  const InputDecoration(hintText: '0', suffixText: 'cm', isDense: true),
+              onChanged: _setDbh,
             ),
-            child: Text(label,
-                style: TextStyle(
-                    color: sel ? p.green : p.muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13)),
           ),
-        );
-      }).toList(),
+        ]),
+      ),
     );
   }
 

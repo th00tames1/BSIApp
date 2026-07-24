@@ -1,14 +1,216 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// App-wide preferences, driven from 설정. Simple in-memory notifiers
-/// (persist to disk later if needed).
+/// App-wide state + preferences, persisted to disk (survives restarts).
+/// Call [loadPrefs] once at startup before running the app.
+
+// ── Project (한 조사지에서 여러 나무를 조사) ─────────────────────────
+/// A survey project = one 조사지 with its own running tree counter.
+class Project {
+  String site; // 조사지명
+  String location; // 위치(주소)
+  int treeSeq; // 마지막 조사목 번호
+  Project({required this.site, this.location = '', this.treeSeq = 0});
+
+  Map<String, dynamic> toJson() =>
+      {'site': site, 'location': location, 'treeSeq': treeSeq};
+  factory Project.fromJson(Map<String, dynamic> j) => Project(
+        site: j['site'] as String? ?? '',
+        location: j['location'] as String? ?? '',
+        treeSeq: (j['treeSeq'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// All projects, and which one is active.
+final ValueNotifier<List<Project>> projects = ValueNotifier([]);
+final ValueNotifier<String?> activeSite = ValueNotifier(null);
+
+// Active-project mirrors — read directly by map/capture screens.
+final ValueNotifier<String?> projectSite = ValueNotifier(null); // 조사지명
+final ValueNotifier<String> projectLocation = ValueNotifier(''); // 위치(주소)
+final ValueNotifier<int> treeSeq = ValueNotifier(0); // 마지막 조사목 번호
+
+Project? get activeProject {
+  final s = activeSite.value;
+  if (s == null) return null;
+  for (final p in projects.value) {
+    if (p.site == s) return p;
+  }
+  return null;
+}
+
+bool get hasProject => activeProject != null;
+
+void _syncActive() {
+  final p = activeProject;
+  projectSite.value = p?.site;
+  projectLocation.value = p?.location ?? '';
+  treeSeq.value = p?.treeSeq ?? 0;
+}
+
+// ── Settings ────────────────────────────────────────────────────────
 final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.light);
-
-/// Show the vertical plumb line + crosshair on the capture screen.
 final ValueNotifier<bool> showGuides = ValueNotifier(true);
+/// Map basemap: false = 일반(OSM), true = 위성(Esri World Imagery).
+final ValueNotifier<bool> satelliteBasemap = ValueNotifier(false);
 
-/// Default flash mode when the camera opens (false = off, true = auto).
-final ValueNotifier<bool> defaultFlashAuto = ValueNotifier(false);
+SharedPreferences? _sp;
 
-/// 수고봉 전체 길이 (m) — 촬영 사진의 픽셀→미터 스케일 기준.
-final ValueNotifier<double> poleLengthM = ValueNotifier(3.0);
+Future<void> loadPrefs() async {
+  final sp = await SharedPreferences.getInstance();
+  _sp = sp;
+
+  // Projects list.
+  final raw = sp.getString('projects');
+  if (raw != null && raw.isNotEmpty) {
+    try {
+      projects.value = (jsonDecode(raw) as List)
+          .map((e) => Project.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      projects.value = [];
+    }
+  }
+  activeSite.value = sp.getString('activeSite');
+
+  // One-time migration from the old single-project keys, then drop them (and
+  // set a flag) so deleting the last project can't resurrect it on relaunch.
+  if (sp.getBool('migratedV2') != true) {
+    if (projects.value.isEmpty) {
+      final oldSite = sp.getString('projectSite');
+      if (oldSite != null && oldSite.trim().isNotEmpty) {
+        projects.value = [
+          Project(
+            site: oldSite,
+            location: sp.getString('projectLocation') ?? '',
+            treeSeq: sp.getInt('treeSeq') ?? 0,
+          )
+        ];
+        activeSite.value = oldSite;
+        _persistProjects();
+      }
+    }
+    await sp.remove('projectSite');
+    await sp.remove('projectLocation');
+    await sp.remove('treeSeq');
+    await sp.setBool('migratedV2', true);
+  }
+  // Drop a stale active pointer.
+  if (activeSite.value != null && activeProject == null) {
+    activeSite.value = projects.value.isNotEmpty ? projects.value.first.site : null;
+  }
+  _syncActive();
+
+  themeMode.value =
+      sp.getString('theme') == 'dark' ? ThemeMode.dark : ThemeMode.light;
+  showGuides.value = sp.getBool('showGuides') ?? true;
+  satelliteBasemap.value = sp.getBool('satelliteBasemap') ?? false;
+}
+
+void _persistProjects() {
+  _sp?.setString('projects',
+      jsonEncode(projects.value.map((p) => p.toJson()).toList()));
+  final a = activeSite.value;
+  if (a != null) {
+    _sp?.setString('activeSite', a);
+  } else {
+    _sp?.remove('activeSite');
+  }
+}
+
+/// Create a new project or edit [existing]; makes it the active project.
+/// Returns false (no change) if [site] collides with a *different* project —
+/// site doubles as the record join key, so it must stay unique.
+bool upsertProject({
+  Project? existing,
+  required String site,
+  required String location,
+  int treeSeq = 0,
+}) {
+  site = site.trim();
+  location = location.trim();
+  final list = List<Project>.from(projects.value);
+  if (list.any((p) => p.site == site && !identical(p, existing))) {
+    return false; // duplicate 조사지명
+  }
+  Project target;
+  if (existing != null && list.contains(existing)) {
+    existing
+      ..site = site
+      ..location = location
+      ..treeSeq = treeSeq;
+    target = existing;
+  } else {
+    target = Project(site: site, location: location, treeSeq: treeSeq);
+    list.add(target);
+  }
+  projects.value = list;
+  activeSite.value = target.site;
+  _syncActive();
+  _persistProjects();
+  return true;
+}
+
+void selectProject(String site) {
+  activeSite.value = site;
+  _syncActive();
+  _sp?.setString('activeSite', site);
+}
+
+void deleteProject(String site) {
+  final list = List<Project>.from(projects.value)
+    ..removeWhere((p) => p.site == site);
+  projects.value = list;
+  if (activeSite.value == site) {
+    activeSite.value = list.isNotEmpty ? list.first.site : null;
+  }
+  _syncActive();
+  _persistProjects();
+}
+
+/// Next auto tree number for the active project (increments and persists).
+int nextTreeSeq() {
+  final p = activeProject;
+  if (p == null) return 0;
+  p.treeSeq += 1;
+  projects.value = List.from(projects.value); // notify listeners
+  treeSeq.value = p.treeSeq;
+  _persistProjects();
+  return p.treeSeq;
+}
+
+void setTreeSeq(int n) {
+  final p = activeProject;
+  if (p == null) return;
+  p.treeSeq = n;
+  projects.value = List.from(projects.value);
+  treeSeq.value = n;
+  _persistProjects();
+}
+
+// ── In-progress survey draft (resume after the app is closed/killed) ──
+/// The active survey is auto-saved as JSON so a mid-field close/kill can be
+/// resumed on next launch. Cleared when the survey is saved or discarded.
+void saveDraftJson(String json) => _sp?.setString('activeDraft', json);
+String? loadDraftJson() => _sp?.getString('activeDraft');
+// Awaitable so the removal is durably flushed before we navigate away after a
+// save — otherwise a kill in the flush window could re-arm the resume banner.
+Future<void> clearDraft() async => await _sp?.remove('activeDraft');
+
+// ── Settings ────────────────────────────────────────────────────────
+void setThemeMode(ThemeMode m) {
+  themeMode.value = m;
+  _sp?.setString('theme', m == ThemeMode.dark ? 'dark' : 'light');
+}
+
+void setShowGuides(bool v) {
+  showGuides.value = v;
+  _sp?.setBool('showGuides', v);
+}
+
+void setSatelliteBasemap(bool v) {
+  satelliteBasemap.value = v;
+  _sp?.setBool('satelliteBasemap', v);
+}

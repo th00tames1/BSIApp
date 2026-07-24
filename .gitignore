@@ -43,3 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local machine config / signing material — never commit
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+*.p12
+.env
+
+# Built artifacts (the debug APK is ~275 MB — far over GitHub's file limit)
+*.apk
+*.aab
