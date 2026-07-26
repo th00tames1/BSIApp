@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_prefs.dart';
 import '../theme.dart';
 import 'about_screen.dart';
+import 'bsi_table_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -40,6 +41,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: (v) => setState(() => setShowGuides(v)),
                   )),
             ]),
+          ),
+          _section(p, '판정 기준'),
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const BsiTableScreen())),
+              child: _row(p, Icons.grid_on, '존치·벌채 판정표',
+                  sub: 'BSI × 흉고직경 고사 확률표',
+                  trailing: Icon(Icons.chevron_right, color: p.muted)),
+            ),
           ),
           const SizedBox(height: 14),
           Card(

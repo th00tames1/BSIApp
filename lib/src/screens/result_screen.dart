@@ -10,6 +10,7 @@ import '../services/analysis_service.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
 import '../theme.dart';
+import 'bsi_table_screen.dart';
 
 class ResultScreen extends StatefulWidget {
   final SurveyDraft draft;
@@ -91,6 +92,15 @@ class _ResultScreenState extends State<ResultScreen> {
       appBar: AppBar(
         title: const Text('결과'),
         actions: [
+          IconButton(
+            tooltip: '판정표에서 확인',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => BsiTableScreen(bsi: bsi, dbhCm: d.dbhCm)),
+            ),
+            icon: const Icon(Icons.grid_on),
+          ),
           IconButton(
             tooltip: '지도',
             onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
@@ -208,9 +218,22 @@ class _ResultScreenState extends State<ResultScreen> {
               ink: p.ink,
             ),
             const SizedBox(width: 16),
-            const Expanded(
-              child: Text('고사 확률',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('고사 확률',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    if (prob.isNaN) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                          d.dbhCm > 0
+                              ? '판정표 범위를 벗어났습니다'
+                              : '흉고직경을 입력하면 판정됩니다',
+                          style: TextStyle(fontSize: 11.5, color: p.muted)),
+                    ],
+                  ]),
             ),
           ]),
         ]),
