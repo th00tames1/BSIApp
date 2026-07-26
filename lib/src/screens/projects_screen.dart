@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'register_screen.dart';
 
@@ -34,13 +35,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('프로젝트 삭제'),
-        content: Text('"${p.site}" 프로젝트를 목록에서 지웁니다.\n(저장된 조사목 기록은 그대로 남습니다.)'),
+        title: Text(tr('프로젝트 삭제', 'Delete project')),
+        content: Text(tr(
+          '"${p.site}" 프로젝트를 목록에서 지웁니다.\n(저장된 조사목 기록은 그대로 남습니다.)',
+          'Removes "${p.site}" from the project list.\n(Saved tree records are kept.)',
+        )),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('취소', 'Cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('삭제')),
+              child: Text(tr('삭제', 'Delete'))),
         ],
       ),
     );
@@ -55,10 +61,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final p = context.palette;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('프로젝트'),
+        title: Text(tr('프로젝트', 'Projects')),
         actions: [
           IconButton(
-              tooltip: '새 프로젝트', onPressed: _new, icon: const Icon(Icons.add)),
+              tooltip: tr('새 프로젝트', 'New project'),
+              onPressed: _new,
+              icon: const Icon(Icons.add)),
         ],
       ),
       body: ValueListenableBuilder<List<Project>>(
@@ -80,14 +88,15 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.folder_open_outlined, size: 56, color: p.muted),
           const SizedBox(height: 12),
-          Text('프로젝트가 없습니다', style: TextStyle(color: p.muted)),
+          Text(tr('프로젝트가 없습니다', 'No projects yet'),
+              style: TextStyle(color: p.muted)),
           const SizedBox(height: 18),
           SizedBox(
             width: 220,
             child: ElevatedButton.icon(
                 onPressed: _new,
                 icon: const Icon(Icons.add),
-                label: const Text('새 프로젝트')),
+                label: Text(tr('새 프로젝트', 'New project'))),
           ),
         ]),
       );
@@ -117,17 +126,20 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 3),
                 Text(
-                  '${proj.location.isEmpty ? '' : '${proj.location} · '}조사목 ${proj.treeSeq}${active ? ' · 사용 중' : ''}',
+                  tr(
+                    '${proj.location.isEmpty ? '' : '${proj.location} · '}조사목 ${proj.treeSeq}${active ? ' · 사용 중' : ''}',
+                    '${proj.location.isEmpty ? '' : '${proj.location} · '}Trees ${proj.treeSeq}${active ? ' · Active' : ''}',
+                  ),
                   style: TextStyle(fontSize: 12, color: p.muted, fontFamily: 'monospace'),
                 ),
               ]),
             ),
             IconButton(
-                tooltip: '수정',
+                tooltip: tr('수정', 'Edit'),
                 onPressed: () => _edit(proj),
                 icon: Icon(Icons.edit_outlined, size: 20, color: p.muted)),
             IconButton(
-                tooltip: '삭제',
+                tooltip: tr('삭제', 'Delete'),
                 onPressed: () => _delete(proj),
                 icon: Icon(Icons.delete_outline, size: 20, color: p.danger)),
           ]),

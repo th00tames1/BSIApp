@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'about_screen.dart';
 import 'bsi_table_screen.dart';
@@ -16,40 +17,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: const Text('설정')),
+      appBar: AppBar(title: Text(tr('설정', 'Settings'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
         children: [
-          _section(p, '일반'),
+          _section(p, tr('일반', 'GENERAL')),
           Card(
             child: Column(children: [
-              _row(p, Icons.brightness_6_outlined, '테마',
+              _row(p, Icons.brightness_6_outlined, tr('테마', 'Theme'),
                   trailing: _Segmented(
-                    options: const ['라이트', '다크'],
+                    options: [tr('라이트', 'Light'), tr('다크', 'Dark')],
                     index: themeMode.value == ThemeMode.dark ? 1 : 0,
                     onSelect: (i) => setState(() =>
                         setThemeMode(i == 0 ? ThemeMode.light : ThemeMode.dark)),
                   )),
+              Divider(height: 1, color: p.line),
+              _row(p, Icons.language, tr('언어', 'Language'),
+                  trailing: _Segmented(
+                    options: const ['한국어', 'English'],
+                    index: appLang.value == AppLang.en ? 1 : 0,
+                    onSelect: (i) => setState(
+                        () => setAppLang(i == 0 ? AppLang.ko : AppLang.en)),
+                  )),
             ]),
           ),
-          _section(p, '촬영'),
+          _section(p, tr('촬영', 'CAPTURE')),
           Card(
             child: Column(children: [
-              _row(p, Icons.straighten, '촬영 안내선', sub: '수고봉 정렬선 표시',
+              _row(p, Icons.straighten, tr('촬영 안내선', 'Capture guide'),
+                  sub: tr('수고봉 정렬선 표시', 'Show the pole alignment line'),
                   trailing: Switch(
                     value: showGuides.value,
                     onChanged: (v) => setState(() => setShowGuides(v)),
                   )),
             ]),
           ),
-          _section(p, '판정 기준'),
+          _section(p, tr('판정 기준', 'DECISION CRITERIA')),
           Card(
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const BsiTableScreen())),
-              child: _row(p, Icons.grid_on, '존치·벌채 판정표',
-                  sub: 'BSI × 흉고직경 고사 확률표',
+              child: _row(p, Icons.grid_on, tr('존치·벌채 판정표', 'Retain / fell table'),
+                  sub: tr('BSI × 흉고직경 고사 확률표', 'Mortality probability by BSI × DBH'),
                   trailing: Icon(Icons.chevron_right, color: p.muted)),
             ),
           ),
@@ -59,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(16),
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const AboutScreen())),
-              child: _row(p, Icons.info_outline, '정보',
+              child: _row(p, Icons.info_outline, tr('정보', 'About'),
                   trailing: Icon(Icons.chevron_right, color: p.muted)),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/analysis_service.dart';
 import '../services/onnx_service.dart';
@@ -19,7 +20,8 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   double _progress = 0;
-  String _status = '모델 준비 중';
+  /// null = 첫 진행 문구 전. 언어에 맞춰 build 시점에 정해지도록 필드에 굳히지 않는다.
+  String? _status;
   String? _currentOverlay;
   String? _error;
 
@@ -42,7 +44,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       for (int i = 0; i < azimuths.length; i++) {
         final az = azimuths[i];
         if (mounted) {
-          setState(() => _status = '${az.ko} 분석 중 · ${i + 1}/${azimuths.length}');
+          setState(() => _status = tr(
+              '${az.label} 분석 중 · ${i + 1}/${azimuths.length}',
+              'Analyzing ${az.label} · ${i + 1}/${azimuths.length}'));
         }
         final overlayPath =
             p.join(overlayDir.path, '${d.treeId}_${az.code}_overlay.png');
@@ -73,7 +77,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 분석')),
+      appBar: AppBar(title: Text(tr('AI 분석', 'AI Analysis'))),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(children: [
@@ -100,7 +104,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 child: Column(children: [
                   Row(children: [
                     Expanded(
-                      child: Text(_status,
+                      child: Text(_status ?? tr('모델 준비 중', 'Preparing model'),
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
                     Text('${(_progress * 100).round()}%',
@@ -122,7 +126,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   const SizedBox(height: 10),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('YOLO26s-seg · 온디바이스',
+                    child: Text(tr('YOLO26s-seg · 온디바이스', 'YOLO26s-seg · On-device'),
                         style: TextStyle(
                             fontFamily: 'monospace', fontSize: 12, color: p.muted)),
                   ),
@@ -149,11 +153,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           Text(t, style: TextStyle(fontSize: 12.5, color: p.muted)),
         ]);
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      dot(p.stem, '수간'),
+      dot(p.stem, tr('수간', 'Stem')),
       const SizedBox(width: 20),
-      dot(p.soot, '그을음'),
+      dot(p.soot, tr('그을음', 'Char')),
       const SizedBox(width: 20),
-      dot(p.pole, '수고봉'),
+      dot(p.pole, tr('수고봉', 'Measuring pole')),
     ]);
   }
 }

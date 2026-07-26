@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n.dart';
 import '../services/bsi_table.dart';
 import '../theme.dart';
 
@@ -42,7 +43,8 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('존치·벌채 판정표')),
+      appBar: AppBar(
+          title: Text(tr('존치·벌채 판정표', 'Retain / Fell decision table'))),
       body: Column(children: [
         _picker(p, hit),
         Divider(height: 1, color: p.line),
@@ -131,7 +133,7 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
                 fontWeight: FontWeight.w700,
                 color: c)),
         const SizedBox(width: 10),
-        Text(cut ? '벌채' : '존치',
+        Text(verdictLabel(cut ? '벌채' : '존치'),
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c)),
       ]),
     );
@@ -253,13 +255,13 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
           color: p.surface, border: Border(top: BorderSide(color: p.line))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          key(p.green, 0.18, '존치 (30% 미만)'),
+          key(p.green, 0.18, tr('존치 (30% 미만)', 'Retain (< 30%)')),
           const SizedBox(width: 16),
-          key(p.danger, 0.07, '벌채 (30% 이상)'),
+          key(p.danger, 0.07, tr('벌채 (30% 이상)', 'Fell (30% or more)')),
         ]),
         const SizedBox(height: 6),
-        Text('가로 = 흉고직경(DBH), 세로 = BSI. 값은 고사 확률(%).\n'
-            '출처: 산불피해목 BSI 자동측정 모듈 설계 착수보고 v6, p.20',
+        Text(tr('가로 = 흉고직경(DBH), 세로 = BSI. 값은 고사 확률(%).',
+            'Columns = DBH, rows = BSI. Values are mortality probability (%).'),
             style: TextStyle(fontSize: 11, color: p.muted, height: 1.45)),
       ]),
     );

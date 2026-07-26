@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n.dart';
 import '../models/survey.dart';
 import '../services/csv_export.dart';
 import '../services/db_service.dart';
@@ -36,10 +37,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('조사 기록'),
+        title: Text(tr('조사 기록', 'Records')),
         actions: [
           IconButton(
-            tooltip: '전체 CSV 내보내기',
+            tooltip: tr('전체 CSV 내보내기', 'Export all as CSV'),
             onPressed: _records.isEmpty ? null : () => CsvExport.share(_records),
             icon: const Icon(Icons.ios_share),
           ),
@@ -115,7 +116,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   decoration: BoxDecoration(
                       color: (cut ? p.danger : p.green).withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999)),
-                  child: Text(r.verdict,
+                  child: Text(verdictLabel(r.verdict),
                       style: TextStyle(
                           color: cut ? p.danger : p.green,
                           fontWeight: FontWeight.w700,
@@ -141,7 +142,8 @@ class _Empty extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.inbox_outlined, size: 56, color: p.muted),
         const SizedBox(height: 12),
-        Text('저장된 조사 기록이 없습니다', style: TextStyle(color: p.muted)),
+        Text(tr('저장된 조사 기록이 없습니다', 'No saved records'),
+            style: TextStyle(color: p.muted)),
       ]),
     );
   }

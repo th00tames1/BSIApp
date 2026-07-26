@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../models/draft.dart';
 import '../models/survey.dart';
 import '../services/analysis_service.dart';
@@ -63,7 +64,8 @@ class _ResultScreenState extends State<ResultScreen> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+        ..showSnackBar(
+            SnackBar(content: Text(tr('저장 실패: $e', 'Save failed: $e'))));
       return;
     }
     if (!mounted) return;
@@ -73,7 +75,8 @@ class _ResultScreenState extends State<ResultScreen> {
       ..showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: context.palette.green,
-        content: const Text('저장되었습니다', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Text(tr('저장되었습니다', 'Saved'),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         duration: const Duration(milliseconds: 1400),
       ));
     Navigator.popUntil(context, (r) => r.isFirst); // → 지도
@@ -90,10 +93,10 @@ class _ResultScreenState extends State<ResultScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('결과'),
+        title: Text(tr('결과', 'Results')),
         actions: [
           IconButton(
-            tooltip: '판정표에서 확인',
+            tooltip: tr('판정표에서 확인', 'View in table'),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -102,7 +105,7 @@ class _ResultScreenState extends State<ResultScreen> {
             icon: const Icon(Icons.grid_on),
           ),
           IconButton(
-            tooltip: '지도',
+            tooltip: tr('지도', 'Map'),
             onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
             icon: const Icon(Icons.place_outlined),
           ),
@@ -152,10 +155,10 @@ class _ResultScreenState extends State<ResultScreen> {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2, color: p.onNavy))
-                : Row(mainAxisSize: MainAxisSize.min, children: const [
-                    Icon(Icons.check, size: 20),
-                    SizedBox(width: 8),
-                    Text('저장'),
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.check, size: 20),
+                    const SizedBox(width: 8),
+                    Text(tr('저장', 'Save')),
                   ]),
           ),
         ],
@@ -177,11 +180,12 @@ class _ResultScreenState extends State<ResultScreen> {
         padding: const EdgeInsets.all(18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            const Text('고사 판정',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(tr('고사 판정', 'Verdict'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             const Spacer(),
             if (verdict.isNotEmpty)
-              _pill(cut ? '벌채 권고' : '존치', cut ? p.danger : p.green,
+              _pill(cut ? tr('벌채 권고', 'Fell recommended') : verdictLabel(verdict),
+                  cut ? p.danger : p.green,
                   icon: cut ? Icons.local_fire_department : Icons.check_circle_outline),
           ]),
           const SizedBox(height: 16),
@@ -201,8 +205,10 @@ class _ResultScreenState extends State<ResultScreen> {
           _sevBar(p, bsi.isNaN ? 0 : (bsi / 10).clamp(0, 1)),
           const SizedBox(height: 5),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('경미', style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
-            Text('심함', style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
+            Text(tr('경미', 'Minor'),
+                style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
+            Text(tr('심함', 'Severe'),
+                style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
           ]),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -223,14 +229,17 @@ class _ResultScreenState extends State<ResultScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('고사 확률',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    Text(tr('고사 확률', 'Mortality'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
                     if (prob.isNaN) ...[
                       const SizedBox(height: 3),
                       Text(
                           d.dbhCm > 0
-                              ? '판정표 범위를 벗어났습니다'
-                              : '흉고직경을 입력하면 판정됩니다',
+                              ? tr('판정표 범위를 벗어났습니다',
+                                  'Outside the table range')
+                              : tr('흉고직경을 입력하면 판정됩니다',
+                                  'Enter DBH to evaluate'),
                           style: TextStyle(fontSize: 11.5, color: p.muted)),
                     ],
                   ]),
@@ -288,7 +297,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Widget _faceChip(AppPalette p, Azimuth a) {
     final sel = a == _sel;
     final v = d.results[a]?.sootProportion ?? double.nan;
-    final label = '${a.ko} ${v.isNaN ? '–' : '${(v * 100).round()}%'}';
+    final label = '${a.label} ${v.isNaN ? '–' : '${(v * 100).round()}%'}';
     return GestureDetector(
       onTap: () => setState(() => _sel = a),
       child: Container(
@@ -316,7 +325,7 @@ class _ResultScreenState extends State<ResultScreen> {
           Icon(Icons.straighten, size: 20, color: p.green),
           const SizedBox(width: 12),
           Expanded(
-              child: Text('흉고직경 (DBH)',
+              child: Text(tr('흉고직경 (DBH)', 'DBH'),
                   style: TextStyle(fontSize: 13.5, color: p.muted))),
           SizedBox(
             width: 96,
@@ -345,7 +354,8 @@ class _ResultScreenState extends State<ResultScreen> {
             : Container(
                 color: p.surface2,
                 child: Center(
-                    child: Text('이미지 없음', style: TextStyle(color: p.muted)))),
+                    child: Text(tr('이미지 없음', 'No image'),
+                        style: TextStyle(color: p.muted)))),
       ),
     );
   }
@@ -356,13 +366,17 @@ class _ResultScreenState extends State<ResultScreen> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(children: [
-          _metric(p, Icons.height, '그을음 높이', _m(f.sootHeightM)),
+          _metric(p, Icons.height, tr('그을음 높이', 'Char height'),
+              _m(f.sootHeightM)),
           Divider(height: 1, color: p.line),
-          _metric(p, Icons.swap_horiz, '그을음 폭', _m(f.sootWidthM)),
+          _metric(p, Icons.swap_horiz, tr('그을음 폭', 'Char width'),
+              _m(f.sootWidthM)),
           Divider(height: 1, color: p.line),
-          _metric(p, Icons.park_outlined, '줄기 높이', _m(f.visibleStemHeightM)),
+          _metric(p, Icons.park_outlined, tr('줄기 높이', 'Stem height'),
+              _m(f.visibleStemHeightM)),
           Divider(height: 1, color: p.line),
-          _metric(p, Icons.local_fire_department_outlined, '그을음 비율',
+          _metric(p, Icons.local_fire_department_outlined,
+              tr('그을음 비율', 'Char ratio'),
               f.sootProportion.isNaN ? '–' : f.sootProportion.toStringAsFixed(2),
               valueColor: p.green),
         ]),

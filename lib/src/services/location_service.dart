@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
+import '../l10n.dart';
+
 /// Outcome of a location readiness check — lets the UI say *why* GPS failed
 /// instead of silently returning null.
 enum GpsStatus { ok, serviceOff, denied, deniedForever }
@@ -52,8 +54,11 @@ class LocationService {
 
   static String message(GpsStatus s) => switch (s) {
         GpsStatus.ok => '',
-        GpsStatus.serviceOff => '기기 위치 서비스가 꺼져 있습니다',
-        GpsStatus.denied => '위치 권한이 거부되었습니다',
-        GpsStatus.deniedForever => '위치 권한이 영구 거부됨 · 설정에서 허용하세요',
+        GpsStatus.serviceOff =>
+          tr('기기 위치 서비스가 꺼져 있습니다', 'Device location service is off'),
+        GpsStatus.denied =>
+          tr('위치 권한이 거부되었습니다', 'Location permission denied'),
+        GpsStatus.deniedForever => tr('위치 권한이 영구 거부됨 · 설정에서 허용하세요',
+            'Location permission permanently denied · Allow it in Settings'),
       };
 }

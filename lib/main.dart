@@ -14,6 +14,10 @@ class BsiApp extends StatelessWidget {
   const BsiApp({super.key});
   @override
   Widget build(BuildContext context) {
+    // Theme rebuilds the app. Language must NOT key the MaterialApp — that
+    // would rebuild the Navigator and throw the user back to the map. Screens
+    // opened after the switch read the new language; the one screen that
+    // outlives a switch (the map) listens to [appLang] itself.
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeMode,
       builder: (_, mode, __) => MaterialApp(

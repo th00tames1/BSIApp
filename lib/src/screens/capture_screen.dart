@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/location_service.dart';
 import '../theme.dart';
@@ -118,7 +119,9 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     });
     try {
       final cameras = await availableCameras();
-      if (cameras.isEmpty) throw StateError('사용 가능한 카메라가 없습니다');
+      if (cameras.isEmpty) {
+        throw StateError(tr('사용 가능한 카메라가 없습니다', 'No camera available'));
+      }
       final controller = CameraController(cameras.first, ResolutionPreset.high,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await controller.initialize();
@@ -168,17 +171,18 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (!tagged) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('이 방위는 GPS 없이 기록됨'),
-          duration: Duration(milliseconds: 1400),
+          content: Text(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS')),
+          duration: const Duration(milliseconds: 1400),
         ));
       }
       _advance();
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('촬영 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr('촬영 실패: $e', 'Capture failed: $e'))));
     }
   }
 
@@ -200,14 +204,16 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text('${az.ko} 방위에 사진을 불러왔습니다'),
+        content: Text(tr('${az.label} 방위에 사진을 불러왔습니다',
+            'Photo imported for ${az.label}')),
         duration: const Duration(milliseconds: 1400),
       ));
       _advance();
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('불러오기 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr('불러오기 실패: $e', 'Import failed: $e'))));
     }
   }
 
@@ -216,7 +222,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return showDialog<Azimuth>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('어느 방위인가요?'),
+        title: Text(tr('어느 방위인가요?', 'Which azimuth?')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           for (final a in Azimuth.values)
             ListTile(
@@ -226,13 +232,17 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                   color: d.photos.containsKey(a)
                       ? _soot
                       : Theme.of(context).colorScheme.outline),
-              title: Text('${a.ko} 방위'),
-              subtitle: d.photos.containsKey(a) ? const Text('덮어쓰기') : null,
+              title: Text(tr('${a.label} 방위', '${a.label} azimuth')),
+              subtitle: d.photos.containsKey(a)
+                  ? Text(tr('덮어쓰기', 'Overwrite'))
+                  : null,
               onTap: () => Navigator.pop(context, a),
             ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('취소', 'Cancel'))),
         ],
       ),
     );
@@ -278,13 +288,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     final v = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('조사목 번호'),
+        title: Text(tr('조사목 번호', 'Tree ID')),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('취소', 'Cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(context, ctl.text.trim()),
-              child: const Text('확인')),
+              child: Text(tr('확인', 'OK'))),
         ],
       ),
     );
@@ -331,7 +343,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                     radius: 999,
                     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('조사목 ${d.treeId}',
+                      Text(tr('조사목 ${d.treeId}', 'Tree ${d.treeId}'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14.5,
@@ -378,32 +390,39 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     );
   }
 
-  /// Compass + shutter with a soft radial scrim only behind itself.
+  /// Compass + shutter. The scrim is exactly the compass circle so it stays
+  /// concentric with the pods instead of floating behind the whole column.
   Widget _compassBlock(int n) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          radius: 0.62,
-          colors: [Color(0xA6060A10), Color(0x00060A10)],
-          stops: [0.55, 1.0],
-        ),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text.rich(
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      _Scrim(
+        radius: 999,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Text.rich(
           TextSpan(children: [
             TextSpan(
-                text: _selected.ko, style: const TextStyle(fontWeight: FontWeight.w700)),
-            TextSpan(text: ' 방위 · $n/4'),
+                text: _selected.label,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(text: tr(' 방위 · $n/4', ' · $n/4')),
           ]),
           style: const TextStyle(
               color: Colors.white, fontFamily: 'monospace', fontSize: 11.5),
         ),
-        const SizedBox(height: 6),
-        _compass(),
-      ]),
-    );
+      ),
+      const SizedBox(height: 8),
+      Container(
+        width: _compassSize,
+        height: _compassSize,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            radius: 0.5,
+            colors: [Color(0xA6060A10), Color(0x00060A10)],
+            stops: [0.62, 1.0],
+          ),
+        ),
+        child: _compass(),
+      ),
+    ]);
   }
 
   Widget _analyseButton(int n) {
@@ -421,7 +440,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
               Icon(Icons.auto_awesome,
                   size: 17, color: on ? Colors.white : Colors.white38),
               const SizedBox(width: 8),
-              Text('AI 분석 · $n/4',
+              Text(tr('AI 분석 · $n/4', 'AI analysis · $n/4'),
                   style: TextStyle(
                       color: on ? Colors.white : Colors.white38,
                       fontSize: 14.5,
@@ -437,25 +456,31 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return _Scrim(
       radius: 999,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      child: Row(mainAxisSize: MainAxisSize.min, children: const [
-        Icon(Icons.straighten, size: 15, color: _pole),
-        SizedBox(width: 6),
-        Text('수고봉이 화면에 보이게',
-            style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.straighten, size: 15, color: _pole),
+        const SizedBox(width: 6),
+        Text(tr('수고봉이 화면에 보이게', 'Keep the measuring pole in frame'),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
       ]),
     );
   }
 
   // compass with the shutter at the centre, 동/서/남/북 around it
+  static const double _compassSize = 168;
+  static const double _podBox = 44; // pod hit box; the circle inside is _podDot
+  static const double _podDot = 40;
+
   Widget _compass() {
     return SizedBox(
-      width: 168,
-      height: 168,
+      width: _compassSize,
+      height: _compassSize,
       child: Stack(children: [
         Center(
           child: Container(
-            width: 150,
-            height: 150,
+            // ring passes through the pod centres
+            width: _compassSize - _podBox,
+            height: _compassSize - _podBox,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
@@ -487,19 +512,21 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return GestureDetector(
       onTap: () => setState(() => _selected = a),
       child: SizedBox(
-        width: 42,
-        height: 42,
-        child: Stack(clipBehavior: Clip.none, children: [
+        width: _podBox,
+        height: _podBox,
+        // centre the circle in its hit box so it sits on the ring, and hang the
+        // check badge off that circle rather than off the larger box
+        child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
           Container(
-            width: 38,
-            height: 38,
+            width: _podDot,
+            height: _podDot,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: bg,
               shape: BoxShape.circle,
               border: Border.all(color: border, width: sel && !done ? 2.2 : 1.4),
             ),
-            child: Text(a.ko,
+            child: Text(a.label,
                 style: const TextStyle(
                     color: fg, fontWeight: FontWeight.w700, fontSize: 14)),
           ),
@@ -563,7 +590,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
               onPressed: _initCamera,
               style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
-              child: const Text('다시 시도'),
+              child: Text(tr('다시 시도', 'Retry')),
             ),
           ]),
         ),
@@ -632,7 +659,9 @@ class _DeviceCompass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final h = heading;
-    final label = h == null ? '나침반 없음' : '${h.round()}° ${_dirs[((h % 360) / 45).round() % 8]}';
+    final label = h == null
+        ? tr('나침반 없음', 'No compass')
+        : '${h.round()}° ${_dirs[((h % 360) / 45).round() % 8]}';
     return Column(children: [
       SizedBox(
         width: 56,

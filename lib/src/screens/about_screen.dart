@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n.dart';
 import '../theme.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -8,7 +9,7 @@ class AboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: const Text('정보')),
+      appBar: AppBar(title: Text(tr('정보', 'About'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
         children: [
@@ -31,7 +32,9 @@ class AboutScreen extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
               const SizedBox(height: 8),
-              Text('산불피해목 진단·복원 지원 · v0.1',
+              Text(
+                  tr('산불피해목 진단·복원 지원 · v0.1',
+                      'Fire-damaged tree assessment & restoration · v0.1'),
                   style: TextStyle(
                       fontFamily: 'monospace', fontSize: 12, color: p.muted)),
             ]),
@@ -42,10 +45,19 @@ class AboutScreen extends StatelessWidget {
               _row(p, Icons.forest_outlined, 'Oregon State University',
                   'Advanced Forestry Systems Lab'),
               Divider(height: 1, color: p.line),
-              _row(p, Icons.memory, '분할 모델', 'YOLO26s-seg @640 · 수간·그을음'),
+              _row(
+                  p,
+                  Icons.memory,
+                  tr('분할 모델', 'Segmentation model'),
+                  tr('YOLO26s-seg @640 · 수간·그을음',
+                      'YOLO26s-seg @640 · Stem & char')),
               Divider(height: 1, color: p.line),
-              _row(p, Icons.info_outline, 'BSI 정의',
-                  'Σ 4방위 (그을음 높이 × 비율) · Kwon 2021'),
+              _row(
+                  p,
+                  Icons.info_outline,
+                  tr('BSI 정의', 'BSI definition'),
+                  tr('Σ 4방위 (그을음 높이 × 비율) · Kwon 2021',
+                      'Σ 4 aspects (char height × ratio) · Kwon 2021')),
             ]),
           ),
         ],

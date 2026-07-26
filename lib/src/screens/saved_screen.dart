@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../l10n.dart';
 import '../models/survey.dart';
 import '../services/csv_export.dart';
 import '../services/db_service.dart';
@@ -16,11 +17,16 @@ class SavedScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('조사목 삭제'),
-        content: Text('조사목 ${record.treeId}을(를) 삭제합니다. 되돌릴 수 없습니다.'),
+        title: Text(tr('조사목 삭제', 'Delete tree')),
+        content: Text(tr('조사목 ${record.treeId}을(를) 삭제합니다. 되돌릴 수 없습니다.',
+            'Tree ${record.treeId} will be deleted. This cannot be undone.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('취소', 'Cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('삭제', 'Delete'))),
         ],
       ),
     );
@@ -35,15 +41,15 @@ class SavedScreen extends StatelessWidget {
     final cut = record.verdict == '벌채';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('조사목 상세'),
+        title: Text(tr('조사목 상세', 'Tree detail')),
         actions: [
           IconButton(
-            tooltip: 'CSV 내보내기',
+            tooltip: tr('CSV 내보내기', 'Export CSV'),
             onPressed: () => CsvExport.share([record]),
             icon: const Icon(Icons.ios_share),
           ),
           IconButton(
-            tooltip: '삭제',
+            tooltip: tr('삭제', 'Delete'),
             onPressed: () => _delete(context),
             icon: Icon(Icons.delete_outline, color: p.danger),
           ),
@@ -63,7 +69,7 @@ class SavedScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: (cut ? p.danger : p.green).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999)),
-                child: Text(record.verdict,
+                child: Text(verdictLabel(record.verdict),
                     style: TextStyle(
                         color: cut ? p.danger : p.green,
                         fontWeight: FontWeight.w700)),
@@ -78,18 +84,19 @@ class SavedScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(children: [
-                _row(p, Icons.local_fire_department_outlined, '통합 BSI',
+                _row(p, Icons.local_fire_department_outlined,
+                    tr('통합 BSI', 'Integrated BSI'),
                     record.bsi.isNaN ? '–' : record.bsi.toStringAsFixed(2)),
                 Divider(height: 1, color: p.line),
-                _row(p, Icons.warning_amber_rounded, '고사 확률',
+                _row(p, Icons.warning_amber_rounded, tr('고사 확률', 'Mortality'),
                     record.mortalityProb.isNaN
                         ? '–'
                         : '${(record.mortalityProb * 100).round()}%'),
                 Divider(height: 1, color: p.line),
-                _row(p, Icons.forest_outlined, '수종',
-                    record.species.isEmpty ? '–' : record.species),
+                _row(p, Icons.forest_outlined, tr('수종', 'Species'),
+                    record.species.isEmpty ? '–' : speciesLabel(record.species)),
                 Divider(height: 1, color: p.line),
-                _row(p, Icons.straighten, '흉고직경',
+                _row(p, Icons.straighten, tr('흉고직경', 'DBH'),
                     record.dbhCm == 0 ? '–' : '${record.dbhCm.toStringAsFixed(1)} cm'),
               ]),
             ),
@@ -98,7 +105,7 @@ class SavedScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => _PhotoViewer(record: record))),
-            child: const Text('결과 사진 보기'),
+            child: Text(tr('결과 사진 보기', 'View result photos')),
           ),
         ],
       ),
@@ -127,7 +134,7 @@ class _PhotoViewer extends StatelessWidget {
     final faces =
         record.faces.where((f) => (f.overlayPath ?? f.imagePath) != null).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('결과 사진')),
+      appBar: AppBar(title: Text(tr('결과 사진', 'Result photos'))),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: faces.length,
@@ -135,9 +142,13 @@ class _PhotoViewer extends StatelessWidget {
         itemBuilder: (_, i) {
           final f = faces[i];
           final path = f.overlayPath ?? f.imagePath!;
+          final pct = f.sootProportion.isNaN
+              ? '–'
+              : '${(f.sootProportion * 100).round()}%';
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
-                '${f.azimuth} · 그을음 비율 ${f.sootProportion.isNaN ? '–' : '${(f.sootProportion * 100).round()}%'}',
+                tr('${azimuthLabelFromCode(f.azimuth)} · 그을음 비율 $pct',
+                    '${azimuthLabelFromCode(f.azimuth)} · Char ratio $pct'),
                 style: TextStyle(fontWeight: FontWeight.w700, color: p.ink)),
             const SizedBox(height: 8),
             ClipRRect(

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:proj4dart/proj4dart.dart' as proj4;
 import 'package:xml/xml.dart';
 
+import '../l10n.dart';
 import '../models/geo_shape.dart';
 
 /// Thrown when a shapefile's CRS can't be determined (missing/unknown .prj)
@@ -39,17 +40,22 @@ class GeoImport {
     'EPSG:32652': '+proj=utm +zone=52 +datum=WGS84 +units=m +no_defs',
   };
 
-  /// Human labels for the CRS picker.
-  static const Map<String, String> crsLabels = {
-    'EPSG:5186': 'Korea 2000 중부원점 (EPSG:5186)',
-    'EPSG:5185': 'Korea 2000 서부원점 (EPSG:5185)',
-    'EPSG:5187': 'Korea 2000 동부원점 (EPSG:5187)',
-    'EPSG:5188': 'Korea 2000 동해원점 (EPSG:5188)',
-    'EPSG:5179': 'Korea 2000 UTM-K (EPSG:5179)',
-    'EPSG:5174': '보정 중부원점 / Bessel (EPSG:5174)',
-    'EPSG:32652': 'WGS84 UTM 52N (EPSG:32652)',
-    'EPSG:32651': 'WGS84 UTM 51N (EPSG:32651)',
-  };
+  /// Human labels for the CRS picker (앱 언어에 따라 표기).
+  static Map<String, String> get crsLabels => {
+        'EPSG:5186': tr('Korea 2000 중부원점 (EPSG:5186)',
+            'Korea 2000 Central Belt (EPSG:5186)'),
+        'EPSG:5185':
+            tr('Korea 2000 서부원점 (EPSG:5185)', 'Korea 2000 West Belt (EPSG:5185)'),
+        'EPSG:5187':
+            tr('Korea 2000 동부원점 (EPSG:5187)', 'Korea 2000 East Belt (EPSG:5187)'),
+        'EPSG:5188': tr('Korea 2000 동해원점 (EPSG:5188)',
+            'Korea 2000 East Sea Belt (EPSG:5188)'),
+        'EPSG:5179': 'Korea 2000 UTM-K (EPSG:5179)',
+        'EPSG:5174': tr('보정 중부원점 / Bessel (EPSG:5174)',
+            'Modified Central Belt / Bessel (EPSG:5174)'),
+        'EPSG:32652': 'WGS84 UTM 52N (EPSG:32652)',
+        'EPSG:32651': 'WGS84 UTM 51N (EPSG:32651)',
+      };
 
   static proj4.Projection _proj(String epsg) {
     final existing = proj4.Projection.get(epsg);
@@ -291,7 +297,8 @@ class GeoImport {
   static List<GeoShape> parseShp(Uint8List bytes, {String? epsg}) {
     final bd = ByteData.sublistView(bytes);
     if (bytes.length < 100 || bd.getInt32(0, Endian.big) != 9994) {
-      throw const FormatException('올바른 .shp 파일이 아닙니다');
+      throw FormatException(
+          tr('올바른 .shp 파일이 아닙니다', 'Not a valid .shp file'));
     }
     // Decide the transform up front from the file's bounding box.
     final xMin = bd.getFloat64(36, Endian.little);

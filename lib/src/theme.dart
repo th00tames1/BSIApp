@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'l10n.dart';
+
 /// Static light-mode tokens ("Field Instrument"). Kept for screens not yet
 /// migrated to the theme-aware [AppPalette]; values mirror [AppPalette.light].
 class AppColors {
@@ -246,6 +248,11 @@ extension AzimuthKo on Azimuth {
         Azimuth.south => '남',
         Azimuth.north => '북',
       };
+
+  /// 화면 표시용(언어에 따라 동/서/남/북 또는 E/W/S/N). 저장·비교에는 [code]를 쓸 것.
+  String get label => appLang.value == AppLang.en ? code : ko;
+
+
   String get code => switch (this) {
         Azimuth.east => 'E',
         Azimuth.west => 'W',
@@ -261,3 +268,14 @@ extension AzimuthKo on Azimuth {
         Azimuth.west => 270,
       };
 }
+
+/// 저장된 방위 코드('E'|'W'|'S'|'N')를 다시 enum 으로. 알 수 없으면 null.
+Azimuth? azimuthFromCode(String code) {
+  for (final a in Azimuth.values) {
+    if (a.code == code) return a;
+  }
+  return null;
+}
+
+/// 저장된 방위 코드를 화면 표기로. 모르는 코드는 그대로 보여준다.
+String azimuthLabelFromCode(String code) => azimuthFromCode(code)?.label ?? code;

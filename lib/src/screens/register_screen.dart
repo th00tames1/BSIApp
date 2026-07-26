@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../services/db_service.dart';
 import '../theme.dart';
 
@@ -44,7 +45,8 @@ class _ProjectScreenState extends State<ProjectScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
-          ..showSnackBar(const SnackBar(content: Text('이미 있는 조사지명입니다')));
+          ..showSnackBar(SnackBar(
+              content: Text(tr('이미 있는 조사지명입니다', 'Site name already exists'))));
       }
       return;
     }
@@ -60,36 +62,50 @@ class _ProjectScreenState extends State<ProjectScreen> {
     final p = context.palette;
     final editing = widget.project != null;
     return Scaffold(
-      appBar: AppBar(title: Text(editing ? '프로젝트 수정' : '새 프로젝트')),
+      appBar: AppBar(
+          title: Text(editing
+              ? tr('프로젝트 수정', 'Edit Project')
+              : tr('새 프로젝트', 'New Project'))),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
           children: [
-            Text('조사지 정보는 한 번만 입력합니다. 이후 조사목은 지도의 나무 버튼으로 자동 번호와 함께 바로 촬영합니다.',
+            Text(
+                tr('조사지 정보는 한 번만 입력합니다. 이후 조사목은 지도의 나무 버튼으로 자동 번호와 함께 바로 촬영합니다.',
+                    'Enter the site details once. After that, tap the tree button on the map to capture each tree with an auto-assigned number.'),
                 style: TextStyle(fontSize: 12.5, color: p.muted, height: 1.5)),
-            _label(p, '조사지명', required: true),
+            _label(p, tr('조사지명', 'Site name'), required: true),
             TextFormField(
               controller: _site,
-              decoration: const InputDecoration(hintText: '예: 인제 남면 3-2 임반'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? '필수 항목입니다' : null,
+              decoration: InputDecoration(
+                  hintText: tr('예: 인제 남면 3-2 임반',
+                      'e.g. Inje Nam-myeon compartment 3-2')),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? tr('필수 항목입니다', 'Required')
+                  : null,
             ),
-            _label(p, '위치'),
+            _label(p, tr('위치', 'Location')),
             TextFormField(
               controller: _loc,
-              decoration: const InputDecoration(hintText: '강원 인제군 남면'),
+              decoration: InputDecoration(
+                  hintText: tr('강원 인제군 남면', 'Nam-myeon, Inje-gun, Gangwon')),
             ),
-            _label(p, '다음 조사목 번호'),
+            _label(p, tr('다음 조사목 번호', 'Next tree number')),
             TextFormField(
               controller: _seq,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                  hintText: '0', helperText: '이 번호부터 +1씩 자동 부여됩니다'),
+              decoration: InputDecoration(
+                  hintText: '0',
+                  helperText: tr('이 번호부터 +1씩 자동 부여됩니다',
+                      'Numbering starts here and increases by 1')),
             ),
             const SizedBox(height: 26),
             ElevatedButton(
               onPressed: _save,
-              child: Text(editing ? '수정 저장' : '프로젝트 시작'),
+              child: Text(editing
+                  ? tr('수정 저장', 'Save Changes')
+                  : tr('프로젝트 시작', 'Start Project')),
             ),
           ],
         ),

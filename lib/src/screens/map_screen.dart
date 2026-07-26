@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_prefs.dart';
+import '../l10n.dart';
 import '../models/draft.dart';
 import '../models/geo_shape.dart';
 import '../models/survey.dart';
@@ -161,7 +162,9 @@ class _MapScreenState extends State<MapScreen> {
     if (pos == null) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('현재 위치를 가져올 수 없습니다')));
+        ..showSnackBar(SnackBar(
+            content: Text(
+                tr('현재 위치를 가져올 수 없습니다', 'Cannot get current location'))));
       return;
     }
     final here = LatLng(pos.latitude, pos.longitude);
@@ -193,7 +196,7 @@ class _MapScreenState extends State<MapScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('지도 유형',
+              child: Text(tr('지도 유형', 'Map type'),
                   style: TextStyle(
                       color: p.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
             ),
@@ -201,7 +204,7 @@ class _MapScreenState extends State<MapScreen> {
             Row(children: [
               Expanded(
                 child: _MapTypeCard(
-                  label: '일반',
+                  label: tr('일반', 'Standard'),
                   icon: Icons.map_outlined,
                   selected: !satelliteBasemap.value,
                   onTap: () {
@@ -214,7 +217,7 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: _MapTypeCard(
-                  label: '위성',
+                  label: tr('위성', 'Satellite'),
                   icon: Icons.satellite_alt_outlined,
                   selected: satelliteBasemap.value,
                   onTap: () {
@@ -228,7 +231,7 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(height: 20),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('조사지 경계',
+              child: Text(tr('조사지 경계', 'Site boundary'),
                   style: TextStyle(
                       color: p.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
             ),
@@ -241,7 +244,10 @@ class _MapScreenState extends State<MapScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _overlays.isEmpty ? '불러온 경계 없음' : '${_overlays.length}개 도형',
+                      _overlays.isEmpty
+                          ? tr('불러온 경계 없음', 'No boundary loaded')
+                          : tr('${_overlays.length}개 도형',
+                              '${_overlays.length} shapes'),
                       style: TextStyle(fontSize: 13.5, color: p.muted),
                     ),
                   ),
@@ -253,7 +259,8 @@ class _MapScreenState extends State<MapScreen> {
                         setState(() => _overlays = []);
                         setSheet(() {});
                       },
-                      child: Text('지우기', style: TextStyle(color: p.danger)),
+                      child:
+                          Text(tr('지우기', 'Clear'), style: TextStyle(color: p.danger)),
                     ),
                 ]),
               ),
@@ -267,11 +274,13 @@ class _MapScreenState extends State<MapScreen> {
                   _importBoundary();
                 },
                 icon: const Icon(Icons.upload_file, size: 20),
-                label: const Text('경계 파일 불러오기'),
+                label: Text(tr('경계 파일 불러오기', 'Import boundary file')),
               ),
             ),
             const SizedBox(height: 8),
-            Text('SHP(.shp+.prj 또는 .zip) · KML/KMZ · GeoJSON',
+            Text(
+                tr('SHP(.shp+.prj 또는 .zip) · KML/KMZ · GeoJSON',
+                    'SHP (.shp+.prj or .zip) · KML/KMZ · GeoJSON'),
                 style: TextStyle(fontSize: 11.5, color: p.muted)),
           ]),
         ),
@@ -281,7 +290,8 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _importBoundary() async {
     final res = await FilePicker.pickFiles(
-        allowMultiple: true, dialogTitle: '조사지 경계 파일 선택');
+        allowMultiple: true,
+        dialogTitle: tr('조사지 경계 파일 선택', 'Select site boundary files'));
     if (res == null || !mounted) return;
     final paths = res.files.map((f) => f.path).whereType<String>().toList();
     if (paths.isEmpty) return;
@@ -296,23 +306,24 @@ class _MapScreenState extends State<MapScreen> {
       try {
         shapes = await GeoImport.load(paths, crsOverride: crs);
       } catch (e) {
-        _toast('불러오기 실패: $e');
+        _toast(tr('불러오기 실패: $e', 'Import failed: $e'));
         return;
       }
     } catch (e) {
-      _toast('불러오기 실패: $e');
+      _toast(tr('불러오기 실패: $e', 'Import failed: $e'));
       return;
     }
 
     if (shapes.isEmpty) {
-      _toast('도형을 찾지 못했습니다');
+      _toast(tr('도형을 찾지 못했습니다', 'No shapes found'));
       return;
     }
     final merged = [..._overlays, ...shapes];
     await OverlayStore.save(_overlayKey, merged);
     if (!mounted) return;
     setState(() => _overlays = merged);
-    _toast('경계 ${shapes.length}개를 불러왔습니다');
+    _toast(tr('경계 ${shapes.length}개를 불러왔습니다',
+        'Imported ${shapes.length} boundaries'));
 
     final pts = [for (final s in shapes) ...s.points];
     if (pts.length >= 2) {
@@ -329,11 +340,13 @@ class _MapScreenState extends State<MapScreen> {
     return showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        title: const Text('좌표계를 선택하세요'),
+        title: Text(tr('좌표계를 선택하세요', 'Select a coordinate system')),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
-            child: Text('.prj 파일이 없거나 인식할 수 없습니다.',
+            child: Text(
+                tr('.prj 파일이 없거나 인식할 수 없습니다.',
+                    'No .prj file, or it could not be read.'),
                 style: TextStyle(fontSize: 12.5, color: context.palette.muted)),
           ),
           for (final e in GeoImport.crsLabels.entries)
@@ -385,7 +398,7 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(width: 13),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('조사목 ${r.treeId}',
+                Text(tr('조사목 ${r.treeId}', 'Tree ${r.treeId}'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(r.site.isEmpty ? '—' : r.site,
@@ -399,10 +412,13 @@ class _MapScreenState extends State<MapScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(children: [
-                _sheetRow(Icons.local_fire_department_outlined, '통합 BSI',
-                    r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2), p),
+                _sheetRow(
+                    Icons.local_fire_department_outlined,
+                    tr('통합 BSI', 'Overall BSI'),
+                    r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2),
+                    p),
                 Divider(height: 1, color: p.line),
-                _sheetRow(Icons.warning_amber_rounded, '고사 확률',
+                _sheetRow(Icons.warning_amber_rounded, tr('고사 확률', 'Mortality'),
                     r.mortalityProb.isNaN ? '–' : '${(r.mortalityProb * 100).round()}%', p),
               ]),
             ),
@@ -417,7 +433,7 @@ class _MapScreenState extends State<MapScreen> {
                     MaterialPageRoute(builder: (_) => SavedScreen(record: r)));
                 if (mounted) _load();
               },
-              child: const Text('상세 보기'),
+              child: Text(tr('상세 보기', 'View details')),
             ),
           ),
         ]),
@@ -439,12 +455,21 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The map outlives a language switch (설정 is pushed on top of it), so it
+    // has to rebuild its own strings when the language changes.
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: appLang,
+      builder: (context, _, __) => _buildMap(context),
+    );
+  }
+
+  Widget _buildMap(BuildContext context) {
     final p = context.palette;
     final visible = _visible;
     final pins = visible.where((r) => r.lat != null && r.lon != null).toList();
     final cutCount = visible.where(_isCut).length;
     // With no project yet, the header is the call to action, not a map label.
-    final title = hasProject ? projectSite.value! : '새 프로젝트';
+    final title = hasProject ? projectSite.value! : tr('새 프로젝트', 'New project');
     final sat = satelliteBasemap.value;
 
     return Scaffold(
@@ -559,8 +584,9 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(height: 3),
                           Text(
                               hasProject
-                                  ? '조사목 ${visible.length} · 벌채 $cutCount'
-                                  : '탭하여 조사지를 등록하세요',
+                                  ? tr('조사목 ${visible.length} · 벌채 $cutCount',
+                                      'Trees ${visible.length} · Fell $cutCount')
+                                  : tr('탭하여 조사지를 등록하세요', 'Tap to add a site'),
                               style: TextStyle(
                                   fontFamily: 'monospace', fontSize: 11.5, color: p.muted)),
                         ],
@@ -608,7 +634,9 @@ class _MapScreenState extends State<MapScreen> {
               padding: const EdgeInsets.only(bottom: 22),
               child: _Fab(
                 icon: hasProject ? Icons.park : Icons.add,
-                label: hasProject ? '조사목 추가' : '새 프로젝트',
+                label: hasProject
+                    ? tr('조사목 추가', 'Add tree')
+                    : tr('새 프로젝트', 'New project'),
                 onTap: hasProject ? _newTree : _openProjects,
               ),
             ),
@@ -737,13 +765,16 @@ class _ResumeBanner extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            const Text('이어서 조사', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            Text(tr('이어서 조사', 'Resume survey'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
             const SizedBox(height: 1),
-            Text('조사목 ${draft.treeId} · ${draft.photos.length}/4 촬영',
+            Text(
+                tr('조사목 ${draft.treeId} · ${draft.photos.length}/4 촬영',
+                    'Tree ${draft.treeId} · ${draft.photos.length}/4 captured'),
                 style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: p.muted)),
           ]),
         ),
-        TextButton(onPressed: onDiscard, child: const Text('삭제')),
+        TextButton(onPressed: onDiscard, child: Text(tr('삭제', 'Delete'))),
         FilledButton(
           onPressed: onResume,
           style: FilledButton.styleFrom(
@@ -751,7 +782,7 @@ class _ResumeBanner extends StatelessWidget {
               foregroundColor: p.onNavy,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               minimumSize: const Size(0, 38)),
-          child: const Text('이어하기'),
+          child: Text(tr('이어하기', 'Resume')),
         ),
       ]),
     );
@@ -847,7 +878,7 @@ class _Verdict extends StatelessWidget {
       decoration: BoxDecoration(
           color: (cut ? p.danger : p.green).withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(999)),
-      child: Text(verdict,
+      child: Text(verdictLabel(verdict),
           style: TextStyle(
               color: cut ? p.danger : p.green,
               fontWeight: FontWeight.w700,

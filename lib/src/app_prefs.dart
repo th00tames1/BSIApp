@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n.dart';
+
 /// App-wide state + preferences, persisted to disk (survives restarts).
 /// Call [loadPrefs] once at startup before running the app.
 
@@ -107,6 +109,12 @@ Future<void> loadPrefs() async {
       sp.getString('theme') == 'dark' ? ThemeMode.dark : ThemeMode.light;
   showGuides.value = sp.getBool('showGuides') ?? true;
   satelliteBasemap.value = sp.getBool('satelliteBasemap') ?? false;
+  appLang.value = langFromCode(sp.getString('lang'));
+}
+
+void setAppLang(AppLang l) {
+  appLang.value = l;
+  _sp?.setString('lang', l.code);
 }
 
 void _persistProjects() {
