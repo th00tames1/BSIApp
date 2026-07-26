@@ -28,7 +28,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   CameraController? _controller;
   bool _initing = true;
   String? _error;
-  Azimuth _selected = Azimuth.east;
+  Azimuth _selected = Azimuth.north;
   bool _busy = false;
   final _picker = ImagePicker();
 
@@ -40,6 +40,20 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   StreamSubscription<CompassEvent>? _compassSub;
   double? _heading;
 
+  // 안내 문구. SnackBar 를 쓰면 하단의 AI 분석 버튼을 덮어 누르기 어려워서
+  // 화면 위쪽에 잠깐 띄운다.
+  String? _notice;
+  Timer? _noticeTimer;
+
+  void _showNotice(String msg) {
+    _noticeTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _notice = msg);
+    _noticeTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _notice = null);
+    });
+  }
+
   static const _navy = Color(0xFF16294A);
   static const _soot = Color(0xFF35A853);
   static const _pole = Color(0xFFF6C518);
@@ -50,9 +64,9 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Resume onto the first azimuth that still needs a photo.
-    _selected = Azimuth.values.firstWhere((a) => !d.photos.containsKey(a),
-        orElse: () => Azimuth.east);
+    // Start (or resume) at the first azimuth still needed, going clockwise.
+    _selected = _clockwise.firstWhere((a) => !d.photos.containsKey(a),
+        orElse: () => Azimuth.north);
     _initCamera();
     _startGps();
     _startCompass();
@@ -83,6 +97,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _noticeTimer?.cancel();
     _posSub?.cancel();
     _compassSub?.cancel();
     _controller?.dispose();
@@ -147,11 +162,27 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return destDir;
   }
 
+  /// 조사자는 나무를 돌면서 찍으므로 다음 방위는 **시계방향으로 가장 가까운
+  /// 미촬영 방위**다. (enum 선언 순서 E·W·S·N 를 쓰면 동→서처럼 반대편으로 튄다.)
+  static const List<Azimuth> _clockwise = [
+    Azimuth.north,
+    Azimuth.east,
+    Azimuth.south,
+    Azimuth.west,
+  ];
+
+  Azimuth _nextClockwise(Azimuth from) {
+    final i = _clockwise.indexOf(from);
+    for (var k = 1; k <= _clockwise.length; k++) {
+      final a = _clockwise[(i + k) % _clockwise.length];
+      if (!d.photos.containsKey(a)) return a;
+    }
+    return from; // 4방위 모두 촬영됨
+  }
+
   void _advance() {
-    final next = Azimuth.values.firstWhere((a) => !d.photos.containsKey(a),
-        orElse: () => _selected);
     setState(() {
-      _selected = next;
+      _selected = _nextClockwise(_selected);
       _busy = false;
     });
   }
@@ -171,18 +202,13 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (!tagged) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS')),
-          duration: const Duration(milliseconds: 1400),
-        ));
+        _showNotice(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS'));
       }
       _advance();
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(tr('촬영 실패: $e', 'Capture failed: $e'))));
+      _showNotice(tr('촬영 실패: $e', 'Capture failed: $e'));
     }
   }
 
@@ -202,18 +228,13 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       d.photos[az] = dest;
       saveDraftJson(d.toJsonString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(tr('${az.label} 방위에 사진을 불러왔습니다',
-            'Photo imported for ${az.label}')),
-        duration: const Duration(milliseconds: 1400),
-      ));
+      _showNotice(tr('${az.label} 방위에 사진을 불러왔습니다',
+          'Photo imported for ${az.label}'));
       _advance();
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(tr('불러오기 실패: $e', 'Import failed: $e'))));
+      _showNotice(tr('불러오기 실패: $e', 'Import failed: $e'));
     }
   }
 
@@ -364,6 +385,34 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         Positioned(top: padTop + 50, right: 14, child: _DeviceCompass(heading: _heading)),
         Positioned(top: padTop + 52, left: 14, child: _hintChip()),
 
+        // 안내 문구 — 하단 컨트롤을 가리지 않도록 화면 위쪽에 띄운다.
+        if (_notice != null)
+          Positioned(
+            top: padTop + 108,
+            left: 14,
+            right: 14,
+            child: IgnorePointer(
+              child: Center(
+                child: _Scrim(
+                  radius: 999,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.info_outline, size: 15, color: _pole),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(_notice!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+
         // bottom: gallery · compass+shutter · AI 분석 (각 요소에만 스크림)
         Positioned(
           left: 0,
@@ -499,15 +548,18 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   Widget _pod(Azimuth a) {
     final sel = a == _selected;
     final done = d.photos.containsKey(a);
-    // pending = translucent, current = navy (distinct), done = green + check
+    // 대기 = 반투명 어두움 / 촬영완료 = 초록+체크 / **현재 = 수고봉 노랑**.
+    // (navy 는 카메라 화면이 어두우면 대기 상태와 구별이 안 됐다.)
     Color bg = const Color(0x8C0C121A), border = Colors.white54;
-    const fg = Colors.white;
+    Color fg = Colors.white;
     if (done) {
       bg = _soot;
       border = _soot;
-    } else if (sel) {
-      bg = _navy;
-      border = Colors.white;
+    }
+    if (sel) {
+      bg = done ? _soot : _pole;
+      border = _pole;
+      fg = done ? Colors.white : const Color(0xFF11151C);
     }
     return GestureDetector(
       onTap: () => setState(() => _selected = a),
@@ -524,11 +576,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
             decoration: BoxDecoration(
               color: bg,
               shape: BoxShape.circle,
-              border: Border.all(color: border, width: sel && !done ? 2.2 : 1.4),
+              border: Border.all(color: border, width: sel ? 3 : 1.4),
+              boxShadow: sel
+                  ? [BoxShadow(color: _pole.withValues(alpha: 0.55), blurRadius: 10)]
+                  : null,
             ),
             child: Text(a.label,
-                style: const TextStyle(
-                    color: fg, fontWeight: FontWeight.w700, fontSize: 14)),
+                style: TextStyle(
+                    color: fg, fontWeight: FontWeight.w800, fontSize: 15)),
           ),
           if (done)
             Positioned(
