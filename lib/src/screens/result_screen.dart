@@ -145,6 +145,11 @@ class _ResultScreenState extends State<ResultScreen> {
           _overlay(f, p),
           const SizedBox(height: 14),
 
+          if (integ != null && integ.isPartial) ...[
+            _partialNotice(p, integ.facesUsed),
+            const SizedBox(height: 12),
+          ],
+
           _metricCard(p, f),
           const SizedBox(height: 22),
 
@@ -379,8 +384,42 @@ class _ResultScreenState extends State<ResultScreen> {
               tr('그을음 비율', 'Char ratio'),
               f.sootProportion.isNaN ? '–' : f.sootProportion.toStringAsFixed(2),
               valueColor: p.green),
+          Divider(height: 1, color: p.line),
+          // 스케일 근거 — 이 값이 모든 미터 단위 수치를 좌우한다
+          _metric(p, Icons.straighten, tr('수고봉 스케일', 'Pole scale'),
+              f.pxPerMetre.isNaN
+                  ? '–'
+                  : '${f.pxPerMetre.toStringAsFixed(0)} px/m'),
         ]),
       ),
+    );
+  }
+
+  /// 4방위 중 일부만 계측된 경우의 안내. BSI는 4방위 합이라 그대로 두면
+  /// 과소평가되므로 환산해 쓰고 있다는 사실을 밝힌다.
+  Widget _partialNotice(AppPalette p, int facesUsed) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: p.ember.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.ember.withValues(alpha: 0.45)),
+      ),
+      child: Row(children: [
+        Icon(Icons.info_outline, size: 18, color: p.ember),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            tr(
+              '$facesUsed개 방위만 계측돼 4방위 기준으로 환산했습니다. '
+                  '수고봉 1 m 경계가 2개 이상 보이게 찍으면 정확해집니다.',
+              'Only $facesUsed of 4 faces could be measured; BSI is scaled to a '
+                  '4-face basis. Frame at least two 1 m pole marks for full accuracy.',
+            ),
+            style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4),
+          ),
+        ),
+      ]),
     );
   }
 

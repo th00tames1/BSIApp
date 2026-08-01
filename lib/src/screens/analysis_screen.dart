@@ -36,6 +36,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Future<void> _run() async {
     try {
       await OnnxService.instance.load(d.modelAsset);
+      // 수고봉 모델은 있으면 쓰고 없으면 건너뛴다(스케일은 휴리스틱으로 대체).
+      await OnnxService.pole.tryLoad(d.poleModelAsset);
       final dir = await getApplicationDocumentsDirectory();
       final overlayDir = Directory(p.join(dir.path, 'overlays'));
       if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);

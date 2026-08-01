@@ -20,6 +20,8 @@ class SurveyDraft {
   double poleLengthM = 3.0;
   String modelName = 'YOLO26s@640';
   String modelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
+  /// 수고봉 1 m 경계 검출 모델(스케일 산출). 없으면 노란픽셀 휴리스틱으로 내려간다.
+  String poleModelAsset = 'assets/models/pole_boundary_640.onnx';
 
   final Map<Azimuth, String> photos = {}; // captured photo path per azimuth
   // Per-azimuth standpoint fix: dwell-averaged position + its scatter (m).
