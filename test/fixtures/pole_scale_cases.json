@@ -1,0 +1,1079 @@
+[
+ {
+  "image": "대흥리_1__110_우측_6m_S_100_80_1-5_jpg.rf.9P5rOLmezb7J36NTaXum.jpg",
+  "width": 960,
+  "points": [
+   [
+    538.308,
+    219.029
+   ],
+   [
+    532.988,
+    622.733
+   ],
+   [
+    535.997,
+    418.263
+   ],
+   [
+    542.798,
+    22.525
+   ]
+  ],
+  "px_per_m": 199.2456,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__110_우측_6m_S_100_80_1_jpg.rf.FGb68e6p8he4Ernrjdq4.jpg",
+  "width": 960,
+  "points": [
+   [
+    510.861,
+    349.056
+   ],
+   [
+    513.707,
+    80.699
+   ],
+   [
+    511.305,
+    214.044
+   ],
+   [
+    508.516,
+    485.509
+   ],
+   [
+    505.221,
+    623.363
+   ]
+  ],
+  "px_per_m": 136.4731,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__110_우측_6m_W_100_70_1_jpg.rf.mfeWgxdkkVGMOfzjjOEE.jpg",
+  "width": 960,
+  "points": [
+   [
+    405.801,
+    745.646
+   ],
+   [
+    442.278,
+    307.018
+   ],
+   [
+    434.246,
+    453.612
+   ],
+   [
+    449.889,
+    157.501
+   ],
+   [
+    422.621,
+    599.364
+   ]
+  ],
+  "px_per_m": 147.1201,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__111_우측_4m_S_170_30_1-5_jpg.rf.gnRTr78tQ5ZJQA3x29lG.jpg",
+  "width": 960,
+  "points": [
+   [
+    666.686,
+    201.434
+   ],
+   [
+    658.009,
+    576.094
+   ]
+  ],
+  "px_per_m": 374.7611,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "대흥리_1__111_우측_4m_W_240_10_1-5_jpg.rf.vViM7xGbplX7OcaKnJKS.jpg",
+  "width": 960,
+  "points": [
+   [
+    635.274,
+    280.772
+   ],
+   [
+    670.219,
+    21.766
+   ],
+   [
+    580.873,
+    791.793
+   ],
+   [
+    609.192,
+    494.678
+   ],
+   [
+    580.199,
+    794.6
+   ]
+  ],
+  "px_per_m": 261.3078,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__111_우측_4m_W_240_10_2_jpg.rf.3333FpABplnt90d9BCBt.jpg",
+  "width": 960,
+  "points": [
+   [
+    727.27,
+    124.864
+   ],
+   [
+    695.549,
+    436.257
+   ],
+   [
+    662.346,
+    862.31
+   ],
+   [
+    634.777,
+    1241.217
+   ]
+  ],
+  "px_per_m": 379.8922,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__113_우측_4m_N_400_65_1_jpg.rf.FYlCabXXWpe76XBpJw5L.jpg",
+  "width": 960,
+  "points": [
+   [
+    481.23,
+    410.932
+   ],
+   [
+    473.503,
+    967.974
+   ],
+   [
+    478.922,
+    667.028
+   ],
+   [
+    479.365,
+    533.949
+   ],
+   [
+    476.413,
+    810.454
+   ]
+  ],
+  "px_per_m": 143.4467,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__113_우측_4m_W_380_80_2_jpg.rf.VOclINft1hTnnyzMkqE6.jpg",
+  "width": 960,
+  "points": [
+   [
+    473.865,
+    275.279
+   ],
+   [
+    381.652,
+    859.182
+   ],
+   [
+    429.236,
+    559.153
+   ]
+  ],
+  "px_per_m": 303.778,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "대흥리_1__119_우측_6m_E_110_60_1-5_jpg.rf.3Wv15uk7tTibm4IBekfx.jpg",
+  "width": 960,
+  "points": [
+   [
+    516.093,
+    321.21
+   ],
+   [
+    504.931,
+    94.742
+   ],
+   [
+    521.458,
+    784.707
+   ],
+   [
+    519.401,
+    549.553
+   ]
+  ],
+  "px_per_m": 228.3584,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__131_우측_7m_E_520_80_1_jpg.rf.8BqX7fXgZWwnSULfoj6c.jpg",
+  "width": 960,
+  "points": [
+   [
+    538.961,
+    853.074
+   ],
+   [
+    530.36,
+    709.034
+   ],
+   [
+    526.434,
+    600.687
+   ],
+   [
+    511.408,
+    364.697
+   ]
+  ],
+  "px_per_m": 118.2303,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__131_우측_7m_N_500_70_2_jpg.rf.R8MCdRbZD3AwKoiE6bRn.jpg",
+  "width": 960,
+  "points": [
+   [
+    282.976,
+    49.686
+   ],
+   [
+    380.188,
+    820.968
+   ],
+   [
+    356.332,
+    594.037
+   ],
+   [
+    318.632,
+    319.769
+   ]
+  ],
+  "px_per_m": 272.4235,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__131_우측_7m_S_300_90_1-5_jpg.rf.oGpA7O53DbZeSPuHTgZh.jpg",
+  "width": 960,
+  "points": [
+   [
+    421.735,
+    531.102
+   ],
+   [
+    412.224,
+    261.112
+   ],
+   [
+    416.383,
+    390.349
+   ],
+   [
+    423.256,
+    654.673
+   ],
+   [
+    426.375,
+    822.723
+   ]
+  ],
+  "px_per_m": 140.8437,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__134_우측_8m_E_566_75_2_jpg.rf.cl4jSkvTabQPsAF2NhAC.jpg",
+  "width": 960,
+  "points": [
+   [
+    433.901,
+    520.739
+   ],
+   [
+    428.123,
+    255.948
+   ],
+   [
+    423.816,
+    1056.055
+   ],
+   [
+    431.622,
+    784.155
+   ]
+  ],
+  "px_per_m": 264.7528,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__134_우측_8m_W_430_50_1_jpg.rf.1NsbMjRn9xfjuUjqDimy.jpg",
+  "width": 960,
+  "points": [
+   [
+    532.478,
+    659.232
+   ],
+   [
+    519.878,
+    896.602
+   ],
+   [
+    525.264,
+    771.327
+   ],
+   [
+    539.529,
+    555.908
+   ],
+   [
+    550.009,
+    457.563
+   ]
+  ],
+  "px_per_m": 112.326,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__137_우측_8m_S_370_95_1_jpg.rf.LnqHJMMXzVblf2kpEQDY.jpg",
+  "width": 960,
+  "points": [
+   [
+    407.269,
+    605.91
+   ],
+   [
+    407.785,
+    496.512
+   ],
+   [
+    410.012,
+    388.25
+   ],
+   [
+    405.922,
+    724.385
+   ],
+   [
+    415.363,
+    285.136
+   ],
+   [
+    405.354,
+    843.587
+   ]
+  ],
+  "px_per_m": 109.3923,
+  "perspective": true,
+  "n_boundaries": 6
+ },
+ {
+  "image": "대흥리_1__137_우측_8m_W_320_80_1-5_jpg.rf.nMqLrnKX6r8IWFGetEVZ.jpg",
+  "width": 960,
+  "points": [
+   [
+    463.577,
+    640.076
+   ],
+   [
+    388.346,
+    971.213
+   ],
+   [
+    431.4,
+    799.169
+   ]
+  ],
+  "px_per_m": 177.3078,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "대흥리_1__145_우측_6m_E_400_85_1-5_jpg.rf.n6WT3T5l7mW8w73RUOCW.jpg",
+  "width": 960,
+  "points": [
+   [
+    400.857,
+    427.014
+   ],
+   [
+    430.413,
+    638.22
+   ],
+   [
+    365.964,
+    217.336
+   ],
+   [
+    455.209,
+    855.05
+   ],
+   [
+    332.279,
+    18.021
+   ]
+  ],
+  "px_per_m": 213.2566,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__146_우측_7m_N_460_85_2_jpg.rf.vv8f4JRh4Ym2qe0d2EpB.jpg",
+  "width": 960,
+  "points": [
+   [
+    664.75,
+    201.19
+   ],
+   [
+    632.758,
+    468.357
+   ],
+   [
+    606.576,
+    734.374
+   ],
+   [
+    583.043,
+    1009.798
+   ],
+   [
+    563.486,
+    1263.486
+   ]
+  ],
+  "px_per_m": 268.9931,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__147_우측_6m_N_470_70_1-5_jpg.rf.tm04ySo0mQ5KPHKKNbTx.jpg",
+  "width": 960,
+  "points": [
+   [
+    500.433,
+    162.91
+   ],
+   [
+    499.839,
+    383.084
+   ],
+   [
+    493.782,
+    1049.455
+   ],
+   [
+    498.548,
+    607.272
+   ],
+   [
+    495.861,
+    826.864
+   ]
+  ],
+  "px_per_m": 222.6003,
+  "perspective": true,
+  "n_boundaries": 5
+ },
+ {
+  "image": "대흥리_1__149_우측_5m_N_350_70_1_jpg.rf.cPZwvcYmGolomoGLojHc.jpg",
+  "width": 960,
+  "points": [
+   [
+    494.33,
+    644.339
+   ],
+   [
+    503.85,
+    1022.358
+   ],
+   [
+    499.756,
+    824.927
+   ]
+  ],
+  "px_per_m": 197.4714,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "대흥리_1__152_우측_3m_E_180_95_1_jpg.rf.DfWASrUrnTFxcWjZirQ6.jpg",
+  "width": 960,
+  "points": [
+   [
+    569.103,
+    272.262
+   ],
+   [
+    535.638,
+    935.924
+   ],
+   [
+    553.655,
+    604.137
+   ],
+   [
+    513.103,
+    1268.588
+   ]
+  ],
+  "px_per_m": 332.2752,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "대흥리_1__152_우측_3m_N_60_90_1_jpg.rf.f4DUur9gCb6YgWUpGsNf.jpg",
+  "width": 960,
+  "points": [
+   [
+    585.773,
+    583.833
+   ],
+   [
+    583.726,
+    869.34
+   ],
+   [
+    594.164,
+    333.409
+   ]
+  ],
+  "px_per_m": 285.4931,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "대흥리_1__152_우측_3m_S_50_90_2_jpg.rf.uevWMU6prqQb32Y6mdXr.jpg",
+  "width": 960,
+  "points": [
+   [
+    658.394,
+    196.202
+   ],
+   [
+    654.811,
+    730.656
+   ],
+   [
+    655.306,
+    1261.274
+   ]
+  ],
+  "px_per_m": 534.4626,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "덕구리_1__101_경사 2_5m_S_290_75_1-5_jpg.rf.qPn7qqVrKVXRyaorQ291.jpg",
+  "width": 960,
+  "points": [
+   [
+    368.037,
+    815.634
+   ],
+   [
+    383.924,
+    207.878
+   ],
+   [
+    380.064,
+    509.067
+   ],
+   [
+    349.865,
+    1138.539
+   ]
+  ],
+  "px_per_m": 306.8016,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "덕구리_1__10_서측_2m_E_70_50_1-5_jpg.rf.3fxXMS4SEgZxKZNGUrs7.jpg",
+  "width": 960,
+  "points": [
+   [
+    683.38,
+    521.891
+   ],
+   [
+    640.726,
+    1127.169
+   ]
+  ],
+  "px_per_m": 606.7792,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__12_서측_2m_N_55_60_2_jpg.rf.ft0uQxRyK2DdePnF88ND.jpg",
+  "width": 960,
+  "points": [
+   [
+    330.494,
+    331.8
+   ],
+   [
+    381.287,
+    1038.77
+   ]
+  ],
+  "px_per_m": 708.7924,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__13_서측_2m_W_60_10_2_jpg.rf.g2gizSZmwwAqlShAltU8.jpg",
+  "width": 960,
+  "points": [
+   [
+    726.622,
+    382.582
+   ],
+   [
+    713.003,
+    1123.84
+   ]
+  ],
+  "px_per_m": 741.3827,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__14_서측_2m_W_70_80_1_jpg.rf.G6PiGRveEig5aBYZUFmJ.jpg",
+  "width": 960,
+  "points": [
+   [
+    359.063,
+    114.223
+   ],
+   [
+    351.764,
+    576.299
+   ]
+  ],
+  "px_per_m": 462.1332,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__16_서측_3m_E_220_60_1_jpg.rf.gtCdbZchk8bMptOBQXSV.jpg",
+  "width": 960,
+  "points": [
+   [
+    468.716,
+    308.912
+   ],
+   [
+    433.067,
+    639.031
+   ],
+   [
+    400.225,
+    953.525
+   ]
+  ],
+  "px_per_m": 332.0378,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "덕구리_1__16_서측_3m_W_130_40_1_jpg.rf.my2OEjNH1ZUkHq7am3Gd.jpg",
+  "width": 960,
+  "points": [
+   [
+    341.501,
+    377.512
+   ],
+   [
+    329.907,
+    118.903
+   ],
+   [
+    349.384,
+    663.147
+   ]
+  ],
+  "px_per_m": 285.7346,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "덕구리_1__17_서측_2m_N_140_65_1_jpg.rf.gDa72nUMF4fFp7hdGarQ.jpg",
+  "width": 960,
+  "points": [
+   [
+    431.246,
+    644.666
+   ],
+   [
+    500.788,
+    251.757
+   ]
+  ],
+  "px_per_m": 399.0151,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__18_서측_2m_W_170_60_1_jpg.rf.0Ptw9PHjcbNrmidxXYE9.jpg",
+  "width": 960,
+  "points": [
+   [
+    595.886,
+    369.103
+   ],
+   [
+    618.473,
+    720.202
+   ],
+   [
+    54.754,
+    690.148
+   ],
+   [
+    46.048,
+    802.93
+   ]
+  ],
+  "px_per_m": 351.8243,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "덕구리_1__19_서측_2m_E_70_80_2_jpg.rf.2zKiZoVBroWd3j1Ca7dl.jpg",
+  "width": 960,
+  "points": [
+   [
+    809.056,
+    417.717
+   ],
+   [
+    791.561,
+    1258.334
+   ]
+  ],
+  "px_per_m": 840.7986,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_10__141_소피_2m_N_70_80_1_jpg.rf.553Z6tl2IjVAZIGOTAc0.jpg",
+  "width": 960,
+  "points": [
+   [
+    408.689,
+    618.303
+   ],
+   [
+    448.796,
+    233.232
+   ]
+  ],
+  "px_per_m": 387.1542,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_10__141_소피_2m_S_120_90_2_jpg.rf.qy4iIpxyJc1gtYkFzoAz.jpg",
+  "width": 960,
+  "points": [
+   [
+    673.788,
+    395.23
+   ],
+   [
+    741.456,
+    1233.505
+   ]
+  ],
+  "px_per_m": 841.0013,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__112_소피_3m_S_210_70_1-5_jpg.rf.A4C8VBTGKdHCDyzEc8yQ.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1072.989,
+    1343.837
+   ],
+   [
+    1165.233,
+    2502.058
+   ],
+   [
+    951.001,
+    93.064
+   ]
+  ],
+  "px_per_m": 1256.6634,
+  "perspective": false,
+  "n_boundaries": 3
+ },
+ {
+  "image": "천포리_22__114_소피_4m_S_330_60_1_jpg.rf.MssmStN4J0NjzfJcQl2O.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1414.268,
+    2283.028
+   ],
+   [
+    1425.319,
+    1696.221
+   ]
+  ],
+  "px_per_m": 586.9109,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__116_소피_2m_S_140_80_1-5_jpg.rf.RKnnWjjIwIfhVzjui3BU.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1129.012,
+    1802.014
+   ],
+   [
+    587.805,
+    53.376
+   ]
+  ],
+  "px_per_m": 1830.4753,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__116_소피_2m_W_50_60_2_jpg.rf.Gepixz1B0L2fMdRzlyFW.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1090.933,
+    378.284
+   ],
+   [
+    1170.98,
+    2877.893
+   ]
+  ],
+  "px_per_m": 2500.8912,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__118_소피_2m_N_100_50_1-5_jpg.rf.0fl2O2RRdE7NGJiTXvAK.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1933.094,
+    1331.129
+   ],
+   [
+    1833.305,
+    3308.31
+   ]
+  ],
+  "px_per_m": 1979.6975,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__118_소피_3m_S_245_80_1_jpg.rf.QCL9goT3ATygrzPr8IWB.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1433.34,
+    2119.643
+   ],
+   [
+    1450.084,
+    433.076
+   ],
+   [
+    1443.208,
+    1269.199
+   ],
+   [
+    1422.691,
+    2950.631
+   ]
+  ],
+  "px_per_m": 836.1484,
+  "perspective": true,
+  "n_boundaries": 4
+ },
+ {
+  "image": "천포리_22__119_소피_2m_E_85_100_1-5_jpg.rf.cypenj9M5GHVSi44tM8z.jpg",
+  "width": 3000,
+  "points": [
+   [
+    1890.577,
+    1882.165
+   ],
+   [
+    1804.871,
+    115.328
+   ]
+  ],
+  "px_per_m": 1768.9143,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__12_소피_2m_S_130_70_1_jpg.rf.iYmf2qa3a4ERSnxt8xZH.jpg",
+  "width": 960,
+  "points": [
+   [
+    414.901,
+    258.256
+   ],
+   [
+    442.941,
+    659.842
+   ]
+  ],
+  "px_per_m": 402.5635,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__14_소피_2m_E_150_90_1-5_jpg.rf.Kzp3OqrvgZOjInhsQRlI.jpg",
+  "width": 960,
+  "points": [
+   [
+    640.493,
+    707.055
+   ],
+   [
+    779.121,
+    73.695
+   ]
+  ],
+  "px_per_m": 648.3532,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__156_소피_2m_N_70_25_1-5_jpg.rf.qVDkxda9D5QemtIcD86M.jpg",
+  "width": 960,
+  "points": [
+   [
+    587.369,
+    412.894
+   ],
+   [
+    601.82,
+    306.209
+   ]
+  ],
+  "px_per_m": 107.6596,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_22__199_소피_2m_N_130_60_1_jpg.rf.wASknETzBjpFMbZLM4wT.jpg",
+  "width": 960,
+  "points": [
+   [
+    465.433,
+    206.664
+   ],
+   [
+    421.879,
+    606.698
+   ]
+  ],
+  "px_per_m": 402.3986,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_2__145_소피_3m_E_215_85_2_jpg.rf.wcM9eglHSGJNG3mdaFrB.jpg",
+  "width": 960,
+  "points": [
+   [
+    292.036,
+    735.063
+   ],
+   [
+    306.912,
+    116.686
+   ]
+  ],
+  "px_per_m": 618.5565,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_2__145_소피_3m_W_90_65_2_jpg.rf.8xD1Jhk91nEqugwHzYRG.jpg",
+  "width": 960,
+  "points": [
+   [
+    641.443,
+    179.871
+   ],
+   [
+    599.86,
+    944.416
+   ]
+  ],
+  "px_per_m": 765.6748,
+  "perspective": false,
+  "n_boundaries": 2
+ },
+ {
+  "image": "천포리_2__145_소피_4m_S_215_55_1_jpg.rf.Hhk6RmzPHDVggk8ujPAu.jpg",
+  "width": 960,
+  "points": [
+   [
+    531.38,
+    428.592
+   ],
+   [
+    520.061,
+    624.296
+   ],
+   [
+    541.635,
+    234.381
+   ],
+   [
+    510.577,
+    821.585
+   ]
+  ],
+  "px_per_m": 196.0289,
+  "perspective": true,
+  "n_boundaries": 4
+ }
+]

@@ -152,7 +152,12 @@ class PoleDetector {
   }
 
   /// 검출점 → 스케일 해. 만들 수 없으면 null.
+  ///
+  /// 중복 병합을 여기서도 한 번 더 한다. [decode]가 이미 걸렀으면 멱등이고,
+  /// 다른 경로로 들어온 점(테스트·외부 호출)에도 같은 규칙이 적용된다.
   static PoleScaleSolution? solve(List<PoleBoundary> dets, int imageWidth) {
+    if (dets.length < 2) return null;
+    dets = _dedupe(dets, imageWidth * 0.012);
     if (dets.length < 2) return null;
     final staffs = _cluster(dets, imageWidth * 0.02)
         .where((s) => s.n >= 2)
@@ -193,6 +198,24 @@ class PoleDetector {
       gaps: gaps,
       curvature: _straightness(staff.points),
     );
+  }
+
+  /// 같은 경계에 두 번 찍힌 점을 병합한다(점수가 높은 쪽을 남김).
+  static List<PoleBoundary> _dedupe(List<PoleBoundary> pts, double minDist) {
+    final sorted = [...pts]..sort((a, b) => b.score.compareTo(a.score));
+    final out = <PoleBoundary>[];
+    for (final p in sorted) {
+      var dup = false;
+      for (final q in out) {
+        final dx = p.x - q.x, dy = p.y - q.y;
+        if (dx * dx + dy * dy < minDist * minDist) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) out.add(p);
+    }
+    return out;
   }
 
   // ── 봉 군집(공선성) ────────────────────────────────────────────────
