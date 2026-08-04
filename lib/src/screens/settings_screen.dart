@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
 import '../l10n.dart';
+import '../services/demo_sample.dart';
 import '../theme.dart';
 import 'about_screen.dart';
 import 'bsi_table_screen.dart';
+import 'capture_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +15,29 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _busy = false;
+
+  /// 내장 예시 사진 4장을 실제 조사처럼 불러와 촬영 화면으로 보낸다.
+  /// 거기서 "AI 분석"을 누르면 촬영본과 완전히 같은 경로를 탄다.
+  Future<void> _runDemo() async {
+    setState(() => _busy = true);
+    try {
+      final draft = await DemoSample.createDraft();
+      if (!mounted) return;
+      await Navigator.push(context,
+          MaterialPageRoute(builder: (_) => CaptureScreen(draft: draft)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+            content: Text(tr('예시 데이터를 불러오지 못했습니다: $e',
+                'Could not load the sample data: $e'))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -51,6 +76,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: (v) => setState(() => setShowGuides(v)),
                   )),
             ]),
+          ),
+          _section(p, tr('시험', 'TRY IT')),
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _busy ? null : _runDemo,
+              child: _row(p, Icons.science_outlined,
+                  tr('예시 사진으로 시험', 'Try with sample photos'),
+                  sub: tr('내장된 4방위 사진으로 분석 전체를 실행',
+                      'Run the full analysis on the four bundled photos'),
+                  trailing: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(Icons.chevron_right, color: p.muted)),
+            ),
           ),
           _section(p, tr('판정 기준', 'DECISION CRITERIA')),
           Card(
