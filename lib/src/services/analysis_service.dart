@@ -45,19 +45,31 @@ class AnalysisService {
     final fa = SegDecoder.analyze(
         raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size);
 
-    // 스케일 우선순위: 수동 입력 > 수고봉 경계 검출 모델 > 노란픽셀 휴리스틱.
+    // 스케일 우선순위: 수동 입력 > 수고봉 경계 검출 모델 > (모델 미탑재 시에만)
+    // 노란픽셀 휴리스틱.
+    //
+    // **모델이 탑재됐는데 스케일을 못 냈다면 휴리스틱으로 내려가지 않는다.**
+    // 경계가 하나뿐이라 모델이 기권한 경우인데, 휴리스틱은 "가장 긴 노란 구간 =
+    // 봉 길이"라는 깨진 가정을 쓰므로 그 자리를 메우면 몇 배 부풀린 높이가 조용히
+    // 들어간다(에뮬레이터 검증에서 BSI 4.69 → 8.6). 스케일 없는 면은 높이를
+    // 비워 두고, integrate()가 계측된 면으로 4방위를 환산한다.
     PoleScaleSolution? sol;
+    var modelUsable = false;
     if (manualPxPerMetre == null && OnnxService.pole.isLoaded) {
+      modelUsable = true;
       try {
         final o = await OnnxService.pole.inferDetect(lb.chw, lb.size);
         final pts = PoleDetector.decode(o.data, o.shape, lb.size);
         sol = PoleDetector.solve(pts, lb.size);
       } catch (_) {
-        sol = null; // 모델이 없거나 실패하면 아래 휴리스틱으로 내려간다
+        modelUsable = false; // 추론 자체가 실패하면 휴리스틱이라도 쓴다
+        sol = null;
       }
     }
     final PoleScale pole = PoleScale.detect(lb.square, lb.size, poleLengthM);
-    double pxPerM = manualPxPerMetre ?? sol?.pxPerMetre ?? pole.pxPerMetre;
+    final double pxPerM = manualPxPerMetre ??
+        sol?.pxPerMetre ??
+        (modelUsable ? double.nan : pole.pxPerMetre);
 
     final protoToSize = lb.size / fa.mh; // proto rows/cols -> size px
     double sootHeightM = double.nan,
