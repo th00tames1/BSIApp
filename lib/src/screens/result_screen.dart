@@ -28,10 +28,26 @@ class _ResultScreenState extends State<ResultScreen> {
 
   SurveyDraft get d => widget.draft;
 
+  /// 수간 폭과 픽셀 스케일로 앱이 추정한 흉고직경(cm). 없으면 NaN.
+  late final double _dbhAuto =
+      AnalysisService.estimateDbhCm(d.results.values.toList());
+
+  /// 자동 추정값을 그대로 쓰는 중인지(= 조사자가 손대지 않았는지).
+  bool _dbhFromAuto = false;
+
   @override
   void initState() {
     super.initState();
     _sel = d.capturedAzimuths.isNotEmpty ? d.capturedAzimuths.first : Azimuth.east;
+    // 조사자가 값을 넣지 않았으면 추정값을 채워 넣고 바로 판정까지 낸다.
+    // 실측값이 있으면 언제든 덮어쓸 수 있다.
+    if (d.dbhCm <= 0 && !_dbhAuto.isNaN && _dbhAuto > 0) {
+      _dbhFromAuto = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _dbh.text = _dbhAuto.toStringAsFixed(0);
+        _setDbh(_dbh.text);
+      });
+    }
   }
 
   @override
@@ -330,8 +346,24 @@ class _ResultScreenState extends State<ResultScreen> {
           Icon(Icons.straighten, size: 20, color: p.green),
           const SizedBox(width: 12),
           Expanded(
-              child: Text(tr('흉고직경 (DBH)', 'DBH'),
-                  style: TextStyle(fontSize: 13.5, color: p.muted))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tr('흉고직경 (DBH)', 'DBH'),
+                    style: TextStyle(fontSize: 13.5, color: p.muted)),
+                if (!_dbhAuto.isNaN && _dbhAuto > 0)
+                  Text(
+                    _dbhFromAuto
+                        ? tr('자동 추정 ${_dbhAuto.toStringAsFixed(0)} cm',
+                            'auto ${_dbhAuto.toStringAsFixed(0)} cm')
+                        : tr('자동 추정 ${_dbhAuto.toStringAsFixed(0)} cm · 실측값 사용 중',
+                            'auto ${_dbhAuto.toStringAsFixed(0)} cm · using entry'),
+                    style: TextStyle(fontSize: 11, color: p.green),
+                  ),
+              ],
+            ),
+          ),
           SizedBox(
             width: 96,
             child: TextField(
@@ -340,7 +372,10 @@ class _ResultScreenState extends State<ResultScreen> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration:
                   const InputDecoration(hintText: '0', suffixText: 'cm', isDense: true),
-              onChanged: _setDbh,
+              onChanged: (s) {
+                _dbhFromAuto = false; // 조사자가 손대면 실측값 우선
+                _setDbh(s);
+              },
             ),
           ),
         ]),

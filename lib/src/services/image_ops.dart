@@ -74,6 +74,9 @@ class ImageOps {
     int? poleBottomY,
     int? poleX,
     List<({double x, double y})> poleBoundaries = const [],
+    ({int y, int x1, int x2})? stemBase,
+    ({int y, int x1, int x2})? dbhLine,
+    ({int y, int x1, int x2})? sootTop,
   }) {
     final out = img.Image.from(square);
     final red = [224, 58, 58];
@@ -97,18 +100,38 @@ class ImageOps {
         );
       }
     }
-    // 모델이 찾은 1 m 경계가 있으면 그것을 그린다(스케일의 근거를 보여줌).
+    // 실제 계측에 쓰인 세 위치를 가로선으로 그린다(무엇을 쟀는지 보이게).
+    void measureLine(({int y, int x1, int x2})? m, img.Color color) {
+      if (m == null) return;
+      final y = m.y.clamp(0, size - 1);
+      final pad = ((m.x2 - m.x1) * 0.12).round().clamp(6, 40);
+      img.drawLine(out,
+          x1: (m.x1 - pad).clamp(0, size - 1),
+          y1: y,
+          x2: (m.x2 + pad).clamp(0, size - 1),
+          y2: y,
+          color: color,
+          thickness: 4);
+      for (final x in [m.x1, m.x2]) {                 // 양끝 눈금
+        img.drawLine(out,
+            x1: x.clamp(0, size - 1),
+            y1: (y - 9).clamp(0, size - 1),
+            x2: x.clamp(0, size - 1),
+            y2: (y + 9).clamp(0, size - 1),
+            color: color,
+            thickness: 4);
+      }
+    }
+
+    measureLine(sootTop, img.ColorRgb8(224, 58, 58));      // 그을음 최고 높이
+    measureLine(dbhLine, img.ColorRgb8(37, 120, 235));     // 흉고직경
+    measureLine(stemBase, img.ColorRgb8(28, 28, 32));      // 나무 밑둥
+
+    // 모델이 찾은 1 m 경계는 짧은 원으로만 표시한다(계측선과 구분).
     if (poleBoundaries.isNotEmpty) {
       final pts = [...poleBoundaries]..sort((a, b) => a.y.compareTo(b.y));
       for (var i = 0; i < pts.length; i++) {
         final x = pts[i].x.round(), y = pts[i].y.round();
-        img.drawLine(out,
-            x1: (x - 22).clamp(0, size - 1),
-            y1: y,
-            x2: (x + 22).clamp(0, size - 1),
-            y2: y,
-            color: img.ColorRgb8(246, 197, 24),
-            thickness: 3);
         if (i > 0) {
           // 인접 경계를 잇는 얇은 선 = 1 m 구간
           img.drawLine(out,
@@ -119,6 +142,10 @@ class ImageOps {
               color: img.ColorRgb8(246, 197, 24),
               thickness: 1);
         }
+        img.fillCircle(out,
+            x: x, y: y, radius: 7, color: img.ColorRgb8(246, 197, 24));
+        img.drawCircle(out,
+            x: x, y: y, radius: 7, color: img.ColorRgb8(120, 90, 0));
       }
     } else if (poleTopY != null && poleBottomY != null && poleX != null) {
       img.drawLine(out,

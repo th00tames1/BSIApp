@@ -69,6 +69,37 @@ class FaceAnalysis {
     widths.sort();
     return widths[widths.length ~/ 2];
   }
+
+  /// 한 행에서 수간 마스크의 좌·우 끝(proto 열). 마스크가 없으면 null.
+  ({int lo, int hi})? treeSpanAtRow(int y) {
+    if (y < 0 || y >= mh) return null;
+    int lo = -1, hi = -1;
+    final base = y * mw;
+    for (int x = 0; x < mw; x++) {
+      if (treeMask[base + x] == 1) {
+        if (lo < 0) lo = x;
+        hi = x;
+      }
+    }
+    return lo < 0 ? null : (lo: lo, hi: hi);
+  }
+
+  /// 밑둥에서 [rowsUp]만큼 위(= 가슴높이)에서 잰 수간 폭. 잡음을 줄이려고
+  /// 그 행 앞뒤 [band]행의 중앙값을 쓴다. 흉고직경 추정의 근거 위치도 함께 돌려준다.
+  ({int width, int row, int lo, int hi})? treeSpanAtHeight(int rowsUp,
+      {int band = 2}) {
+    if (treeBottom < 0) return null;
+    final target = (treeBottom - rowsUp).clamp(treeTop, treeBottom);
+    final rows = <({int w, int lo, int hi})>[];
+    for (int y = target - band; y <= target + band; y++) {
+      final s = treeSpanAtRow(y);
+      if (s != null) rows.add((w: s.hi - s.lo + 1, lo: s.lo, hi: s.hi));
+    }
+    if (rows.isEmpty) return null;
+    rows.sort((a, b) => a.w.compareTo(b.w));
+    final m = rows[rows.length ~/ 2];
+    return (width: m.w, row: target, lo: m.lo, hi: m.hi);
+  }
 }
 
 class SegDecoder {

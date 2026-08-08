@@ -27,6 +27,23 @@ class AnalysisService {
   AnalysisService._();
   static final AnalysisService instance = AnalysisService._();
 
+  /// 흉고(가슴높이). 흉고직경은 밑둥에서 이 높이의 수간 폭으로 잰다.
+  static const double breastHeightM = 1.3;
+
+  /// 방위별 흉고직경 추정값(m)의 중앙값 → cm. 값이 없으면 NaN.
+  ///
+  /// 방위마다 가려짐·기울기가 달라 폭이 흔들리므로 평균 대신 중앙값을 쓴다.
+  static double estimateDbhCm(List<AzimuthResult> faces) {
+    final v = [
+      for (final f in faces)
+        if (f.analysed && !f.dbhEstM.isNaN && f.dbhEstM > 0) f.dbhEstM * 100
+    ]..sort();
+    if (v.isEmpty) return double.nan;
+    return v.length.isOdd
+        ? v[v.length ~/ 2]
+        : (v[v.length ~/ 2 - 1] + v[v.length ~/ 2]) / 2;
+  }
+
   /// Analyse one captured face: segment, scale with the pole, derive metrics,
   /// and (optionally) write an overlay PNG. Returns an [AzimuthResult].
   Future<AzimuthResult> analyzeFace(
@@ -93,16 +110,27 @@ class AnalysisService {
       sootHeightM = (fa.interBottom - fa.interTop) * protoToSize / s;
       sootWidthM = (fa.interRight - fa.interLeft + 1) * protoToSize / s;
     }
+    // 흉고직경 계측 위치(가슴높이 1.3 m)와 그 폭. 오버레이에도 같은 자리를 그린다.
+    ({int width, int row, int lo, int hi})? dbhSpan;
     if (fa.hasTree && haveScale) {
       final s = scaleAtRow((fa.treeTop + fa.treeBottom) ~/ 2);
       visStemM = (fa.treeBottom - fa.treeTop) * protoToSize / s;
-      dbhM = fa.treeWidthLowerCols() * protoToSize / scaleAtRow(fa.treeBottom);
+      // 밑둥에서 1.3 m 위 = 가슴높이. 스케일이 있으니 proto 행으로 환산할 수 있다.
+      final rowsUp =
+          (breastHeightM * scaleAtRow(fa.treeBottom) / protoToSize).round();
+      dbhSpan = fa.treeSpanAtHeight(rowsUp) ??
+          fa.treeSpanAtHeight((fa.treeBottom - fa.treeTop) ~/ 3);
+      if (dbhSpan != null) {
+        dbhM = dbhSpan.width * protoToSize / scaleAtRow(dbhSpan.row);
+      }
     }
 
     String? overlayPath;
     if (overlayOutPath != null) {
       final treeUp = ImageOps.upsampleMask(fa.treeMask, fa.mh, fa.mw, lb.size);
       final sootUp = ImageOps.upsampleMask(fa.sootMask, fa.mh, fa.mw, lb.size);
+      int px(int protoCol) => (protoCol * protoToSize).round();
+      final stemSpan = fa.hasTree ? fa.treeSpanAtRow(fa.treeBottom) : null;
       final png = ImageOps.renderOverlay(
         lb.square, treeUp, sootUp, lb.size,
         poleTopY: pole.detected ? pole.topY : null,
@@ -111,6 +139,15 @@ class AnalysisService {
         poleBoundaries: [
           for (final p in sol?.staff.points ?? const []) (x: p.x, y: p.y)
         ],
+        stemBase: stemSpan == null
+            ? null
+            : (y: px(fa.treeBottom), x1: px(stemSpan.lo), x2: px(stemSpan.hi)),
+        dbhLine: dbhSpan == null
+            ? null
+            : (y: px(dbhSpan.row), x1: px(dbhSpan.lo), x2: px(dbhSpan.hi)),
+        sootTop: fa.interPx > 0
+            ? (y: px(fa.interTop), x1: px(fa.interLeft), x2: px(fa.interRight))
+            : null,
       );
       File(overlayOutPath).writeAsBytesSync(png);
       overlayPath = overlayOutPath;

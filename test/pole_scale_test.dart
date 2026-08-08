@@ -113,6 +113,68 @@ void main() {
       expect(pts.length, 3);
       expect(pts.first.score, closeTo(0.9, 1e-6));
     });
+
+    test('end-to-end 출력(x1,y1,x2,y2,score,cls)에서도 중심점을 뽑는다', () {
+      // YOLO26 내보내기 형식: [1, n, 6]. NMS가 이미 적용돼 나온다.
+      const n = 8;
+      final out = List<double>.filled(n * 6, 0.0);
+      void put(int i, double cx, double cy, double sc) {
+        out[i * 6 + 0] = cx - 10;
+        out[i * 6 + 1] = cy - 10;
+        out[i * 6 + 2] = cx + 10;
+        out[i * 6 + 3] = cy + 10;
+        out[i * 6 + 4] = sc;
+      }
+      put(0, 100, 100, 0.9);
+      put(1, 100, 300, 0.7);
+      put(2, 100, 500, 0.6);
+      put(3, 100, 700, 0.1); // 임계값 미만
+      // 남은 칸은 점수 0이라 걸러진다
+      final pts = PoleDetector.decode(_f32(out), [1, n, 6], 640);
+      expect(pts.length, 3);
+      expect(pts.first.x, closeTo(100, 1e-6));
+      expect(pts.first.y, closeTo(100, 1e-6));
+      expect(pts.first.score, closeTo(0.9, 1e-6));
+    });
+  });
+
+  group('기기 독립성', () {
+    // 스케일은 같은 사진 안의 수고봉에서 나오므로 초점거리·센서·해상도가 상쇄된다.
+    // 같은 장면을 배율만 바꿔 넣으면 px/m은 배율만큼 변하고 실제 치수는 그대로여야 한다.
+    test('해상도가 달라도 환산한 실제 길이는 같다', () {
+      double spanMetres(double k) {
+        final size = (640 * k).round();
+        final pts = [
+          for (var i = 0; i < 4; i++)
+            PoleBoundary(0.5 * size, (100 + 120.0 * i) * k, 0.9)
+        ];
+        final sol = PoleDetector.solve(pts, size);
+        expect(sol, isNotNull, reason: '배율 $k에서 스케일을 못 세움');
+        final topY = 100.0 * k, botY = (100 + 120.0 * 3) * k;
+        return (botY - topY) / sol!.pxPerMetre;
+      }
+
+      final base = spanMetres(1.0);
+      expect(base, closeTo(3.0, 1e-6)); // 경계 4개 = 1 m 간격 3구간
+      for (final k in [0.5, 0.75, 1.5, 2.0]) {
+        expect(spanMetres(k), closeTo(base, 1e-6),
+            reason: '배율 $k에서 실제 길이가 달라짐');
+      }
+    });
+
+    test('px/m 자체는 해상도에 비례한다', () {
+      double pxPerM(double k) {
+        final size = (640 * k).round();
+        final pts = [
+          for (var i = 0; i < 4; i++)
+            PoleBoundary(0.5 * size, (100 + 120.0 * i) * k, 0.9)
+        ];
+        return PoleDetector.solve(pts, size)!.pxPerMetre;
+      }
+
+      expect(pxPerM(2.0) / pxPerM(1.0), closeTo(2.0, 1e-6));
+      expect(pxPerM(0.5) / pxPerM(1.0), closeTo(0.5, 1e-6));
+    });
   });
 }
 

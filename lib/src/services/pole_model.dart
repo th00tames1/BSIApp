@@ -100,10 +100,14 @@ class PoleDetector {
   /// 사영 적합 최소 점수. 3개면 미지수와 같아 노이즈가 그대로 증폭된다.
   static const int minPointsForPerspective = 4;
 
-  /// YOLO dense 출력 [1, 4+nc, anchors] → 경계점(입력 size×size 좌표계).
+  /// YOLO 검출 출력 → 경계점(입력 size×size 좌표계).
   ///
   /// 학습을 점 하나당 작은 정사각 박스로 했으므로 **박스 중심이 곧 경계점**이다.
   /// NMS는 중심 거리 기준으로 한다(박스가 작아 IoU가 불안정하다).
+  ///
+  /// 두 가지 출력 형식을 모두 받는다.
+  ///   · dense    [1, 4+nc, anchors]  — 채널 우선, 후처리 필요 (YOLO11 계열)
+  ///   · end2end  [1, n, 6]           — [x1,y1,x2,y2,score,cls], NMS 내장 (YOLO26 계열)
   static List<PoleBoundary> decode(
     Float32List out,
     List<int> shape,
@@ -111,18 +115,30 @@ class PoleDetector {
     double conf = 0.25,
     double mergeDist = 0.012,
   }) {
-    final ch = shape[1], n = shape[2];
-    if (ch < 5) return const [];
     final cands = <PoleBoundary>[];
-    for (var i = 0; i < n; i++) {
-      // 채널 우선 배치: [cx, cy, w, h, score...]
-      var best = out[4 * n + i];
-      for (var c = 5; c < ch; c++) {
-        final v = out[c * n + i];
-        if (v > best) best = v;
+    if (shape.length == 3 && shape[2] == 6 && shape[1] > 6) {
+      // end-to-end: 이미 디코딩·정렬된 박스 목록
+      final n = shape[1];
+      for (var i = 0; i < n; i++) {
+        final o = i * 6;
+        final score = out[o + 4];
+        if (score < conf) continue;
+        cands.add(PoleBoundary(
+            (out[o] + out[o + 2]) / 2, (out[o + 1] + out[o + 3]) / 2, score));
       }
-      if (best < conf) continue;
-      cands.add(PoleBoundary(out[i], out[n + i], best));
+    } else {
+      final ch = shape[1], n = shape[2];
+      if (ch < 5) return const [];
+      for (var i = 0; i < n; i++) {
+        // 채널 우선 배치: [cx, cy, w, h, score...]
+        var best = out[4 * n + i];
+        for (var c = 5; c < ch; c++) {
+          final v = out[c * n + i];
+          if (v > best) best = v;
+        }
+        if (best < conf) continue;
+        cands.add(PoleBoundary(out[i], out[n + i], best));
+      }
     }
     cands.sort((a, b) => b.score.compareTo(a.score));
     // 중심 거리 NMS — 실제 경계 간격보다 훨씬 촘촘한 검출은 같은 경계로 본다
