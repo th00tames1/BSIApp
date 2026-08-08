@@ -50,6 +50,9 @@ class _MapScreenState extends State<MapScreen> {
   // 국립산림과학원(서울 동대문구) — 좌표 없는 기본 중심.
   static const _fallback = LatLng(37.5936, 127.0400);
 
+  /// 최초 1회 현재 위치로 이동했는지.
+  bool _didInitialLocate = false;
+
   static const _osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   // Hybrid = imagery + transparent reference layers (roads, then place labels).
   static const _satUrl =
@@ -67,6 +70,19 @@ class _MapScreenState extends State<MapScreen> {
     _refreshResume();
     _load();
     _loadOverlays();
+    _initialLocate();
+  }
+
+  /// 앱을 열면 기본 중심(국립산림과학원)에서 시작하되, 위치가 잡히면
+  /// **한 번만** 현재 위치로 옮긴다. 이후에는 사용자가 움직인 화면을 지킨다.
+  Future<void> _initialLocate() async {
+    if (_didInitialLocate) return;
+    final pos = await LocationService.current();
+    if (!mounted || pos == null) return;
+    _didInitialLocate = true;
+    final here = LatLng(pos.latitude, pos.longitude);
+    setState(() => _here = here);
+    _map.move(here, 16);
   }
 
   void _refreshResume() {
@@ -157,6 +173,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _locate() async {
+    _didInitialLocate = true;   // 수동으로 눌렀으면 자동 이동은 더 필요 없다
     final pos = await LocationService.current();
     if (!mounted) return;
     if (pos == null) {
@@ -545,6 +562,26 @@ class _MapScreenState extends State<MapScreen> {
                     child: const _HereDot(),
                   ),
               ],
+            ),
+            // 거리 범례 — 좌하단, 출처 표기 위에 겹치지 않게 작게
+            Padding(
+              padding: const EdgeInsets.only(left: 10, bottom: 34),
+              child: Scalebar(
+                alignment: Alignment.bottomLeft,
+                length: ScalebarLength.s,
+                strokeWidth: 2,
+                lineHeight: 5,
+                lineColor: sat ? Colors.white : const Color(0xFF3C4655),
+                textStyle: TextStyle(
+                  fontSize: 11,
+                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                  color: sat ? Colors.white : const Color(0xFF3C4655),
+                  shadows: sat
+                      ? const [Shadow(color: Colors.black54, blurRadius: 3)]
+                      : null,
+                ),
+              ),
             ),
             RichAttributionWidget(
               alignment: AttributionAlignment.bottomLeft,

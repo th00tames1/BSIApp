@@ -63,6 +63,7 @@ flutter:
   assets:
     - assets/models/
     - assets/sample/
+    - assets/icon/
   fonts:
     - family: Pretendard
       fonts:
