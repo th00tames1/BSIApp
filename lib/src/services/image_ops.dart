@@ -101,7 +101,8 @@ class ImageOps {
       }
     }
     // 실제 계측에 쓰인 세 위치를 가로선으로 그린다(무엇을 쟀는지 보이게).
-    void measureLine(({int y, int x1, int x2})? m, img.Color color) {
+    void measureLine(({int y, int x1, int x2})? m, img.Color color,
+        {bool ticks = true}) {
       if (m == null) return;
       final y = m.y.clamp(0, size - 1);
       final pad = ((m.x2 - m.x1) * 0.12).round().clamp(6, 40);
@@ -112,6 +113,7 @@ class ImageOps {
           y2: y,
           color: color,
           thickness: 4);
+      if (!ticks) return;
       for (final x in [m.x1, m.x2]) {                 // 양끝 눈금
         img.drawLine(out,
             x1: x.clamp(0, size - 1),
@@ -123,7 +125,8 @@ class ImageOps {
       }
     }
 
-    measureLine(sootTop, img.ColorRgb8(224, 58, 58));      // 그을음 최고 높이
+    // 그을음 최고 높이는 "여기까지"만 알면 되므로 끝 눈금 없이 선만 그린다.
+    measureLine(sootTop, img.ColorRgb8(224, 58, 58), ticks: false);
     measureLine(dbhLine, img.ColorRgb8(37, 120, 235));     // 흉고직경
     measureLine(stemBase, img.ColorRgb8(28, 28, 32));      // 나무 밑둥
 

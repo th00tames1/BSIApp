@@ -187,15 +187,16 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  // ---- verdict: BSI linear meter + mortality arc gauge ----
+  // ---- verdict: 고사 확률 게이지 하나로 통합 ----
+  //
+  // BSI 자체에는 경미/심함을 가르는 기준이 없다(판정 기준은 BSI × 흉고직경
+  // 판정표의 고사 확률 30 %). 임의 눈금을 보여 주면 근거 없는 해석을 부르므로
+  // BSI는 수치로만 두고, 판정은 고사 확률 하나로 읽게 한다.
   Widget _verdictCard(AppPalette p, double bsi, double prob, String verdict) {
     final cut = verdict == '벌채';
-    final bsiColor = bsi.isNaN
-        ? p.muted
-        : (bsi < 3 ? p.green : (bsi < 6 ? p.ember : p.danger));
     final probColor = prob.isNaN
         ? p.muted
-        : (prob < .33 ? p.green : (prob < .66 ? p.ember : p.danger));
+        : (prob < .30 ? p.green : (prob < .60 ? p.ember : p.danger));
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -209,33 +210,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   cut ? p.danger : p.green,
                   icon: cut ? Icons.local_fire_department : Icons.check_circle_outline),
           ]),
-          const SizedBox(height: 16),
-          // BSI meter
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('BSI', style: TextStyle(fontSize: 13, color: p.muted, fontWeight: FontWeight.w600)),
-            const Spacer(),
-            Text(bsi.isNaN ? '–' : bsi.toStringAsFixed(1),
-                style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 30,
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                    color: bsiColor)),
-          ]),
-          const SizedBox(height: 9),
-          _sevBar(p, bsi.isNaN ? 0 : (bsi / 10).clamp(0, 1)),
-          const SizedBox(height: 5),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(tr('경미', 'Minor'),
-                style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
-            Text(tr('심함', 'Severe'),
-                style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: p.muted)),
-          ]),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, color: p.line),
-          ),
-          // mortality gauge
+          const SizedBox(height: 14),
           Row(children: [
             _ArcGauge(
               value: prob.isNaN ? 0 : prob,
@@ -253,56 +228,39 @@ class _ResultScreenState extends State<ResultScreen> {
                     Text(tr('고사 확률', 'Mortality'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15)),
-                    if (prob.isNaN) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                          d.dbhCm > 0
-                              ? tr('판정표 범위를 벗어났습니다',
-                                  'Outside the table range')
-                              : tr('흉고직경을 입력하면 판정됩니다',
-                                  'Enter DBH to evaluate'),
-                          style: TextStyle(fontSize: 11.5, color: p.muted)),
-                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                        prob.isNaN
+                            ? (d.dbhCm > 0
+                                ? tr('판정표 범위를 벗어났습니다',
+                                    'Outside the table range')
+                                : tr('흉고직경을 입력하면 판정됩니다',
+                                    'Enter DBH to evaluate'))
+                            : tr('30 % 이상이면 벌채 권고',
+                                'Fell recommended at 30 % or above'),
+                        style: TextStyle(fontSize: 11.5, color: p.muted)),
+                    const SizedBox(height: 10),
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('BSI',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: p.muted,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 10),
+                      Text(bsi.isNaN ? '–' : bsi.toStringAsFixed(1),
+                          style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 26,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                              color: p.ink)),
+                    ]),
                   ]),
             ),
           ]),
         ]),
       ),
     );
-  }
-
-  Widget _sevBar(AppPalette p, double frac) {
-    return LayoutBuilder(builder: (_, c) {
-      final w = c.maxWidth;
-      return SizedBox(
-        height: 20,
-        child: Stack(clipBehavior: Clip.none, children: [
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              height: 10,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(colors: [p.green, p.ember, p.danger], stops: const [0, .55, 1]),
-              ),
-            ),
-          ),
-          Positioned(
-            left: (w * frac).clamp(0, w) - 2.5,
-            top: 0,
-            child: Container(
-              width: 5,
-              height: 20,
-              decoration: BoxDecoration(
-                color: p.ink,
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: p.surface, width: 2),
-              ),
-            ),
-          ),
-        ]),
-      );
-    });
   }
 
   Widget _faceChips(AppPalette p) {
