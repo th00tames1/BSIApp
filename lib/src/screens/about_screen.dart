@@ -36,13 +36,9 @@ class AboutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Card(
-            child: Column(children: [
-              _row(p, Icons.forest_outlined, 'Oregon State University',
-                  'Advanced Forestry Systems Lab'),
-              Divider(height: 1, color: p.line),
-              _row(p, Icons.code, tr('개발', 'Developed by'),
-                  tr('정희찬 · 우희성', 'Heechan Jeong · Heesung Woo')),
-            ]),
+            child: _row(p, Icons.forest_outlined, 'Oregon State University',
+                tr('Advanced Forestry Systems Lab · 정희찬 · 우희성',
+                    'Advanced Forestry Systems Lab · Heechan Jeong · Heesung Woo')),
           ),
           const SizedBox(height: 14),
           _bsiCard(p),
@@ -51,35 +47,11 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  /// BSI 정의는 원 논문 표기를 그대로 두고 인용 양식으로 출처를 붙인다.
+  /// 판정 방법의 출처. 공식 등 세부는 논문에 맡기고 인용만 남긴다.
   Widget _bsiCard(AppPalette p) => Card(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(Icons.functions, size: 22, color: p.navy),
-              const SizedBox(width: 12),
-              Text(tr('수피 그을음 지수 (BSI)', 'Bark Scorch Index (BSI)'),
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-            ]),
-            const SizedBox(height: 12),
-            // 아래첨자는 monospace에 글리프가 없어 깨진다. 본문 글꼴로 둔다.
-            Text('BSI = Σ (Hᵢ × Rᵢ),   i ∈ {N, E, S, W}',
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    height: 1.5,
-                    color: p.ink)),
-            const SizedBox(height: 8),
-            Text(
-                tr('Hᵢ = 방위 i의 그을음 최고 높이 (m),   Rᵢ = 방위 i의 그을음 면적 비율',
-                    'Hᵢ = maximum scorch height on aspect i (m),   '
-                        'Rᵢ = scorched area ratio on aspect i'),
-                style: TextStyle(fontSize: 12, height: 1.5, color: p.muted)),
-            const SizedBox(height: 14),
-            Divider(height: 1, color: p.line),
-            const SizedBox(height: 12),
             Text(tr('출처', 'Reference'),
                 style: TextStyle(
                     fontSize: 11,

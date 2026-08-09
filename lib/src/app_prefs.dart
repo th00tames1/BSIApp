@@ -57,8 +57,13 @@ final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.light);
 final ValueNotifier<bool> showGuides = ValueNotifier(true);
 /// Map basemap: false = 일반(OSM), true = 위성(Esri World Imagery).
 final ValueNotifier<bool> satelliteBasemap = ValueNotifier(false);
+/// 개발자 모드: 지도의 현재 위치 버튼을 7번 연속 누르면 켜지고/꺼진다.
+/// 켜져 있어야만 설정의 시험 섹션(예시 사진 시험·시연 모드)이 보인다.
+final ValueNotifier<bool> devMode = ValueNotifier(false);
+
 /// 시연 모드: 조사목 추가 시 예시 사진이 북→동→남→서 순으로 자동 촬영되고
 /// 분석 → 판정표 → 저장 → 조사 기록까지 손대지 않고 이어진다(영상 촬영용).
+/// 개발자 모드가 꺼지면 함께 꺼진다.
 final ValueNotifier<bool> demoMode = ValueNotifier(false);
 
 /// 시연 모드에서 결과가 방금 자동 저장됐다는 1회성 신호. 지도 화면이 읽고
@@ -116,7 +121,9 @@ Future<void> loadPrefs() async {
       sp.getString('theme') == 'dark' ? ThemeMode.dark : ThemeMode.light;
   showGuides.value = sp.getBool('showGuides') ?? true;
   satelliteBasemap.value = sp.getBool('satelliteBasemap') ?? false;
-  demoMode.value = sp.getBool('demoMode') ?? false;
+  devMode.value = sp.getBool('devMode') ?? false;
+  // 개발자 모드가 꺼져 있으면 시연 모드도 반드시 꺼진 상태로 시작한다.
+  demoMode.value = devMode.value && (sp.getBool('demoMode') ?? false);
   appLang.value = langFromCode(sp.getString('lang'));
 }
 
@@ -234,4 +241,10 @@ void setSatelliteBasemap(bool v) {
 void setDemoMode(bool v) {
   demoMode.value = v;
   _sp?.setBool('demoMode', v);
+}
+
+void setDevMode(bool v) {
+  devMode.value = v;
+  _sp?.setBool('devMode', v);
+  if (!v) setDemoMode(false); // 개발자 모드를 끄면 시연 모드도 끈다
 }

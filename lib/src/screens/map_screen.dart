@@ -178,7 +178,33 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _resume = null);
   }
 
+  // 개발자 모드 진입: 현재 위치 버튼을 2초 안에 7번 연속 누르면 토글된다.
+  int _devTaps = 0;
+  DateTime? _lastDevTap;
+
+  void _countDevTap() {
+    final now = DateTime.now();
+    if (_lastDevTap == null ||
+        now.difference(_lastDevTap!) > const Duration(seconds: 2)) {
+      _devTaps = 0;
+    }
+    _lastDevTap = now;
+    if (++_devTaps < 7) return;
+    _devTaps = 0;
+    setDevMode(!devMode.value);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(devMode.value
+            ? tr('개발자 모드가 켜졌습니다', 'Developer mode enabled')
+            : tr('개발자 모드가 꺼졌습니다', 'Developer mode disabled')),
+        duration: const Duration(milliseconds: 1600),
+      ));
+  }
+
   Future<void> _locate() async {
+    _countDevTap();
     _didInitialLocate = true;   // 수동으로 눌렀으면 자동 이동은 더 필요 없다
     final pos = await LocationService.current();
     if (!mounted) return;

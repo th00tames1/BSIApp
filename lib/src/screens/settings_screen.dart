@@ -77,33 +77,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   )),
             ]),
           ),
-          _section(p, tr('시험', 'TRY IT')),
-          Card(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _busy ? null : _runDemo,
-              child: _row(p, Icons.science_outlined,
-                  tr('예시 사진으로 시험', 'Try with sample photos'),
-                  sub: tr('내장된 4방위 사진으로 분석 전체를 실행',
-                      'Run the full analysis on the four bundled photos'),
-                  trailing: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(Icons.chevron_right, color: p.muted)),
+          // 시험 섹션은 개발자 모드(지도의 현재 위치 버튼 7번 탭)에서만 보인다.
+          if (devMode.value) ...[
+            _section(p, tr('시험 (개발자)', 'TRY IT (DEVELOPER)')),
+            Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _busy ? null : _runDemo,
+                child: _row(p, Icons.science_outlined,
+                    tr('예시 사진으로 시험', 'Try with sample photos'),
+                    sub: tr('내장된 4방위 사진으로 분석 전체를 실행',
+                        'Run the full analysis on the four bundled photos'),
+                    trailing: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.chevron_right, color: p.muted)),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Card(
-            child: _row(p, Icons.smart_display_outlined, tr('시연 모드', 'Demo mode'),
-                sub: tr('조사목 추가 시 예시 사진으로 촬영→분석→판정표→기록까지 자동 진행',
-                    'New tree auto-runs capture→analysis→table→records with sample photos'),
-                trailing: Switch(
-                  value: demoMode.value,
-                  onChanged: (v) => setState(() => setDemoMode(v)),
-                )),
-          ),
+            const SizedBox(height: 14),
+            Card(
+              child: _row(p, Icons.smart_display_outlined, tr('시연 모드', 'Demo mode'),
+                  sub: tr('조사목 추가 시 예시 사진으로 촬영→분석→판정표→기록까지 자동 진행',
+                      'New tree auto-runs capture→analysis→table→records with sample photos'),
+                  trailing: Switch(
+                    value: demoMode.value,
+                    onChanged: (v) => setState(() => setDemoMode(v)),
+                  )),
+            ),
+          ],
           _section(p, tr('판정 기준', 'DECISION CRITERIA')),
           Card(
             child: InkWell(
