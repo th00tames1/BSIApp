@@ -95,6 +95,9 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   /// 영상 촬영용 자동 시연. 방위마다 예시 사진이 뷰파인더에 뜨고, 잠시 뒤
   /// 플래시와 함께 "촬영"된다. 4방위가 채워지면 AI 분석으로 넘어간다.
   Future<void> _runDemoCapture() async {
+    // 시연 기록도 지도에 찍히도록 현재 위치를 나무 좌표로 쓴다(영상 촬영용).
+    // 촬영 시퀀스와 병렬로 잡고, 분석 진입을 오래 막지 않게 5초까지만 기다린다.
+    final fix = LocationService.current();
     await Future.delayed(const Duration(milliseconds: 1600)); // 화면 정착 대기
     for (final a in _clockwise) {
       if (!mounted) return;
@@ -109,6 +112,13 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       saveDraftJson(d.toJsonString());
       setState(() => _flash = false);
       await Future.delayed(const Duration(milliseconds: 700));
+    }
+    final pos =
+        await fix.timeout(const Duration(seconds: 5), onTimeout: () => null);
+    if (pos != null) {
+      d.lat = pos.latitude;
+      d.lon = pos.longitude;
+      saveDraftJson(d.toJsonString());
     }
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 600));
