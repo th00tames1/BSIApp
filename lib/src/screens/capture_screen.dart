@@ -9,10 +9,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
+import '../services/demo_sample.dart';
 import '../services/location_service.dart';
 import '../theme.dart';
 import 'analysis_screen.dart';
@@ -27,6 +29,7 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserver {
   CameraController? _controller;
   bool _initing = true;
+  bool _camStarting = false; // 초기화 중복 진입 방지 (권한 대화상자의 resume이 재호출함)
   String? _error;
   Azimuth _selected = Azimuth.north;
   bool _busy = false;
@@ -70,6 +73,31 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     _initCamera();
     _startGps();
     _startCompass();
+    // 시연 모드: 예시 사진을 북→동→남→서 순으로 자동 "촬영"하고 분석까지 잇는다.
+    if (demoMode.value && d.photos.isEmpty) _runDemoCapture();
+  }
+
+  /// 영상 촬영용 자동 시연. 각 방위를 차례로 선택해 잠깐 머문 뒤 예시 사진을
+  /// 배정하고, 4방위가 채워지면 AI 분석으로 넘어간다.
+  Future<void> _runDemoCapture() async {
+    await Future.delayed(const Duration(milliseconds: 1800)); // 프리뷰 정착 대기
+    for (final a in _clockwise) {
+      if (!mounted) return;
+      setState(() => _selected = a);
+      await Future.delayed(const Duration(milliseconds: 1100));
+      if (!mounted) return;
+      setState(() => _busy = true); // 셔터 스피너 = 촬영하는 것처럼 보이게
+      await Future.delayed(const Duration(milliseconds: 700));
+      final dest = await DemoSample.photoFor(a, d.treeId);
+      if (!mounted) return;
+      d.photos[a] = dest;
+      saveDraftJson(d.toJsonString());
+      setState(() => _busy = false);
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 700));
+    _goAnalyse();
   }
 
   void _startCompass() {
@@ -121,18 +149,26 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       }
       if (mounted) setState(() {});
     } else if (state == AppLifecycleState.resumed) {
-      if (_controller == null) _initCamera();
+      if (_controller == null && !_camStarting) _initCamera();
       if (_posSub == null) _startGps();
       if (_compassSub == null) _startCompass();
     }
   }
 
   Future<void> _initCamera() async {
+    if (_camStarting) return;
+    _camStarting = true;
     setState(() {
       _initing = true;
       _error = null;
     });
     try {
+      // 권한은 컨트롤러 생성 전에 직접 요청한다. initialize() 도중에 권한
+      // 대화상자가 뜨면 resume 시 초기화가 겹쳐 플러그인이 null 오류로 죽는다.
+      final st = await Permission.camera.request();
+      if (!st.isGranted) {
+        throw StateError(tr('카메라 권한이 필요합니다', 'Camera permission is required'));
+      }
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         throw StateError(tr('사용 가능한 카메라가 없습니다', 'No camera available'));
@@ -141,7 +177,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await controller.initialize();
       await controller.setFlashMode(FlashMode.off);
-      if (!mounted) return;
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
       setState(() {
         _controller = controller;
         _initing = false;
@@ -152,6 +191,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         _error = '$e';
         _initing = false;
       });
+    } finally {
+      _camStarting = false;
     }
   }
 

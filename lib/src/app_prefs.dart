@@ -57,6 +57,13 @@ final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.light);
 final ValueNotifier<bool> showGuides = ValueNotifier(true);
 /// Map basemap: false = 일반(OSM), true = 위성(Esri World Imagery).
 final ValueNotifier<bool> satelliteBasemap = ValueNotifier(false);
+/// 시연 모드: 조사목 추가 시 예시 사진이 북→동→남→서 순으로 자동 촬영되고
+/// 분석 → 판정표 → 저장 → 조사 기록까지 손대지 않고 이어진다(영상 촬영용).
+final ValueNotifier<bool> demoMode = ValueNotifier(false);
+
+/// 시연 모드에서 결과가 방금 자동 저장됐다는 1회성 신호. 지도 화면이 읽고
+/// 조사 기록 화면을 이어서 연다(popUntil 뒤에는 결과 화면이 열 수 없다).
+bool demoTourSaved = false;
 
 SharedPreferences? _sp;
 
@@ -109,6 +116,7 @@ Future<void> loadPrefs() async {
       sp.getString('theme') == 'dark' ? ThemeMode.dark : ThemeMode.light;
   showGuides.value = sp.getBool('showGuides') ?? true;
   satelliteBasemap.value = sp.getBool('satelliteBasemap') ?? false;
+  demoMode.value = sp.getBool('demoMode') ?? false;
   appLang.value = langFromCode(sp.getString('lang'));
 }
 
@@ -221,4 +229,9 @@ void setShowGuides(bool v) {
 void setSatelliteBasemap(bool v) {
   satelliteBasemap.value = v;
   _sp?.setBool('satelliteBasemap', v);
+}
+
+void setDemoMode(bool v) {
+  demoMode.value = v;
+  _sp?.setBool('demoMode', v);
 }

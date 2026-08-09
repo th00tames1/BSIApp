@@ -48,6 +48,23 @@ class _ResultScreenState extends State<ResultScreen> {
         _setDbh(_dbh.text);
       });
     }
+    // 시연 모드: 결과를 잠시 보여준 뒤 판정표를 띄웠다 닫고 자동 저장한다.
+    if (demoMode.value) _runDemoTour();
+  }
+
+  Future<void> _runDemoTour() async {
+    await Future.delayed(const Duration(milliseconds: 3200)); // 결과 읽을 시간
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    nav.push(MaterialPageRoute(
+        builder: (_) =>
+            BsiTableScreen(bsi: d.integ?.bsi ?? double.nan, dbhCm: d.dbhCm)));
+    await Future.delayed(const Duration(milliseconds: 4000)); // 판정표 확인 시간
+    if (!mounted) return;
+    nav.pop(); // 판정표 닫기 → 결과 화면
+    await Future.delayed(const Duration(milliseconds: 1000));
+    if (!mounted || _saving) return;
+    _save();
   }
 
   @override
@@ -86,6 +103,8 @@ class _ResultScreenState extends State<ResultScreen> {
     }
     if (!mounted) return;
     setState(() => _saving = false);
+    // 시연 모드: 지도 화면이 이 신호를 보고 조사 기록 화면을 이어서 연다.
+    if (demoMode.value) demoTourSaved = true;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(

@@ -155,6 +155,12 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted) return;
     _refreshResume();
     _load(); // refresh pins after a tree is saved
+    // 시연 모드의 마지막 단계: 방금 자동 저장된 조사를 기록 리스트로 보여준다.
+    if (demoTourSaved) {
+      demoTourSaved = false;
+      await Future.delayed(const Duration(milliseconds: 1100));
+      if (mounted) _openRecords();
+    }
   }
 
   Future<void> _resumeSurvey() async {

@@ -5,8 +5,8 @@ import '../l10n.dart';
 import '../services/demo_sample.dart';
 import '../theme.dart';
 import 'about_screen.dart';
+import 'analysis_screen.dart';
 import 'bsi_table_screen.dart';
-import 'capture_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,15 +17,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
 
-  /// 내장 예시 사진 4장을 실제 조사처럼 불러와 촬영 화면으로 보낸다.
-  /// 거기서 "AI 분석"을 누르면 촬영본과 완전히 같은 경로를 탄다.
+  /// 내장 예시 사진 4장을 불러와 바로 AI 분석을 실행한다. 촬영 화면을 거치지
+  /// 않으므로 카메라 권한 없이도 전체 분석 파이프라인을 시험할 수 있다.
   Future<void> _runDemo() async {
     setState(() => _busy = true);
     try {
       final draft = await DemoSample.createDraft();
       if (!mounted) return;
       await Navigator.push(context,
-          MaterialPageRoute(builder: (_) => CaptureScreen(draft: draft)));
+          MaterialPageRoute(builder: (_) => AnalysisScreen(draft: draft)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -93,6 +93,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : Icon(Icons.chevron_right, color: p.muted)),
             ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: _row(p, Icons.smart_display_outlined, tr('시연 모드', 'Demo mode'),
+                sub: tr('조사목 추가 시 예시 사진으로 촬영→분석→판정표→기록까지 자동 진행',
+                    'New tree auto-runs capture→analysis→table→records with sample photos'),
+                trailing: Switch(
+                  value: demoMode.value,
+                  onChanged: (v) => setState(() => setDemoMode(v)),
+                )),
           ),
           _section(p, tr('판정 기준', 'DECISION CRITERIA')),
           Card(

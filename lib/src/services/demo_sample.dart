@@ -23,6 +23,18 @@ class DemoSample {
 
   static int get faceCount => _assets.length;
 
+  /// 한 방위의 예시 사진만 앱 문서 폴더로 풀어 경로를 돌려준다.
+  /// 시연 모드의 순차 "촬영"이 실제 촬영과 같은 저장 경로를 타게 한다.
+  static Future<String> photoFor(Azimuth az, String treeId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final destDir = Directory(p.join(dir.path, 'photos'));
+    if (!destDir.existsSync()) destDir.createSync(recursive: true);
+    final bytes = await rootBundle.load(_assets[az]!);
+    final dest = p.join(destDir.path, '${treeId}_${az.code}_demo.jpg');
+    await File(dest).writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+    return dest;
+  }
+
   /// 에셋을 앱 문서 폴더로 풀어 4방위가 채워진 조사를 만든다.
   ///
   /// 촬영 지점 GPS가 없으므로 좌표는 비어 있고(지도 핀 없음), 그 외에는 실제

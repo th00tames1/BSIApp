@@ -9,9 +9,24 @@ import '../services/db_service.dart';
 import '../theme.dart';
 
 /// Detail view for a saved survey record (opened from the map pin / 기록).
-class SavedScreen extends StatelessWidget {
+class SavedScreen extends StatefulWidget {
   final SurveyRecord record;
   const SavedScreen({super.key, required this.record});
+  @override
+  State<SavedScreen> createState() => _SavedScreenState();
+}
+
+class _SavedScreenState extends State<SavedScreen> {
+  final _pager = PageController();
+  int _page = 0;
+
+  SurveyRecord get record => widget.record;
+
+  @override
+  void dispose() {
+    _pager.dispose();
+    super.dispose();
+  }
 
   Future<void> _delete(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -39,6 +54,8 @@ class SavedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final cut = record.verdict == '벌채';
+    final faces =
+        record.faces.where((f) => (f.overlayPath ?? f.imagePath) != null).toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('조사목 상세', 'Tree detail')),
@@ -79,7 +96,13 @@ class SavedScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Text(record.site, style: TextStyle(color: p.muted, fontSize: 13)),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          if (faces.isNotEmpty) ...[
+            _photoPager(p, faces),
+            const SizedBox(height: 8),
+            _dots(p, faces.length),
+            const SizedBox(height: 10),
+          ],
           Card(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -101,62 +124,101 @@ class SavedScreen extends StatelessWidget {
               ]),
             ),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => _PhotoViewer(record: record))),
-            child: Text(tr('결과 사진 보기', 'View result photos')),
-          ),
         ],
       ),
     );
   }
 
-  Widget _row(AppPalette p, IconData ic, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(children: [
-          Icon(ic, size: 20, color: p.green),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 13.5, color: p.muted))),
-          Text(value,
-              style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 15.5, fontWeight: FontWeight.w700)),
-        ]),
-      );
-}
-
-class _PhotoViewer extends StatelessWidget {
-  final SurveyRecord record;
-  const _PhotoViewer({required this.record});
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final faces =
-        record.faces.where((f) => (f.overlayPath ?? f.imagePath) != null).toList();
-    return Scaffold(
-      appBar: AppBar(title: Text(tr('결과 사진', 'Result photos'))),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
+  /// 결과 사진을 표 위에 바로 띄우고 옆으로 넘겨 본다.
+  /// 각 장에 방위와 그을음 비율을 함께 표시한다.
+  Widget _photoPager(AppPalette p, List<AzimuthResult> faces) {
+    final h = (MediaQuery.of(context).size.height * 0.38).clamp(240.0, 420.0);
+    return SizedBox(
+      height: h,
+      child: PageView.builder(
+        controller: _pager,
         itemCount: faces.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        onPageChanged: (i) => setState(() => _page = i),
         itemBuilder: (_, i) {
           final f = faces[i];
           final path = f.overlayPath ?? f.imagePath!;
           final pct = f.sootProportion.isNaN
               ? '–'
               : '${(f.sootProportion * 100).round()}%';
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-                tr('${azimuthLabelFromCode(f.azimuth)} · 그을음 비율 $pct',
-                    '${azimuthLabelFromCode(f.azimuth)} · Char ratio $pct'),
-                style: TextStyle(fontWeight: FontWeight.w700, color: p.ink)),
-            const SizedBox(height: 8),
-            ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(File(path), fit: BoxFit.contain)),
-          ]);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(fit: StackFit.expand, children: [
+                Image.file(File(path), fit: BoxFit.cover),
+                Positioned(
+                  left: 10,
+                  top: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: const Color(0xB3080C12),
+                        borderRadius: BorderRadius.circular(999)),
+                    child: Text(
+                        tr('${azimuthLabelFromCode(f.azimuth)} · 그을음 $pct',
+                            '${azimuthLabelFromCode(f.azimuth)} · Char $pct'),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: const Color(0xB3080C12),
+                        borderRadius: BorderRadius.circular(999)),
+                    child: Text('${i + 1}/${faces.length}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'monospace',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ]),
+            ),
+          );
         },
       ),
     );
   }
+
+  Widget _dots(AppPalette p, int n) {
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      for (int i = 0; i < n; i++)
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: i == _page ? 18 : 7,
+          height: 7,
+          decoration: BoxDecoration(
+              color: i == _page ? p.navy : p.line,
+              borderRadius: BorderRadius.circular(999)),
+        ),
+    ]);
+  }
+
+  // 사진이 위 공간을 차지하는 만큼 표는 세로만 살짝 줄였다(좌우 여백은 유지).
+  Widget _row(AppPalette p, IconData ic, String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(children: [
+          Icon(ic, size: 18, color: p.green),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: p.muted))),
+          Text(value,
+              style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w700)),
+        ]),
+      );
 }
