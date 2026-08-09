@@ -601,7 +601,7 @@ class _MapScreenState extends State<MapScreen> {
               padding: const EdgeInsets.only(left: 10, bottom: 34),
               child: Scalebar(
                 alignment: Alignment.bottomLeft,
-                length: ScalebarLength.m, // 한 단계 = 2배 (s에서 2배 길이)
+                length: ScalebarLength.m, // s보다 눈금 한 단계 위 (줌에 따라 약 1.7~2.5배)
                 strokeWidth: 2,
                 lineHeight: 5,
                 lineColor: sat ? Colors.white : const Color(0xFF3C4655),

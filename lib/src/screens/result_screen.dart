@@ -49,7 +49,8 @@ class _ResultScreenState extends State<ResultScreen> {
       });
     }
     // 시연 모드: 결과를 잠시 보여준 뒤 판정표를 띄웠다 닫고 자동 저장한다.
-    if (demoMode.value) _runDemoTour();
+    // "예시 사진으로 시험"으로 들어온 경우는 확인이 목적이므로 돌리지 않는다.
+    if (demoMode.value && !d.isSample) _runDemoTour();
   }
 
   Future<void> _runDemoTour() async {
@@ -91,7 +92,8 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _saving = true);
     try {
       await DbService.instance.insert(d.toRecord());
-      await clearDraft(); // survey saved — no longer an in-progress draft
+      // 예시 조사 저장이 진행 중이던 실제 조사 초안을 지우면 안 된다.
+      if (!d.isSample) await clearDraft();
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -104,7 +106,7 @@ class _ResultScreenState extends State<ResultScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     // 시연 모드: 지도 화면이 이 신호를 보고 조사 기록 화면을 이어서 연다.
-    if (demoMode.value) demoTourSaved = true;
+    if (demoMode.value && !d.isSample) demoTourSaved = true;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(

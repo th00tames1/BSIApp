@@ -53,7 +53,8 @@ class DemoSample {
     final draft = SurveyDraft()
       ..treeId = treeId
       ..site = site
-      ..address = '';
+      ..address = ''
+      ..isSample = true;
 
     for (final e in _assets.entries) {
       final bytes = await rootBundle.load(e.value);

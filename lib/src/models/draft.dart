@@ -23,6 +23,10 @@ class SurveyDraft {
   /// 수고봉 1 m 경계 검출 모델(스케일 산출). 없으면 노란픽셀 휴리스틱으로 내려간다.
   String poleModelAsset = 'assets/models/pole_boundary_640.onnx';
 
+  /// 설정의 "예시 사진으로 시험"으로 만든 조사인지. 예시 조사는 시연 모드의
+  /// 자동 투어를 돌리지 않고, 저장해도 진행 중이던 실제 조사 초안을 지우지 않는다.
+  bool isSample = false;
+
   final Map<Azimuth, String> photos = {}; // captured photo path per azimuth
   // Per-azimuth standpoint fix: dwell-averaged position + its scatter (m).
   final Map<Azimuth, ({double lat, double lon, double sigma})> photoPos = {};

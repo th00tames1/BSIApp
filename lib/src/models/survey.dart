@@ -143,10 +143,13 @@ class SurveyRecord {
     required this.createdAt,
   });
 
+  /// [clearGps]가 참이면 lat/lon을 null로 지운다 — `lat ?? this.lat` 방식으로는
+  /// 한 번 들어간 좌표를 지울 방법이 없기 때문.
   SurveyRecord copyWith({
     int? dbId,
     double? lat,
     double? lon,
+    bool clearGps = false,
     String? species,
     double? dbhCm,
     double? heightM,
@@ -161,8 +164,8 @@ class SurveyRecord {
         treeId: treeId,
         site: site,
         address: address,
-        lat: lat ?? this.lat,
-        lon: lon ?? this.lon,
+        lat: clearGps ? null : lat ?? this.lat,
+        lon: clearGps ? null : lon ?? this.lon,
         species: species ?? this.species,
         dbhCm: dbhCm ?? this.dbhCm,
         heightM: heightM ?? this.heightM,
@@ -176,6 +179,24 @@ class SurveyRecord {
         verdict: verdict ?? this.verdict,
         createdAt: createdAt,
       );
+
+  double _maxOf(double Function(AzimuthResult) pick) {
+    double best = double.nan;
+    for (final f in faces) {
+      final v = pick(f);
+      if (v.isNaN) continue;
+      if (best.isNaN || v > best) best = v;
+    }
+    return best;
+  }
+
+  /// 화면·CSV가 쓰는 유효 수고: 수정값이 있으면 그것, 없으면 방위별 최대.
+  double get effectiveHeightM =>
+      heightM.isNaN ? _maxOf((f) => f.visibleStemHeightM) : heightM;
+
+  /// 화면·CSV가 쓰는 유효 그을음 최고 높이.
+  double get effectiveSootMaxM =>
+      sootMaxM.isNaN ? _maxOf((f) => f.sootHeightM) : sootMaxM;
 
   Map<String, dynamic> toMap() => {
         if (dbId != null) 'id': dbId,
