@@ -70,6 +70,10 @@ final ValueNotifier<bool> demoMode = ValueNotifier(false);
 /// 조사 기록 화면을 이어서 연다(popUntil 뒤에는 결과 화면이 열 수 없다).
 bool demoTourSaved = false;
 
+/// 마지막으로 선택한 수종 — 같은 조사지는 대개 같은 수종이므로
+/// 다음 조사목의 기본값으로 이어진다.
+final ValueNotifier<String> lastSpecies = ValueNotifier('소나무');
+
 SharedPreferences? _sp;
 
 Future<void> loadPrefs() async {
@@ -124,6 +128,7 @@ Future<void> loadPrefs() async {
   devMode.value = sp.getBool('devMode') ?? false;
   // 개발자 모드가 꺼져 있으면 시연 모드도 반드시 꺼진 상태로 시작한다.
   demoMode.value = devMode.value && (sp.getBool('demoMode') ?? false);
+  lastSpecies.value = sp.getString('lastSpecies') ?? '소나무';
   appLang.value = langFromCode(sp.getString('lang'));
 }
 
@@ -247,4 +252,10 @@ void setDevMode(bool v) {
   devMode.value = v;
   _sp?.setBool('devMode', v);
   if (!v) setDemoMode(false); // 개발자 모드를 끄면 시연 모드도 끈다
+}
+
+void setLastSpecies(String s) {
+  if (s.isEmpty) return;
+  lastSpecies.value = s;
+  _sp?.setString('lastSpecies', s);
 }

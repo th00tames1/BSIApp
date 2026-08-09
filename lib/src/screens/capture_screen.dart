@@ -642,6 +642,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       species = t;
     }
     setState(() => d.species = species);
+    setLastSpecies(species); // 다음 조사목의 기본 수종으로 이어진다
     if (d.isInProgress) saveDraftJson(d.toJsonString());
   }
 

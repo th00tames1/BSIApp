@@ -149,7 +149,8 @@ class _MapScreenState extends State<MapScreen> {
     final draft = SurveyDraft()
       ..treeId = nextTreeSeq().toString().padLeft(3, '0')
       ..site = projectSite.value ?? ''
-      ..address = projectLocation.value;
+      ..address = projectLocation.value
+      ..species = lastSpecies.value; // 직전 조사목에서 고른 수종을 이어받는다
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => CaptureScreen(draft: draft)));
     if (!mounted) return;

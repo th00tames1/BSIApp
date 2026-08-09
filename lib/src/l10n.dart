@@ -21,18 +21,26 @@ String speciesLabel(String species) {
   return species == '소나무' ? tr('소나무', 'Korean red pine') : species;
 }
 
-/// 주요 수종 목록(산불 피해 조사 대상 위주). 저장 값은 한국어로 통일한다 —
+/// 국내 산림 주요 수종(침엽수 → 활엽수 순). 저장 값은 한국어로 통일한다 —
 /// 화면 표기만 [speciesLabel]로 바꾼다. 목록에 없으면 직접 입력을 받는다.
 const List<String> majorSpecies = [
+  // 침엽수
   '소나무',
   '곰솔',
   '잣나무',
+  '전나무',
   '낙엽송',
   '리기다소나무',
+  '편백',
+  '삼나무',
+  // 활엽수
   '상수리나무',
   '굴참나무',
   '신갈나무',
-  '기타 활엽수',
+  '졸참나무',
+  '밤나무',
+  '자작나무',
+  '아까시나무',
 ];
 
 extension AppLangX on AppLang {
