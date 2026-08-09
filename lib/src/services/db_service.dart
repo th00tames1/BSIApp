@@ -16,7 +16,7 @@ class DbService {
     final path = p.join(dir.path, 'bsi_field.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, v) async {
         await db.execute('''
           CREATE TABLE surveys (
@@ -28,6 +28,8 @@ class DbService {
             lon REAL,
             species TEXT,
             dbhCm REAL,
+            heightM REAL,
+            sootMaxM REAL,
             memo TEXT,
             modelName TEXT,
             poleLengthM REAL,
@@ -39,6 +41,13 @@ class DbService {
           )
         ''');
       },
+      onUpgrade: (db, from, to) async {
+        if (from < 2) {
+          // 조사목 상세에서 수정 가능한 수고·그을음 높이(레코드 단위) 열 추가.
+          await db.execute('ALTER TABLE surveys ADD COLUMN heightM REAL');
+          await db.execute('ALTER TABLE surveys ADD COLUMN sootMaxM REAL');
+        }
+      },
     );
     return _db!;
   }
@@ -46,6 +55,13 @@ class DbService {
   Future<int> insert(SurveyRecord r) async {
     final db = await _database;
     return db.insert('surveys', r.toMap());
+  }
+
+  /// 조사목 상세에서 수정한 값(수종·흉고직경·수고·그을음 높이 등)을 반영한다.
+  Future<void> update(SurveyRecord r) async {
+    if (r.dbId == null) return;
+    final db = await _database;
+    await db.update('surveys', r.toMap(), where: 'id = ?', whereArgs: [r.dbId]);
   }
 
   Future<List<SurveyRecord>> all() async {

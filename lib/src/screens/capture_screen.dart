@@ -52,11 +52,11 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   String? _notice;
   Timer? _noticeTimer;
 
-  void _showNotice(String msg) {
+  void _showNotice(String msg, {int ms = 2200}) {
     _noticeTimer?.cancel();
     if (!mounted) return;
     setState(() => _notice = msg);
-    _noticeTimer = Timer(const Duration(milliseconds: 2200), () {
+    _noticeTimer = Timer(Duration(milliseconds: ms), () {
       if (mounted) setState(() => _notice = null);
     });
   }
@@ -83,6 +83,13 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     }
     _startGps();
     _startCompass();
+    // 상시 배지 대신 진입 시 한 번만 안내하고 사라진다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showNotice(
+          tr('수고봉이 화면에 보이게 촬영해 주세요',
+              'Keep the measuring pole in frame when shooting'),
+          ms: 3200);
+    });
   }
 
   /// 영상 촬영용 자동 시연. 방위마다 예시 사진이 뷰파인더에 뜨고, 잠시 뒤
@@ -395,12 +402,18 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // full-height 수고봉 정렬선 (설정에서 끔)
+        // 수고봉 정렬선 (설정에서 끔) — 프리뷰 이미지 영역 안에만 그린다.
         if (showGuides.value)
           Positioned.fill(
             child: IgnorePointer(
               child: Center(
-                child: Container(width: 2, color: _pole.withValues(alpha: 0.85)),
+                child: AspectRatio(
+                  aspectRatio: _previewAspect,
+                  child: Center(
+                    child:
+                        Container(width: 2, color: _pole.withValues(alpha: 0.85)),
+                  ),
+                ),
               ),
             ),
           ),
@@ -433,6 +446,26 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                     ]),
                   ),
                 ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _pickSpecies,
+                  child: _Scrim(
+                    radius: 999,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.forest_outlined,
+                          size: 14, color: Colors.white70),
+                      const SizedBox(width: 5),
+                      Text(speciesLabel(d.species),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700)),
+                      const Icon(Icons.arrow_drop_down,
+                          size: 16, color: Colors.white70),
+                    ]),
+                  ),
+                ),
                 const Spacer(),
                 const SizedBox(width: 42), // balance the back button
               ]),
@@ -440,9 +473,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // real device compass (top-right) + 수고봉 hint (top-left)
+        // real device compass (top-right)
         Positioned(top: padTop + 50, right: 14, child: _DeviceCompass(heading: _heading)),
-        Positioned(top: padTop + 52, left: 14, child: _hintChip()),
 
         // 안내 문구 — 하단 컨트롤을 가리지 않도록 화면 위쪽에 띄운다.
         if (_notice != null)
@@ -560,18 +592,57 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _hintChip() {
-    return _Scrim(
-      radius: 999,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.straighten, size: 15, color: _pole),
-        const SizedBox(width: 6),
-        Text(tr('수고봉이 화면에 보이게', 'Keep the measuring pole in frame'),
-            style: const TextStyle(
-                color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
-      ]),
+  /// 수종 선택 — 주요 수종 목록에서 고르거나 직접 입력한다.
+  Future<void> _pickSpecies() async {
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          for (final s in majorSpecies)
+            ListTile(
+              dense: true,
+              leading: Icon(
+                  s == d.species
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 20),
+              title: Text(speciesLabel(s)),
+              onTap: () => Navigator.pop(context, s),
+            ),
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.edit_outlined, size: 20),
+            title: Text(tr('직접 입력', 'Enter manually')),
+            onTap: () => Navigator.pop(context, '__custom__'),
+          ),
+        ]),
+      ),
     );
+    if (v == null || !mounted) return;
+    var species = v;
+    if (v == '__custom__') {
+      final ctl = TextEditingController(text: d.species);
+      final t = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(tr('수종 입력', 'Species')),
+          content: TextField(controller: ctl, autofocus: true),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(tr('취소', 'Cancel'))),
+            TextButton(
+                onPressed: () => Navigator.pop(context, ctl.text.trim()),
+                child: Text(tr('확인', 'OK'))),
+          ],
+        ),
+      );
+      if (t == null || t.isEmpty || !mounted) return;
+      species = t;
+    }
+    setState(() => d.species = species);
+    if (d.isInProgress) saveDraftJson(d.toJsonString());
   }
 
   // compass with the shutter at the centre, 동/서/남/북 around it
@@ -688,6 +759,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         ),
       ),
     );
+  }
+
+  /// 뷰파인더(=찍히는 사진)의 세로 화면 기준 종횡비. 정렬선 등 오버레이가
+  /// 이미지 영역 밖(위아래 여백)으로 나가지 않도록 함께 쓴다.
+  double get _previewAspect {
+    if (_demo) return 3 / 4;
+    final ps = _controller?.value.previewSize;
+    return ps == null ? 3 / 4 : ps.height / ps.width;
   }
 
   Widget _preview() {

@@ -36,9 +36,26 @@ class AboutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Card(
-            child: _row(p, Icons.forest_outlined, 'Oregon State University',
-                tr('Advanced Forestry Systems Lab · 정희찬 · 우희성',
-                    'Advanced Forestry Systems Lab · Heechan Jeong · Heesung Woo')),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('개발자 정보', 'Developers'),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: p.muted)),
+                const SizedBox(height: 8),
+                const Text('Oregon State University',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                const SizedBox(height: 3),
+                Text('College of Forestry',
+                    style: TextStyle(fontSize: 13, color: p.ink)),
+                const SizedBox(height: 3),
+                Text('Heechan Jeong, Heesung Woo',
+                    style: TextStyle(fontSize: 13, color: p.ink)),
+              ]),
+            ),
           ),
           const SizedBox(height: 14),
           _bsiCard(p),
@@ -47,12 +64,12 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  /// 판정 방법의 출처. 공식 등 세부는 논문에 맡기고 인용만 남긴다.
+  /// BSI 공식의 출처. 공식 세부는 논문에 맡기고 인용만 남긴다.
   Widget _bsiCard(AppPalette p) => Card(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr('출처', 'Reference'),
+            Text(tr('BSI 공식 출처', 'BSI formula reference'),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -72,20 +89,4 @@ class AboutScreen extends StatelessWidget {
         ),
       );
 
-  Widget _row(AppPalette p, IconData ic, String t1, String t2) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        child: Row(children: [
-          Icon(ic, size: 22, color: p.navy),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(t1,
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-              const SizedBox(height: 2),
-              Text(t2, style: TextStyle(fontSize: 12, color: p.muted)),
-            ]),
-          ),
-        ]),
-      );
 }

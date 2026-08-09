@@ -109,6 +109,10 @@ class SurveyRecord {
   final double? lon;
   final String species; // 수종
   final double dbhCm; // 흉고직경 (user-entered, cm)
+  /// 수고 (m). NaN이면 방위별 계측값(visibleStemHeightM 최대)으로 표시한다.
+  final double heightM;
+  /// 그을음 최고 높이 (m). NaN이면 방위별 계측값(sootHeightM 최대)으로 표시한다.
+  final double sootMaxM;
   final String memo;
   final String modelName;
   final double poleLengthM; // measuring-pole real length used for scale
@@ -127,6 +131,8 @@ class SurveyRecord {
     this.lon,
     required this.species,
     required this.dbhCm,
+    this.heightM = double.nan,
+    this.sootMaxM = double.nan,
     this.memo = '',
     required this.modelName,
     this.poleLengthM = 3.0,
@@ -139,6 +145,10 @@ class SurveyRecord {
 
   SurveyRecord copyWith({
     int? dbId,
+    String? species,
+    double? dbhCm,
+    double? heightM,
+    double? sootMaxM,
     List<AzimuthResult>? faces,
     double? bsi,
     double? mortalityProb,
@@ -151,8 +161,10 @@ class SurveyRecord {
         address: address,
         lat: lat,
         lon: lon,
-        species: species,
-        dbhCm: dbhCm,
+        species: species ?? this.species,
+        dbhCm: dbhCm ?? this.dbhCm,
+        heightM: heightM ?? this.heightM,
+        sootMaxM: sootMaxM ?? this.sootMaxM,
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,
@@ -172,6 +184,8 @@ class SurveyRecord {
         'lon': lon,
         'species': species,
         'dbhCm': dbhCm,
+        'heightM': _n(heightM),
+        'sootMaxM': _n(sootMaxM),
         'memo': memo,
         'modelName': modelName,
         'poleLengthM': poleLengthM,
@@ -191,6 +205,8 @@ class SurveyRecord {
         lon: (m['lon'] as num?)?.toDouble(),
         species: m['species'] as String? ?? '',
         dbhCm: (m['dbhCm'] as num?)?.toDouble() ?? 0,
+        heightM: (m['heightM'] as num?)?.toDouble() ?? double.nan,
+        sootMaxM: (m['sootMaxM'] as num?)?.toDouble() ?? double.nan,
         memo: m['memo'] as String? ?? '',
         modelName: m['modelName'] as String? ?? '',
         poleLengthM: (m['poleLengthM'] as num?)?.toDouble() ?? 3.0,
