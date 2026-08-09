@@ -23,6 +23,9 @@ class DemoSample {
 
   static int get faceCount => _assets.length;
 
+  /// 시연 모드의 촬영 화면이 뷰파인더 배경으로 쓸 에셋 경로.
+  static String assetFor(Azimuth az) => _assets[az]!;
+
   /// 한 방위의 예시 사진만 앱 문서 폴더로 풀어 경로를 돌려준다.
   /// 시연 모드의 순차 "촬영"이 실제 촬영과 같은 저장 경로를 타게 한다.
   static Future<String> photoFor(Azimuth az, String treeId) async {

@@ -35,6 +35,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   bool _busy = false;
   final _picker = ImagePicker();
 
+  /// 시연 모드: 카메라 대신 예시 사진을 뷰파인더처럼 띄우고 자동 "촬영"한다.
+  late final bool _demo = demoMode.value && d.photos.isEmpty;
+  bool _flash = false; // 셔터 순간의 화면 플래시
+
   // GPS: tagged onto each shot (silently) so the tree gets a map coordinate.
   StreamSubscription<Position>? _posSub;
   final List<Position> _buf = []; // recent fixes, for dwell-averaging each shot
@@ -70,33 +74,37 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // Start (or resume) at the first azimuth still needed, going clockwise.
     _selected = _clockwise.firstWhere((a) => !d.photos.containsKey(a),
         orElse: () => Azimuth.north);
-    _initCamera();
+    // 시연 모드는 카메라를 아예 쓰지 않으므로 권한 요청도 화면에 안 나온다.
+    if (_demo) {
+      _initing = false;
+      _runDemoCapture();
+    } else {
+      _initCamera();
+    }
     _startGps();
     _startCompass();
-    // 시연 모드: 예시 사진을 북→동→남→서 순으로 자동 "촬영"하고 분석까지 잇는다.
-    if (demoMode.value && d.photos.isEmpty) _runDemoCapture();
   }
 
-  /// 영상 촬영용 자동 시연. 각 방위를 차례로 선택해 잠깐 머문 뒤 예시 사진을
-  /// 배정하고, 4방위가 채워지면 AI 분석으로 넘어간다.
+  /// 영상 촬영용 자동 시연. 방위마다 예시 사진이 뷰파인더에 뜨고, 잠시 뒤
+  /// 플래시와 함께 "촬영"된다. 4방위가 채워지면 AI 분석으로 넘어간다.
   Future<void> _runDemoCapture() async {
-    await Future.delayed(const Duration(milliseconds: 1800)); // 프리뷰 정착 대기
+    await Future.delayed(const Duration(milliseconds: 1600)); // 화면 정착 대기
     for (final a in _clockwise) {
       if (!mounted) return;
-      setState(() => _selected = a);
-      await Future.delayed(const Duration(milliseconds: 1100));
+      setState(() => _selected = a); // 뷰파인더가 이 방위의 나무 사진으로 바뀐다
+      await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
-      setState(() => _busy = true); // 셔터 스피너 = 촬영하는 것처럼 보이게
-      await Future.delayed(const Duration(milliseconds: 700));
+      setState(() => _flash = true); // 셔터 플래시
+      await Future.delayed(const Duration(milliseconds: 140));
       final dest = await DemoSample.photoFor(a, d.treeId);
       if (!mounted) return;
       d.photos[a] = dest;
       saveDraftJson(d.toJsonString());
-      setState(() => _busy = false);
-      await Future.delayed(const Duration(milliseconds: 500));
+      setState(() => _flash = false);
+      await Future.delayed(const Duration(milliseconds: 700));
     }
     if (!mounted) return;
-    await Future.delayed(const Duration(milliseconds: 700));
+    await Future.delayed(const Duration(milliseconds: 600));
     _goAnalyse();
   }
 
@@ -149,7 +157,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       }
       if (mounted) setState(() {});
     } else if (state == AppLifecycleState.resumed) {
-      if (_controller == null && !_camStarting) _initCamera();
+      if (_controller == null && !_camStarting && !_demo) _initCamera();
       if (_posSub == null) _startGps();
       if (_compassSub == null) _startCompass();
     }
@@ -173,7 +181,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       if (cameras.isEmpty) {
         throw StateError(tr('사용 가능한 카메라가 없습니다', 'No camera available'));
       }
-      final controller = CameraController(cameras.first, ResolutionPreset.high,
+      // max = 센서 최대 해상도(대개 4:3) — 예시 사진과 같은 비율로 찍힌다.
+      final controller = CameraController(cameras.first, ResolutionPreset.max,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await controller.initialize();
       await controller.setFlashMode(FlashMode.off);
@@ -376,6 +385,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       backgroundColor: Colors.black,
       body: Stack(fit: StackFit.expand, children: [
         _preview(),
+
+        // 셔터 순간의 플래시 (시연 모드의 "촬영" 효과)
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _flash ? 0.85 : 0.0,
+            duration: const Duration(milliseconds: 90),
+            child: Container(color: Colors.white),
+          ),
+        ),
 
         // full-height 수고봉 정렬선 (설정에서 끔)
         if (showGuides.value)
@@ -673,6 +691,24 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   }
 
   Widget _preview() {
+    // 시연 모드: 선택된 방위의 예시 사진이 곧 뷰파인더다. 방위가 바뀌면
+    // 조사자가 나무를 돌아간 것처럼 사진이 부드럽게 교체된다.
+    // 예시 사진 비율(3:4) 그대로 보여줘 화면에 보이는 것이 곧 찍히는 사진이다.
+    if (_demo) {
+      return Center(
+        child: AspectRatio(
+          aspectRatio: 3 / 4,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            child: Image.asset(
+              DemoSample.assetFor(_selected),
+              key: ValueKey(_selected),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
     if (_error != null) {
       return Center(
         child: Padding(
@@ -696,14 +732,11 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     if (_initing || c == null || !c.value.isInitialized) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: c.value.previewSize?.height ?? 1080,
-        height: c.value.previewSize?.width ?? 1920,
-        child: CameraPreview(c),
-      ),
-    );
+    // 프리뷰를 실제 촬영 비율 그대로 보여준다(전체 화면 크롭 없음) —
+    // 화면에 보이는 프레임이 곧 저장·분석되는 사진이다.
+    final ps = c.value.previewSize;
+    final ar = ps == null ? 3 / 4 : ps.height / ps.width; // 세로 화면 기준
+    return Center(child: AspectRatio(aspectRatio: ar, child: CameraPreview(c)));
   }
 }
 
