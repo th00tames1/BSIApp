@@ -145,6 +145,8 @@ class SurveyRecord {
 
   SurveyRecord copyWith({
     int? dbId,
+    double? lat,
+    double? lon,
     String? species,
     double? dbhCm,
     double? heightM,
@@ -159,8 +161,8 @@ class SurveyRecord {
         treeId: treeId,
         site: site,
         address: address,
-        lat: lat,
-        lon: lon,
+        lat: lat ?? this.lat,
+        lon: lon ?? this.lon,
         species: species ?? this.species,
         dbhCm: dbhCm ?? this.dbhCm,
         heightM: heightM ?? this.heightM,

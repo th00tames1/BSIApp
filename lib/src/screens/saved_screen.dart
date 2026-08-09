@@ -122,6 +122,57 @@ class _SavedScreenState extends State<SavedScreen> {
     await _apply(onValue(v));
   }
 
+  /// GPS 좌표 수정 — 위도·경도를 함께 입력받는다. 수정하면 지도 핀도
+  /// 이 좌표로 옮겨진다(지도는 기록을 다시 읽어 그린다).
+  Future<void> _editGps() async {
+    final latCtl = TextEditingController(
+        text: record.lat == null ? '' : record.lat!.toStringAsFixed(6));
+    final lonCtl = TextEditingController(
+        text: record.lon == null ? '' : record.lon!.toStringAsFixed(6));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('GPS 좌표', 'GPS coordinates')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: latCtl,
+            autofocus: true,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true, signed: true),
+            decoration: InputDecoration(labelText: tr('위도', 'Latitude')),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: lonCtl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true, signed: true),
+            decoration: InputDecoration(labelText: tr('경도', 'Longitude')),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('취소', 'Cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('확인', 'OK'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final lat = double.tryParse(latCtl.text.trim());
+    final lon = double.tryParse(lonCtl.text.trim());
+    if (lat == null || lon == null || lat.abs() > 90 || lon.abs() > 180) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+            content: Text(tr('좌표 범위가 올바르지 않습니다 (위도 ±90, 경도 ±180)',
+                'Invalid range (lat ±90, lon ±180)'))));
+      return;
+    }
+    await _apply(record.copyWith(lat: lat, lon: lon));
+  }
+
   Future<String?> _askText(String title, String initial,
       {bool number = false, String? unit}) {
     final ctl = TextEditingController(text: initial);
@@ -256,6 +307,15 @@ class _SavedScreenState extends State<SavedScreen> {
                   _editNumber(tr('그을음 높이', 'Char height'), _sootM, 'm',
                       (v) => record.copyWith(sootMaxM: v));
                 }),
+                Divider(height: 1, color: p.line),
+                _row(
+                    p,
+                    Icons.place_outlined,
+                    tr('GPS 좌표', 'GPS'),
+                    (record.lat == null || record.lon == null)
+                        ? '–'
+                        : '${record.lat!.toStringAsFixed(5)}, ${record.lon!.toStringAsFixed(5)}',
+                    onTap: _editGps),
               ]),
             ),
           ),
