@@ -149,7 +149,9 @@ class _ResultScreenState extends State<ResultScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+        // 하단 시스템 바 높이를 더하지 않으면 마지막 "저장" 버튼이 가려진다.
+        padding: EdgeInsets.fromLTRB(
+            16, 10, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
         children: [
           // eyebrow
           Row(children: [

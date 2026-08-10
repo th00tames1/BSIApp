@@ -53,7 +53,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.fromLTRB(
+                        16, 16, 16, 16 + MediaQuery.viewPaddingOf(context).bottom),
                     itemCount: _records.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) => _tile(_records[i]),

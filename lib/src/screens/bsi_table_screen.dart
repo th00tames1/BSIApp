@@ -45,12 +45,16 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
     return Scaffold(
       appBar: AppBar(
           title: Text(tr('존치·벌채 판정표', 'Retain / Fell decision table'))),
-      body: Column(children: [
-        _picker(p, hit),
-        Divider(height: 1, color: p.line),
-        Expanded(child: _table(p)),
-        _footer(p),
-      ]),
+      // 하단 범례가 네비게이션 바에 가리지 않게 SafeArea 안에 둔다.
+      body: SafeArea(
+        top: false,
+        child: Column(children: [
+          _picker(p, hit),
+          Divider(height: 1, color: p.line),
+          Expanded(child: _table(p)),
+          _footer(p),
+        ]),
+      ),
     );
   }
 

@@ -74,7 +74,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         builder: (_, list, __) {
           if (list.isEmpty) return _empty(p);
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+                16, 16, 16, 16 + MediaQuery.viewPaddingOf(context).bottom),
             itemCount: list.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) => _tile(p, list[i]),

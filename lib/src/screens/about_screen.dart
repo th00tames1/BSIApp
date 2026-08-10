@@ -12,7 +12,8 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(tr('정보', 'About'))),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+            16, 20, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
         children: [
           Center(
             child: Column(children: [

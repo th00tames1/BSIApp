@@ -44,7 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(tr('설정', 'Settings'))),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+            16, 6, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
         children: [
           _section(p, tr('일반', 'GENERAL')),
           Card(

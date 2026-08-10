@@ -179,8 +179,12 @@ class _SavedScreenState extends State<SavedScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      // 앱이 화면 전체를 쓰므로 SafeArea가 없으면 마지막 행(GPS 좌표)이
+      // 네비게이션 바 뒤에 깔려 눌리지 않는다.
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Row(children: [
             Expanded(
@@ -282,7 +286,8 @@ class _SavedScreenState extends State<SavedScreen> {
               ]),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -380,7 +385,7 @@ class _SavedScreenState extends State<SavedScreen> {
   }
 
   // 사진이 위 공간을 차지하는 만큼 표는 세로만 살짝 줄였다(좌우 여백은 유지).
-  // onTap이 있으면 수정 가능 표시(연필)를 함께 그린다.
+  // 수정 가능한 행도 연필 표시 없이 값만 둔다 — 행을 누르면 편집된다.
   Widget _row(AppPalette p, IconData ic, String label, String value,
       {VoidCallback? onTap}) {
     final row = Padding(
@@ -392,10 +397,6 @@ class _SavedScreenState extends State<SavedScreen> {
         Text(value,
             style: const TextStyle(
                 fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w700)),
-        if (onTap != null) ...[
-          const SizedBox(width: 8),
-          Icon(Icons.edit_outlined, size: 14, color: p.muted),
-        ],
       ]),
     );
     if (onTap == null) return row;
@@ -435,24 +436,27 @@ class _TextInputDialogState extends State<_TextInputDialog> {
     final p = context.palette;
     return AlertDialog(
       title: Text(widget.title),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(
-          controller: _ctl,
-          autofocus: true,
-          keyboardType: widget.number
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : TextInputType.text,
-          decoration: InputDecoration(suffixText: widget.unit),
-        ),
-        if (widget.note != null) ...[
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(widget.note!,
-                style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
+      // 가로 화면에서 키보드가 올라오면 남는 높이가 모자라 넘친다 — 스크롤시킨다.
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: _ctl,
+            autofocus: true,
+            keyboardType: widget.number
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.text,
+            decoration: InputDecoration(suffixText: widget.unit),
           ),
-        ],
-      ]),
+          if (widget.note != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(widget.note!,
+                  style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
+            ),
+          ],
+        ]),
+      ),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
@@ -492,30 +496,33 @@ class _GpsDialogState extends State<_GpsDialog> {
     final p = context.palette;
     return AlertDialog(
       title: Text(tr('GPS 좌표', 'GPS coordinates')),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(
-          controller: _latCtl,
-          autofocus: true,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: InputDecoration(labelText: tr('위도', 'Latitude')),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _lonCtl,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: InputDecoration(labelText: tr('경도', 'Longitude')),
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-              tr('두 칸을 모두 비우면 좌표를 지웁니다 (지도 핀 제거)',
-                  'Clear both fields to remove the coordinates (map pin)'),
-              style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
-        ),
-      ]),
+      // 가로 화면에서 키보드가 올라오면 남는 높이가 모자라 넘친다 — 스크롤시킨다.
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: _latCtl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: true),
+            decoration: InputDecoration(labelText: tr('위도', 'Latitude')),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _lonCtl,
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: true),
+            decoration: InputDecoration(labelText: tr('경도', 'Longitude')),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                tr('두 칸을 모두 비우면 좌표를 지웁니다 (지도 핀 제거)',
+                    'Clear both fields to remove the coordinates (map pin)'),
+                style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
+          ),
+        ]),
+      ),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),

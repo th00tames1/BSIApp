@@ -81,7 +81,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(tr('AI 분석', 'AI Analysis'))),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        // 하단 시스템 바 높이를 더해 진행 카드가 네비게이션 바에 가리지 않게 한다.
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, 20 + MediaQuery.viewPaddingOf(context).bottom),
         child: Column(children: [
           Expanded(
             child: ClipRRect(
