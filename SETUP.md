@@ -134,17 +134,73 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 
 ## 6. iOS (macOS 전용)
 
+iOS 빌드는 Xcode가 필요하므로 **macOS에서만 된다.** Windows에는 우회로가 없다.
+
+### 6.1 사전 준비 (사람이 한 번 해야 하는 것)
+
+| 항목 | 방법 | 비고 |
+|---|---|---|
+| Xcode | App Store에서 설치 | 15 GB 이상, 자동화 불가 |
+| 명령줄 도구 | `xcode-select --install` | |
+| 라이선스 동의 | `sudo xcodebuild -license accept` | 관리자 암호 필요 |
+| CocoaPods | `sudo gem install cocoapods` 또는 `brew install cocoapods` | |
+| Flutter SDK | 3.35.4 (stable) | |
+
 ```bash
-cd ios && pod install && cd ..
+flutter doctor
+```
+
+Xcode 항목에 체크가 떠야 다음으로 넘어간다.
+
+### 6.2 시뮬레이터 — 서명 없이 여기까지 됨
+
+```bash
+git clone https://github.com/th00tames1/BSIApp.git && cd BSIApp
 ```
 
 ```bash
-flutter build ios
+flutter pub get && cd ios && pod install && cd ..
 ```
 
-- **배포 타깃 16.0** 이상이어야 한다 (`flutter_onnxruntime` 요구 사항).
-- Xcode → Runner → Signing & Capabilities → **Team** 을 선택해야 실기기 설치가 된다.
-- 카메라·위치·사진 권한 문구는 `Info.plist`에 이미 들어 있다.
+```bash
+open -a Simulator && flutter run
+```
+
+**서명 설정 없이 시뮬레이터에서 실행된다.** 빌드가 통과하는지, 분석이 도는지는
+여기까지로 확인할 수 있다. 컴파일만 확인하려면 `flutter build ios --simulator`.
+
+Apple Silicon 시뮬레이터도 정상이다 — `flutter_onnxruntime`의 podspec이 제외하는
+아키텍처는 `i386` 뿐이다.
+
+### 6.3 실기기 · 배포 — 여기서부터 Apple ID가 필요하다
+
+`DEVELOPMENT_TEAM`이 비어 있고 `CODE_SIGN_STYLE = Automatic`이라 **Team을 한 번 골라야 한다.**
+
+1. Xcode → Settings → Accounts → **＋ 로 Apple ID 로그인** (사람이 직접, 암호 입력)
+2. `open ios/Runner.xcworkspace` → Runner → Signing & Capabilities → **Team** 선택
+3. 이후에는 명령줄로 된다.
+
+```bash
+flutter run -d <기기이름>
+```
+
+```bash
+flutter build ipa
+```
+
+- Bundle ID는 `com.bsi.bsiField`다 (Android의 `com.bsi.bsi_field`와 달리 언더스코어가 없다).
+  이미 쓰이는 ID면 Xcode에서 바꿔야 한다.
+- 무료 Apple ID로도 실기기 설치는 되지만 **7일마다 재설치**해야 하고 TestFlight는 안 된다.
+  배포하려면 유료 Apple Developer Program.
+- **배포 타깃 16.0은 낮출 수 없다.** `flutter_onnxruntime` 1.8.0이 `onnxruntime-objc 1.24.2`를
+  요구하고 podspec이 16.0으로 고정돼 있다.
+- 카메라·위치·사진 권한 문구는 `Info.plist`에 이미 한국어로 들어 있다.
+- 앱에 ONNX 모델 80 MB가 들어가므로 IPA가 크다. 배포 시 용량을 감안할 것.
+
+### 6.4 AI 도구에게 맡길 때
+
+6.2까지는 그대로 시켜도 된다. **6.3의 Apple ID 로그인은 시키지 말 것** — 계정 암호를
+입력하는 단계이므로 직접 하고, Team을 고른 뒤부터 다시 맡기면 된다.
 
 ---
 
