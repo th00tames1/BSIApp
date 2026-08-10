@@ -1,13 +1,19 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as pp;
+import 'package:path_provider/path_provider.dart';
 
 import '../l10n.dart';
+import '../models/draft.dart';
 import '../models/survey.dart';
+import '../services/analysis_service.dart';
 import '../services/csv_export.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
+import '../services/onnx_service.dart';
 import '../theme.dart';
 
 /// Detail view for a saved survey record (opened from the map pin / 기록).
@@ -44,6 +50,116 @@ class _SavedScreenState extends State<SavedScreen> {
   Future<void> _apply(SurveyRecord next) async {
     await DbService.instance.update(next);
     if (mounted) setState(() => record = next);
+  }
+
+  // ── 이미지 재분석 ────────────────────────────────────────────────
+  //
+  // BSI는 방위별 Σ(그을음 높이 × 그을음 면적비)라서 저장된 스칼라 하나를 고쳐서는
+  // 되돌릴 수 없다. 대신 저장해 둔 사진을 같은 모델로 다시 돌려 방위별 값부터
+  // 새로 얻는다. 입력(사진·모델·수고봉 길이)이 같으면 결과도 같다.
+  Future<void> _reanalyse() async {
+    final shots =
+        record.faces.where((f) => f.imagePath != null).toList(growable: false);
+    if (shots.isEmpty) {
+      _snack(tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
+          'No stored photos to re-analyse'));
+      return;
+    }
+    final missing =
+        shots.where((f) => !File(f.imagePath!).existsSync()).toList();
+    if (missing.isNotEmpty) {
+      _snack(tr('사진 파일 ${missing.length}장을 찾을 수 없어 다시 분석할 수 없습니다',
+          '${missing.length} photo file(s) missing — cannot re-analyse'));
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('이미지 다시 분석', 'Re-analyse images')),
+        content: Text(tr(
+            '저장된 ${shots.length}장을 같은 모델로 다시 분석해 방위별 계측값과 통합 BSI를 '
+                '새로 계산합니다.\n\n손으로 고친 수고·그을음 높이는 분석값으로 되돌아갑니다. '
+                '흉고직경은 그대로 두고 고사 확률만 다시 판정합니다.',
+            'Re-runs the same model on the ${shots.length} stored photos and '
+                'recomputes the per-azimuth measurements and the integrated BSI.\n\n'
+                'Manually edited tree/char heights revert to the analysed values. '
+                'DBH is kept; only the mortality verdict is recomputed.')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('취소', 'Cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('다시 분석', 'Re-analyse'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final progress = ValueNotifier<String>(tr('모델 불러오는 중', 'Loading model'));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ProgressDialog(message: progress),
+    );
+
+    String? err;
+    SurveyRecord? next;
+    try {
+      await OnnxService.instance.load(SurveyDraft.defaultModelAsset);
+      // 수고봉 모델은 있으면 쓰고 없으면 휴리스틱으로 내려간다(분석 화면과 동일).
+      await OnnxService.pole.tryLoad(SurveyDraft.defaultPoleModelAsset);
+      final dir = await getApplicationDocumentsDirectory();
+      final overlayDir = Directory(pp.join(dir.path, 'overlays'));
+      if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);
+
+      final fresh = <AzimuthResult>[];
+      for (int i = 0; i < shots.length; i++) {
+        final f = shots[i];
+        progress.value = tr(
+            '${azimuthLabelFromCode(f.azimuth)} 분석 중 · ${i + 1}/${shots.length}',
+            'Analyzing ${azimuthLabelFromCode(f.azimuth)} · ${i + 1}/${shots.length}');
+        final outPath = pp.join(
+            overlayDir.path, '${record.treeId}_${f.azimuth}_overlay.png');
+        fresh.add(await AnalysisService.instance.analyzeFace(
+          f.azimuth,
+          f.imagePath!,
+          poleLengthM: record.poleLengthM,
+          overlayOutPath: outPath,
+        ));
+        // 같은 경로에 덮어쓰므로 캐시를 비워야 새 오버레이가 보인다.
+        await FileImage(File(outPath)).evict();
+      }
+
+      final integ = AnalysisService.instance.integrate(fresh, record.dbhCm);
+      next = record.copyWith(
+        faces: fresh,
+        bsi: integ.bsi,
+        mortalityProb: integ.mortality,
+        verdict: integ.verdict,
+        // 손으로 고친 값은 버리고 분석값이 다시 보이게 한다.
+        heightM: double.nan,
+        sootMaxM: double.nan,
+      );
+    } catch (e) {
+      err = '$e';
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // 진행 다이얼로그
+    progress.dispose();
+    if (err != null) {
+      _snack(tr('다시 분석 실패: $err', 'Re-analysis failed: $err'));
+      return;
+    }
+    await _apply(next!);
+    if (!mounted) return;
+    setState(() {
+      _page = 0;
+      if (_pager.hasClients) _pager.jumpToPage(0);
+    });
+    _snack(tr('다시 분석했습니다', 'Re-analysed'));
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -168,6 +284,11 @@ class _SavedScreenState extends State<SavedScreen> {
         title: Text(tr('조사목 상세', 'Tree detail')),
         actions: [
           IconButton(
+            tooltip: tr('이미지 다시 분석', 'Re-analyse images'),
+            onPressed: _reanalyse,
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
             tooltip: tr('CSV 내보내기', 'Export CSV'),
             onPressed: () => CsvExport.share([record]),
             icon: const Icon(Icons.ios_share),
@@ -260,8 +381,10 @@ class _SavedScreenState extends State<SavedScreen> {
                   _editNumber(tr('수고', 'Tree height'), _heightM, 'm',
                       (v) => record.copyWith(heightM: v),
                       decimals: 2,
-                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다',
-                          'Stored for the record and CSV; does not change the BSI'));
+                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다. '
+                          'BSI까지 새로 계산하려면 상단의 다시 분석을 쓰세요.',
+                          'Stored for the record and CSV; does not change the BSI. '
+                              'Use Re-analyse above to recompute the BSI.'));
                 }),
                 Divider(height: 1, color: p.line),
                 _row(p, Icons.local_fire_department_outlined,
@@ -271,8 +394,10 @@ class _SavedScreenState extends State<SavedScreen> {
                   _editNumber(tr('그을음 높이', 'Char height'), _sootM, 'm',
                       (v) => record.copyWith(sootMaxM: v),
                       decimals: 2,
-                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다',
-                          'Stored for the record and CSV; does not change the BSI'));
+                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다. '
+                          'BSI까지 새로 계산하려면 상단의 다시 분석을 쓰세요.',
+                          'Stored for the record and CSV; does not change the BSI. '
+                              'Use Re-analyse above to recompute the BSI.'));
                 }),
                 Divider(height: 1, color: p.line),
                 _row(
@@ -401,6 +526,34 @@ class _SavedScreenState extends State<SavedScreen> {
     );
     if (onTap == null) return row;
     return InkWell(onTap: onTap, child: row);
+  }
+}
+
+/// 재분석 진행 표시. 뒤로 가기로 닫히지 않게 PopScope로 막는다.
+class _ProgressDialog extends StatelessWidget {
+  final ValueListenable<String> message;
+  const _ProgressDialog({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(children: [
+          const SizedBox(
+              width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ValueListenableBuilder<String>(
+              valueListenable: message,
+              builder: (_, m, __) =>
+                  Text(m, style: TextStyle(fontSize: 14, color: p.ink)),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }
 

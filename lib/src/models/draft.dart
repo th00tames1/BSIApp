@@ -18,10 +18,15 @@ class SurveyDraft {
   double dbhCm = 0;
   String memo = '';
   double poleLengthM = 3.0;
-  String modelName = 'YOLO26s@640';
-  String modelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
+  /// 저장된 조사목을 다시 분석할 때도 같은 모델을 써야 하므로 기본값을 상수로 둔다.
+  static const defaultModelName = 'YOLO26s@640';
+  static const defaultModelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
+  static const defaultPoleModelAsset = 'assets/models/pole_boundary_640.onnx';
+
+  String modelName = defaultModelName;
+  String modelAsset = defaultModelAsset;
   /// 수고봉 1 m 경계 검출 모델(스케일 산출). 없으면 노란픽셀 휴리스틱으로 내려간다.
-  String poleModelAsset = 'assets/models/pole_boundary_640.onnx';
+  String poleModelAsset = defaultPoleModelAsset;
 
   /// 설정의 "예시 사진으로 시험"으로 만든 조사인지. 예시 조사는 시연 모드의
   /// 자동 투어를 돌리지 않고, 저장해도 진행 중이던 실제 조사 초안을 지우지 않는다.
