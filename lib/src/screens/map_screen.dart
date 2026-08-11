@@ -13,6 +13,7 @@ import '../models/survey.dart';
 import '../services/db_service.dart';
 import '../services/geo_import.dart';
 import '../services/location_service.dart';
+import '../services/geomag.dart';
 import '../services/overlay_store.dart';
 import '../services/tile_cache.dart';
 import '../theme.dart';
@@ -83,6 +84,9 @@ class _MapScreenState extends State<MapScreen> {
     final here = LatLng(pos.latitude, pos.longitude);
     setState(() => _here = here);
     _map.move(here, 16);
+    // 편각을 여기서 미리 구해 두면 촬영 화면에 들어가기 전에도 설정의
+    // 나침반 기준이 제대로 동작한다.
+    Geomag.update(pos.latitude, pos.longitude);
   }
 
   void _refreshResume() {
@@ -220,6 +224,7 @@ class _MapScreenState extends State<MapScreen> {
     final here = LatLng(pos.latitude, pos.longitude);
     setState(() => _here = here);
     _map.move(here, 16);
+    Geomag.update(pos.latitude, pos.longitude);
   }
 
   void _openRecords() async {
@@ -531,6 +536,11 @@ class _MapScreenState extends State<MapScreen> {
             initialZoom: 14,
             minZoom: 3,
             maxZoom: 19,
+            // 조사 지도는 항상 북쪽이 위여야 한다. 두 손가락으로 확대·축소할 때
+            // 손가락이 조금만 틀어져도 지도가 돌아가 방위를 잃던 것을 막는다.
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
           ),
           children: [
             TileLayer(

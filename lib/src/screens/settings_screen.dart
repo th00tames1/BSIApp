@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_prefs.dart';
 import '../l10n.dart';
 import '../services/demo_sample.dart';
+import '../services/geomag.dart';
 import '../theme.dart';
 import 'about_screen.dart';
 import 'analysis_screen.dart';
@@ -76,6 +77,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: showGuides.value,
                     onChanged: (v) => setState(() => setShowGuides(v)),
                   )),
+              Divider(height: 1, color: p.line),
+              // 촬영 화면의 나침반을 눌러도 같은 값이 바뀐다.
+              // 선택은 **저장된 설정**을 그대로 보여 준다. 편각을 아직 몰라
+              // 표시가 다른 상황은 선택값이 아니라 부제로 알린다(선택을 흔들면
+              // 진북을 눌러도 아무 일이 없는 것처럼 보인다).
+              ValueListenableBuilder<NorthRef>(
+                valueListenable: northRef,
+                builder: (_, want, __) => _row(
+                    p, Icons.explore_outlined, tr('나침반 기준', 'Compass north'),
+                    sub: !Geomag.canResolveDeclination
+                        ? tr('이 기기에서는 진북만 제공됩니다',
+                            'This device provides true north only')
+                        : Geomag.effective(want) != want
+                            ? tr('편각을 아직 몰라 지금은 자북으로 표시됩니다 (촬영 화면에서 위치를 잡으면 적용)',
+                                'Declination unknown yet — showing magnetic for now; applies once a position is fixed')
+                            : tr('진북은 지도·좌표 기준, 자북은 자기 나침반 기준',
+                                'True north matches maps; magnetic matches a needle compass'),
+                    trailing: SegmentedButton<NorthRef>(
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                            value: NorthRef.trueNorth,
+                            label: Text(tr('진북', 'True'))),
+                        ButtonSegment(
+                            value: NorthRef.magnetic,
+                            label: Text(tr('자북', 'Mag')),
+                            enabled: Geomag.canResolveDeclination),
+                      ],
+                      selected: {want},
+                      onSelectionChanged: (s) => setNorthRef(s.first),
+                    )),
+              ),
             ]),
           ),
           // 시험 섹션은 개발자 모드(지도의 현재 위치 버튼 7번 탭)에서만 보인다.

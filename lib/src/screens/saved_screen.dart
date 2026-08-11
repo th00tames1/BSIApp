@@ -58,8 +58,9 @@ class _SavedScreenState extends State<SavedScreen> {
   // 되돌릴 수 없다. 대신 저장해 둔 사진을 같은 모델로 다시 돌려 방위별 값부터
   // 새로 얻는다. 입력(사진·모델·수고봉 길이)이 같으면 결과도 같다.
   Future<void> _reanalyse() async {
-    final shots =
-        record.faces.where((f) => f.imagePath != null).toList(growable: false);
+    final shots = record.faces
+        .where((f) => !f.manual && f.imagePath != null)
+        .toList(growable: false);
     if (shots.isEmpty) {
       _snack(tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
           'No stored photos to re-analyse'));
@@ -114,7 +115,8 @@ class _SavedScreenState extends State<SavedScreen> {
       final overlayDir = Directory(pp.join(dir.path, 'overlays'));
       if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);
 
-      final fresh = <AzimuthResult>[];
+      // 직접 입력한 방위는 사진이 없어 다시 분석할 수 없다. 그대로 살려 둔다.
+      final fresh = record.faces.where((f) => f.manual).toList();
       for (int i = 0; i < shots.length; i++) {
         final f = shots[i];
         progress.value = tr(

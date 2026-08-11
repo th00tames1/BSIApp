@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,6 +16,7 @@ import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/demo_sample.dart';
+import '../services/geomag.dart';
 import '../services/location_service.dart';
 import '../theme.dart';
 import 'analysis_screen.dart';
@@ -42,6 +44,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   // GPS: tagged onto each shot (silently) so the tree gets a map coordinate.
   StreamSubscription<Position>? _posSub;
   final List<Position> _buf = []; // recent fixes, for dwell-averaging each shot
+  Position? _here; // 화면에 띄우는 현재 좌표(가장 최근 픽스)
 
   // Real device compass.
   StreamSubscription<CompassEvent>? _compassSub;
@@ -141,11 +144,51 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         _buf.add(p);
         final cutoff = DateTime.now().subtract(const Duration(seconds: 6));
         _buf.removeWhere((x) => x.timestamp.isBefore(cutoff));
+        setState(() => _here = p); // 화면 상단 좌표 표시용
+        // 편각은 위치에 따라 달라진다. 조사지 안에서는 거의 변하지 않으므로
+        // 첫 픽스에서 한 번만 구한다.
+        if (Geomag.declinationDeg == null) {
+          Geomag.update(p.latitude, p.longitude).then((_) {
+            if (mounted) setState(() {});
+          });
+        }
       },
       onError: (_) {},
       cancelOnError: true,
     );
   }
+
+  /// 좌표를 클립보드로. 지도 앱 검색창이나 야장에 그대로 붙여 넣는다.
+  Future<void> _copyCoords() async {
+    final h = _here;
+    if (h == null) return;
+    final s = '${h.latitude.toStringAsFixed(6)}, ${h.longitude.toStringAsFixed(6)}';
+    await Clipboard.setData(ClipboardData(text: s));
+    _showNotice(tr('좌표를 복사했습니다 · $s', 'Coordinates copied · $s'));
+  }
+
+  /// 나침반을 누르면 진북 ↔ 자북. 편각을 모르는 기기에서는 바꿔도 표시가
+  /// 달라지지 않으므로 그 사실을 알려 준다.
+  void _toggleNorthRef() {
+    final want = northRef.value == NorthRef.trueNorth
+        ? NorthRef.magnetic
+        : NorthRef.trueNorth;
+    setNorthRef(want);
+    final shown = Geomag.effective(want);
+    if (shown != want) {
+      _showNotice(tr('이 기기에서는 편각을 알 수 없어 ${_refName(shown)} 기준으로 표시합니다',
+          'Declination unavailable on this device — showing ${_refName(shown)}'));
+      return;
+    }
+    final dec = Geomag.declinationDeg;
+    _showNotice(want == NorthRef.trueNorth
+        ? tr('진북 기준${dec == null ? '' : ' (편각 ${dec.toStringAsFixed(1)}°)'}',
+            'True north${dec == null ? '' : ' (declination ${dec.toStringAsFixed(1)}°)'}')
+        : tr('자북 기준', 'Magnetic north'));
+  }
+
+  String _refName(NorthRef r) =>
+      r == NorthRef.trueNorth ? tr('진북', 'true north') : tr('자북', 'magnetic north');
 
   @override
   void dispose() {
@@ -483,8 +526,58 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // real device compass (top-right)
-        Positioned(top: padTop + 50, right: 14, child: _DeviceCompass(heading: _heading)),
+        // 현재 좌표 — 조사자가 목표 좌표를 찾아가며 찍을 수 있게 항상 띄운다.
+        // 누르면 클립보드로 복사된다(지도 앱·야장에 그대로 옮겨 쓰기).
+        if (_here != null)
+          Positioned(
+            top: padTop + 50,
+            left: 14,
+            child: GestureDetector(
+              onTap: _copyCoords,
+              child: _Scrim(
+                radius: 10,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.my_location, size: 11, color: Colors.white70),
+                    const SizedBox(width: 4),
+                    Text('±${_here!.accuracy.round()} m',
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontFamily: 'monospace',
+                            fontSize: 9.5)),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(_here!.latitude.toStringAsFixed(6),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                  Text(_here!.longitude.toStringAsFixed(6),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+
+        // real device compass (top-right) — 누르면 진북 ↔ 자북
+        Positioned(
+          top: padTop + 50,
+          right: 14,
+          child: ValueListenableBuilder<NorthRef>(
+            valueListenable: northRef,
+            builder: (_, want, __) => _DeviceCompass(
+              heading: Geomag.toDisplay(_heading, want),
+              ref: Geomag.effective(want),
+              onTap: _toggleNorthRef,
+            ),
+          ),
+        ),
 
         // 안내 문구 — 하단 컨트롤을 가리지 않도록 화면 위쪽에 띄운다.
         if (_notice != null)
@@ -867,11 +960,16 @@ class _CamBtn extends StatelessWidget {
   }
 }
 
-/// Live magnetometer compass — the rose rotates so N points to real north,
-/// and the fixed top tick shows the phone's facing bearing.
+/// Live compass — the rose rotates so N points to real north, and the fixed
+/// top tick shows the phone's facing bearing.
+///
+/// [heading]은 센서 원본이 아니라 **표시 기준으로 이미 변환된** 값이다
+/// (`Geomag.toDisplay`). 눌러서 진북 ↔ 자북을 바꾼다.
 class _DeviceCompass extends StatelessWidget {
-  final double? heading; // degrees from magnetic north, null if no sensor
-  const _DeviceCompass({required this.heading});
+  final double? heading;
+  final NorthRef ref; // 실제로 표시 중인 기준
+  final VoidCallback? onTap;
+  const _DeviceCompass({required this.heading, required this.ref, this.onTap});
 
   static const _dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
@@ -881,39 +979,61 @@ class _DeviceCompass extends StatelessWidget {
     final label = h == null
         ? tr('나침반 없음', 'No compass')
         : '${h.round()}° ${_dirs[((h % 360) / 45).round() % 8]}';
-    return Column(children: [
-      SizedBox(
-        width: 56,
-        height: 56,
-        child: Stack(alignment: Alignment.center, children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0x8C080C12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+    final refLabel =
+        ref == NorthRef.trueNorth ? tr('진북', 'True N') : tr('자북', 'Mag N');
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        SizedBox(
+          width: 56,
+          height: 56,
+          child: Stack(alignment: Alignment.center, children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0x8C080C12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+              ),
             ),
-          ),
-          Transform.rotate(
-            angle: h == null ? 0 : -h * math.pi / 180.0,
-            child: CustomPaint(size: const Size(56, 56), painter: _RosePainter()),
-          ),
-          // fixed facing tick (top)
-          const Positioned(
-            top: 1,
-            child: Icon(Icons.arrow_drop_down, size: 15, color: Colors.white),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 4),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-            color: const Color(0x8C080C12), borderRadius: BorderRadius.circular(999)),
-        child: Text(label,
-            style: const TextStyle(
-                color: Colors.white, fontFamily: 'monospace', fontSize: 9.5, fontWeight: FontWeight.w700)),
-      ),
-    ]);
+            Transform.rotate(
+              angle: h == null ? 0 : -h * math.pi / 180.0,
+              child: CustomPaint(size: const Size(56, 56), painter: _RosePainter()),
+            ),
+            // fixed facing tick (top)
+            const Positioned(
+              top: 1,
+              child: Icon(Icons.arrow_drop_down, size: 15, color: Colors.white),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+              color: const Color(0x8C080C12),
+              borderRadius: BorderRadius.circular(999)),
+          child: Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 3),
+        // 어느 북쪽을 보고 있는지 늘 드러낸다 — 방위 기록의 근거가 된다.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+              color: const Color(0x8C080C12),
+              borderRadius: BorderRadius.circular(999)),
+          child: Text(refLabel,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ]),
+    );
   }
 }
 

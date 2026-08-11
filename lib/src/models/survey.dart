@@ -20,6 +20,10 @@ class AzimuthResult {
   final int treePx;
   final bool analysed;
 
+  /// 사진 없이 조사자가 직접 넣은 방위인지. 촬영하지 못한 면을 야장 값으로
+  /// 채워 4방위 BSI를 완성할 때 쓴다. 재분석은 이 면을 건드리지 않는다.
+  final bool manual;
+
   const AzimuthResult({
     required this.azimuth,
     this.imagePath,
@@ -34,6 +38,7 @@ class AzimuthResult {
     this.sootPx = 0,
     this.treePx = 0,
     this.analysed = false,
+    this.manual = false,
   });
 
   AzimuthResult copyWith({
@@ -49,6 +54,7 @@ class AzimuthResult {
     int? sootPx,
     int? treePx,
     bool? analysed,
+    bool? manual,
   }) =>
       AzimuthResult(
         azimuth: azimuth,
@@ -64,6 +70,7 @@ class AzimuthResult {
         sootPx: sootPx ?? this.sootPx,
         treePx: treePx ?? this.treePx,
         analysed: analysed ?? this.analysed,
+        manual: manual ?? this.manual,
       );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +87,7 @@ class AzimuthResult {
         'sootPx': sootPx,
         'treePx': treePx,
         'analysed': analysed,
+        'manual': manual,
       };
 
   factory AzimuthResult.fromJson(Map<String, dynamic> j) => AzimuthResult(
@@ -96,6 +104,7 @@ class AzimuthResult {
         sootPx: (j['sootPx'] as num?)?.toInt() ?? 0,
         treePx: (j['treePx'] as num?)?.toInt() ?? 0,
         analysed: j['analysed'] as bool? ?? false,
+        manual: j['manual'] as bool? ?? false,
       );
 }
 

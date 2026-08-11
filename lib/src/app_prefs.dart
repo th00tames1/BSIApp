@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n.dart';
+import 'services/geomag.dart';
 
 /// App-wide state + preferences, persisted to disk (survives restarts).
 /// Call [loadPrefs] once at startup before running the app.
@@ -74,6 +75,10 @@ bool demoTourSaved = false;
 /// 다음 조사목의 기본값으로 이어진다.
 final ValueNotifier<String> lastSpecies = ValueNotifier('소나무');
 
+/// 나침반이 가리키는 북쪽의 기준. 기본은 **진북** — 지도·좌표·야장이 쓰는 기준이다.
+/// 촬영 화면의 나침반을 누르면 바뀐다(설정에서도 바꿀 수 있다).
+final ValueNotifier<NorthRef> northRef = ValueNotifier(NorthRef.trueNorth);
+
 SharedPreferences? _sp;
 
 Future<void> loadPrefs() async {
@@ -129,6 +134,9 @@ Future<void> loadPrefs() async {
   // 개발자 모드가 꺼져 있으면 시연 모드도 반드시 꺼진 상태로 시작한다.
   demoMode.value = devMode.value && (sp.getBool('demoMode') ?? false);
   lastSpecies.value = sp.getString('lastSpecies') ?? '소나무';
+  northRef.value = NorthRef.values.firstWhere(
+      (r) => r.name == sp.getString('northRef'),
+      orElse: () => NorthRef.trueNorth);
   appLang.value = langFromCode(sp.getString('lang'));
 }
 
@@ -258,4 +266,9 @@ void setLastSpecies(String s) {
   if (s.isEmpty) return;
   lastSpecies.value = s;
   _sp?.setString('lastSpecies', s);
+}
+
+void setNorthRef(NorthRef v) {
+  northRef.value = v;
+  _sp?.setString('northRef', v.name);
 }

@@ -12,6 +12,7 @@ import '../services/db_service.dart';
 import '../services/mortality.dart';
 import '../theme.dart';
 import 'bsi_table_screen.dart';
+import 'manual_face_sheet.dart';
 
 class ResultScreen extends StatefulWidget {
   final SurveyDraft draft;
@@ -189,6 +190,10 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(height: 12),
           ],
 
+          // 촬영하지 못한 방위를 야장 값으로 채워 4방위를 완성한다.
+          _manualCard(p),
+          const SizedBox(height: 14),
+
           _metricCard(p, f),
           const SizedBox(height: 22),
 
@@ -282,6 +287,85 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
           ]),
         ]),
+      ),
+    );
+  }
+
+  /// 사진이 없는 방위 목록 — 직접 입력 대상.
+  List<Azimuth> get _unshot =>
+      Azimuth.values.where((a) => !d.photos.containsKey(a)).toList();
+
+  /// 직접 입력을 받아 결과에 반영하고 BSI를 다시 합산한다.
+  Future<void> _editManual(Azimuth a) async {
+    final cur = d.results[a];
+    final res = await showManualFaceSheet(context, a, cur?.manual == true ? cur : null);
+    if (res == null || !mounted) return;
+    setState(() {
+      if (identical(res, removedManualFace)) {
+        d.results.remove(a);
+      } else {
+        d.results[a] = res as AzimuthResult;
+      }
+      d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
+    });
+  }
+
+  /// 미촬영 방위 안내 + 직접 입력 버튼. 넣을 것이 없으면 그리지 않는다.
+  Widget _manualCard(AppPalette p) {
+    final missing = _unshot;
+    if (missing.isEmpty) return const SizedBox.shrink();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.edit_note, size: 20, color: p.navy),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(tr('미촬영 방위 직접 입력', 'Un-photographed aspects'),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+              tr('사진이 없는 방위는 야장 값을 넣어 BSI 합에 포함할 수 있습니다.',
+                  'Aspects without a photo can be filled from field notes to join the BSI sum.'),
+              style: TextStyle(fontSize: 12, height: 1.45, color: p.muted)),
+          const SizedBox(height: 12),
+          Row(children: [
+            for (int i = 0; i < missing.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: _manualChip(p, missing[i])),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _manualChip(AppPalette p, Azimuth a) {
+    final r = d.results[a];
+    final filled = r != null && r.manual;
+    final label = filled
+        ? '${a.label} ${(r.sootProportion * 100).round()}%'
+        : '${a.label} +';
+    return GestureDetector(
+      onTap: () => _editManual(a),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: filled ? p.navy.withValues(alpha: 0.10) : p.surface,
+          borderRadius: BorderRadius.circular(999),
+          // 빈 칩도 테두리를 그려야 보인다 — 카드 배경색과 같아서 테두리가
+          // 없으면 누를 곳이 있는지 알 수 없다(직접 입력의 유일한 진입점).
+          border: Border.all(color: filled ? p.navy : p.line, width: 1.5),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: filled ? p.navy : p.muted,
+                fontWeight: FontWeight.w700,
+                fontSize: 13)),
       ),
     );
   }
