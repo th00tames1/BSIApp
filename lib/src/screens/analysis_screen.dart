@@ -59,6 +59,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           overlayOutPath: overlayPath,
         );
         d.results[az] = res;
+        // 오버레이 경로는 조사목·방위마다 고정이라, 재촬영 후 다시 분석하면 같은
+        // 파일을 덮어쓴다. 캐시를 비우지 않으면 이전 오버레이가 그대로 보인다.
+        if (res.overlayPath != null) {
+          await FileImage(File(res.overlayPath!)).evict();
+        }
         if (mounted) {
           setState(() {
             _currentOverlay = res.overlayPath;

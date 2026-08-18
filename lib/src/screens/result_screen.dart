@@ -81,8 +81,10 @@ class _ResultScreenState extends State<ResultScreen> {
     d.dbhCm = v;
     final integ = d.integ;
     if (integ != null && !integ.bsi.isNaN) {
+      // facesUsed를 잃으면 기본값 4가 되어 "N개 방위만 계측" 안내가 사라진다.
       d.integ = BsiIntegration(integ.bsi, v, Mortality.probability(integ.bsi, v),
-          Mortality.verdict(integ.bsi, v));
+          Mortality.verdict(integ.bsi, v),
+          facesUsed: integ.facesUsed);
     }
     setState(() {});
   }

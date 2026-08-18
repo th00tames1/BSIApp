@@ -14,14 +14,37 @@ class Letterboxed {
 }
 
 class ImageOps {
+  /// 검증에 쓴 예시 사진의 크기(긴 변). 카메라 원본은 이 크기로 먼저 맞춘다.
+  static const int normLongSide = 1280;
+
   /// Decode a JPEG file, letterbox to size×size (aspect kept, gray 114 pad) and
   /// return the square image + a normalized Float32 CHW tensor (matches the
   /// Android/iOS native apps' preprocessing).
+  ///
+  /// JPEG의 EXIF 회전은 디코더가 적용하므로(image 4.8) 카메라 원본(가로 픽셀 +
+  /// Orientation 태그)도 똑바로 선 채로 들어온다.
   static Letterboxed? letterboxFromFile(String path, int size) {
     final raw = File(path).readAsBytesSync();
     final decoded = img.decodeImage(raw);
     if (decoded == null) return null;
-    return letterbox(decoded, size);
+    return letterbox(normalizeResolution(decoded), size);
+  }
+
+  /// 입력을 예시 사진과 같은 크기(긴 변 [normLongSide])로 **면적 평균** 축소한다.
+  ///
+  /// 카메라 원본(12 MP 등)을 640으로 한 번에 6배 넘게 bilinear 축소하면 수고봉
+  /// 같은 가는 구조가 예시 사진(2배 축소)과 다르게 뭉개져 계측값이 몇 % 어긋난다
+  /// (실기기 검증: 같은 장면이 그을음 높이 4.21 → 4.02 m). 예시 사진과 같은 중간
+  /// 해상도를 거치게 해 두 경로가 같은 성능을 내게 한다. 예시 사진(≤1280)에는
+  /// 무동작이라 검증 기준값은 그대로다.
+  static img.Image normalizeResolution(img.Image src) {
+    final long = math.max(src.width, src.height);
+    if (long <= normLongSide) return src;
+    final r = normLongSide / long;
+    return img.copyResize(src,
+        width: math.max(1, (src.width * r).round()),
+        height: math.max(1, (src.height * r).round()),
+        interpolation: img.Interpolation.average);
   }
 
   static Letterboxed letterbox(img.Image src, int size) {
