@@ -196,6 +196,11 @@ class _ResultScreenState extends State<ResultScreen> {
           _manualCard(p),
           const SizedBox(height: 14),
 
+          // 이 방위에서 무엇이 안 잡혔는지 — 값이 "–"인 이유를 현장에서 바로 알게.
+          if (_faceIssue(f) != null) ...[
+            _faceNotice(p, _faceIssue(f)!),
+            const SizedBox(height: 12),
+          ],
           _metricCard(p, f),
           const SizedBox(height: 22),
 
@@ -499,6 +504,39 @@ class _ResultScreenState extends State<ResultScreen> {
 
   /// 4방위 중 일부만 계측된 경우의 안내. BSI는 4방위 합이라 그대로 두면
   /// 과소평가되므로 환산해 쓰고 있다는 사실을 밝힌다.
+  /// 선택된 방위의 검출 실패 사유. 없으면 null.
+  String? _faceIssue(AzimuthResult? f) {
+    if (f == null || !f.analysed || f.manual) return null;
+    if (f.treePx == 0) {
+      return tr('이 방위에서 수간을 찾지 못했습니다. 나무 전체가 화면에 들어오게 다시 촬영하세요.',
+          'No stem detected on this face. Retake with the whole trunk in frame.');
+    }
+    if (f.pxPerMetre.isNaN) {
+      return tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 온전히 보이게 다시 촬영하세요.',
+          'No 1 m pole marks found, so heights cannot be measured. Retake with the pole fully visible.');
+    }
+    return null;
+  }
+
+  Widget _faceNotice(AppPalette p, String msg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: p.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.danger.withValues(alpha: 0.45)),
+      ),
+      child: Row(children: [
+        Icon(Icons.no_photography_outlined, size: 18, color: p.danger),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(msg,
+              style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4)),
+        ),
+      ]),
+    );
+  }
+
   Widget _partialNotice(AppPalette p, int facesUsed) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

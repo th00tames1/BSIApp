@@ -18,6 +18,7 @@ import '../models/draft.dart';
 import '../services/demo_sample.dart';
 import '../services/geomag.dart';
 import '../services/location_service.dart';
+import '../services/photo_normalizer.dart';
 import '../theme.dart';
 import 'analysis_screen.dart';
 
@@ -306,7 +307,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final destDir = await _photoDir();
       final dest = p.join(destDir.path,
           '${d.treeId}_${_selected.code}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await File(shot.path).copy(dest);
+      // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
+      await PhotoNormalizer.save(shot.path, dest);
       d.photos[_selected] = dest;
       final tagged = _tagPosition();
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
@@ -326,7 +328,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   Future<void> _pickFromGallery() async {
     if (_busy) return;
     try {
-      final picked = await _picker.pickImage(source: ImageSource.gallery);
+      // 갤러리 원본은 무엇이든 올 수 있다(200 MP·HEIC…) — 먼저 플랫폼에서 줄이고
+      // 촬영본과 같은 표준 형태로 저장한다.
+      final picked = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: PhotoNormalizer.longSide.toDouble(),
+          maxHeight: PhotoNormalizer.longSide.toDouble());
       if (picked == null || !mounted) return;
       final az = await _askAzimuth();
       if (az == null || !mounted) return;
@@ -334,7 +341,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final destDir = await _photoDir();
       final dest = p.join(destDir.path,
           '${d.treeId}_${az.code}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await File(picked.path).copy(dest);
+      await PhotoNormalizer.save(picked.path, dest);
       d.photos[az] = dest;
       saveDraftJson(d.toJsonString());
       if (!mounted) return;
