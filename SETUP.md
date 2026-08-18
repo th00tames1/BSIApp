@@ -68,8 +68,9 @@ flutter pub get
 flutter test
 ```
 
-**56건 전부 통과해야 한다.** 수고봉 스케일 환산, 검출 결과 디코딩, 기기 독립성,
-통합 BSI 산출, 직접 입력 방위, CSV 열 정합, BSI 판정표, 경계 파일 임포트를 검증한다.
+**62건 전부 통과해야 한다.** 수고봉 스케일 환산, 검출 결과 디코딩, 기기 독립성,
+입력 해상도 정규화, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합, BSI 판정표, 경계 파일
+임포트를 검증한다.
 `54 packages have newer versions incompatible with dependency constraints`는
 `pubspec.lock`으로 버전을 고정해 둔 결과이며 정상 메시지다.
 
@@ -168,6 +169,14 @@ open -a Simulator && flutter run
 
 **서명 설정 없이 시뮬레이터에서 실행된다.** 빌드가 통과하는지, 분석이 도는지는
 여기까지로 확인할 수 있다. 컴파일만 확인하려면 `flutter build ios --simulator`.
+
+시뮬레이터에는 카메라·나침반·GPS가 없다. 촬영 화면은 "사용 가능한 카메라가 없습니다"가
+정상이고, 분석은 **개발자 모드 → 예시 사진으로 시험**(§5)이나 촬영 화면의 갤러리
+불러오기로 확인한다. 실기기에서는 Android와 같은 경로를 탄다 — 촬영 사진은 기기와
+무관하게 긴 변 2560·회전 적용·EXIF 없는 JPEG로 저장되고, 분석은 예시 사진과 동일한
+파이프라인(1280 정규화 → 640 letterbox)을 거친다. iOS 나침반은 OS가 진북을 주므로
+**진북 고정**이며(자북 선택 불가), 카메라 권한은 `ios/Podfile`의
+`PERMISSION_CAMERA=1` 매크로로 켜져 있다(`pod install` 시 자동 반영).
 
 Apple Silicon 시뮬레이터도 정상이다 — `flutter_onnxruntime`의 podspec이 제외하는
 아키텍처는 `i386` 뿐이다.

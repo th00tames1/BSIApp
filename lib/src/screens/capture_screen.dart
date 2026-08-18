@@ -232,11 +232,16 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       _error = null;
     });
     try {
-      // 권한은 컨트롤러 생성 전에 직접 요청한다. initialize() 도중에 권한
-      // 대화상자가 뜨면 resume 시 초기화가 겹쳐 플러그인이 null 오류로 죽는다.
-      final st = await Permission.camera.request();
-      if (!st.isGranted) {
-        throw StateError(tr('카메라 권한이 필요합니다', 'Camera permission is required'));
+      // Android: 권한은 컨트롤러 생성 전에 직접 요청한다. initialize() 도중에
+      // 권한 대화상자가 뜨면 resume 시 초기화가 겹쳐 플러그인이 null 오류로 죽는다.
+      // iOS: camera 플러그인이 초기화 중 스스로 요청한다. permission_handler는
+      // Podfile 매크로가 없으면 묻지도 않고 "거부"를 돌려주므로 여기서 쓰지 않는다.
+      if (Platform.isAndroid) {
+        final st = await Permission.camera.request();
+        if (!st.isGranted) {
+          throw StateError(
+              tr('카메라 권한이 필요합니다', 'Camera permission is required'));
+        }
       }
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
