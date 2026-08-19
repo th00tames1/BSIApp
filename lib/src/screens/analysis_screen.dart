@@ -57,6 +57,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           d.photos[az]!,
           poleLengthM: d.poleLengthM,
           overlayOutPath: overlayPath,
+          rawOutDir: d.rawDir, // 연구용 원시 산출물(없으면 건너뜀)
         );
         d.results[az] = res;
         // 오버레이 경로는 조사목·방위마다 고정이라, 재촬영 후 다시 분석하면 같은

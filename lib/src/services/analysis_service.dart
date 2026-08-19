@@ -1,4 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as path;
 
 import '../models/survey.dart';
 import 'image_ops.dart';
@@ -36,7 +41,11 @@ class AnalysisService {
   static double estimateDbhCm(List<AzimuthResult> faces) {
     final v = [
       for (final f in faces)
-        if (f.analysed && !f.dbhEstM.isNaN && f.dbhEstM > 0) f.dbhEstM * 100
+        if (f.analysed &&
+            f.scaleSource != 'dbh' && // 흉고직경으로 세운 스케일은 순환이라 제외
+            !f.dbhEstM.isNaN &&
+            f.dbhEstM > 0)
+          f.dbhEstM * 100
     ]..sort();
     if (v.isEmpty) return double.nan;
     return v.length.isOdd
@@ -52,12 +61,15 @@ class AnalysisService {
     required double poleLengthM,
     String? overlayOutPath,
     double? manualPxPerMetre,
+    double? dbhCmForScale,
+    String? rawOutDir,
   }) async {
     final size = OnnxService.instance.inputSize;
     final lb = ImageOps.letterboxFromFile(imagePath, size);
     if (lb == null) {
       return AzimuthResult(azimuth: azimuth, imagePath: imagePath, analysed: false);
     }
+    final analysedAt = DateTime.now();
     final raw = await OnnxService.instance.infer(lb.chw, lb.size);
     final fa = SegDecoder.analyze(
         raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size);
@@ -84,11 +96,29 @@ class AnalysisService {
       }
     }
     final PoleScale pole = PoleScale.detect(lb.square, lb.size, poleLengthM);
-    final double pxPerM = manualPxPerMetre ??
+    double pxPerM = manualPxPerMetre ??
         sol?.pxPerMetre ??
         (modelUsable ? double.nan : pole.pxPerMetre);
+    String scaleSource = manualPxPerMetre != null
+        ? 'manual'
+        : sol != null
+            ? 'pole'
+            : (!modelUsable && !pole.pxPerMetre.isNaN ? 'heuristic' : '');
 
     final protoToSize = lb.size / fa.mh; // proto rows/cols -> size px
+
+    // 수고봉이 없을 때의 대안: 실측 흉고직경으로 스케일을 세운다(정밀도는 낮다 —
+    // 마스크 격자가 4 px라 폭 36 px 기준 ±10 % 안팎). 수고봉·수동 스케일이 있으면
+    // 절대 덮어쓰지 않는다.
+    var scaleFromDbh = false;
+    if (pxPerM.isNaN && dbhCmForScale != null && dbhCmForScale > 0 && fa.hasTree) {
+      final s = scaleFromDbhCm(fa, protoToSize, dbhCmForScale);
+      if (s != null && s > 0) {
+        pxPerM = s;
+        scaleSource = 'dbh';
+        scaleFromDbh = true;
+      }
+    }
     double sootHeightM = double.nan,
         sootWidthM = double.nan,
         visStemM = double.nan,
@@ -120,7 +150,8 @@ class AnalysisService {
           (breastHeightM * scaleAtRow(fa.treeBottom) / protoToSize).round();
       dbhSpan = fa.treeSpanAtHeight(rowsUp) ??
           fa.treeSpanAtHeight((fa.treeBottom - fa.treeTop) ~/ 3);
-      if (dbhSpan != null) {
+      // 스케일을 흉고직경에서 얻었으면 그 폭으로 흉고직경을 "추정"하는 건 순환이다.
+      if (dbhSpan != null && !scaleFromDbh) {
         dbhM = dbhSpan.width * protoToSize / scaleAtRow(dbhSpan.row);
       }
     }
@@ -153,7 +184,7 @@ class AnalysisService {
       overlayPath = overlayOutPath;
     }
 
-    return AzimuthResult(
+    final result = AzimuthResult(
       azimuth: azimuth,
       imagePath: imagePath,
       overlayPath: overlayPath,
@@ -167,7 +198,148 @@ class AnalysisService {
       sootPx: fa.sootPx,
       treePx: fa.treePx,
       analysed: true,
+      scaleSource: scaleSource,
     );
+
+    // 연구용 원시 산출물 — 나중에 다른 모델·파이프라인으로 같은 입력을 다시 돌려
+    // 비교할 수 있게 모델명·입력 기하·분할 통계·수고봉 경계점·마스크를 남긴다.
+    if (rawOutDir != null) {
+      _writeRawArtifacts(
+        rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
+        result, dbhCmForScale, manualPxPerMetre,
+      );
+    }
+    return result;
+  }
+
+  static void _writeRawArtifacts(
+    String dir,
+    String azimuth,
+    DateTime analysedAt,
+    String imagePath,
+    Letterboxed lb,
+    FaceAnalysis fa,
+    PoleScaleSolution? sol,
+    PoleScale pole,
+    AzimuthResult r,
+    double? dbhCmForScale,
+    double? manualPxPerMetre,
+  ) {
+    try {
+      Directory(dir).createSync(recursive: true);
+      Object? n(double v) => v.isNaN ? null : v;
+      final json = <String, dynamic>{
+        'azimuth': azimuth,
+        'analysedAt': analysedAt.toIso8601String(),
+        'image': imagePath,
+        'models': {
+          'seg': OnnxService.instance.loadedAsset,
+          'pole': OnnxService.pole.loadedAsset,
+          'inputSize': lb.size,
+        },
+        'letterbox': {
+          'scale': lb.scale,
+          'padX': lb.padX,
+          'padY': lb.padY,
+          'size': lb.size,
+        },
+        'seg': {
+          'mh': fa.mh,
+          'mw': fa.mw,
+          'treePx': fa.treePx,
+          'sootPx': fa.sootPx,
+          'interPx': fa.interPx,
+          'nTree': fa.nTree,
+          'nSoot': fa.nSoot,
+          'bspWhole': n(fa.bspWhole),
+          'bspBelow': n(fa.bspBelow),
+          'interTop': fa.interTop,
+          'interBottom': fa.interBottom,
+          'interLeft': fa.interLeft,
+          'interRight': fa.interRight,
+          'treeTop': fa.treeTop,
+          'treeBottom': fa.treeBottom,
+        },
+        'scale': {
+          'source': r.scaleSource,
+          'pxPerMetre': n(r.pxPerMetre),
+          'manualPxPerMetre': manualPxPerMetre,
+          'dbhCmForScale': dbhCmForScale,
+          'poleModel': sol == null
+              ? null
+              : {
+                  'pxPerMetre': n(sol.pxPerMetre),
+                  'points': [
+                    for (final q in sol.staff.points)
+                      {'x': q.x, 'y': q.y, 'score': q.score}
+                  ],
+                },
+          'poleHeuristic': {
+            'detected': pole.detected,
+            'topY': pole.topY,
+            'bottomY': pole.bottomY,
+            'x': pole.x,
+            'pxPerMetre': n(pole.pxPerMetre),
+          },
+        },
+        'metrics': {
+          'sootProportion': n(r.sootProportion),
+          'sootProportionWhole': n(r.sootProportionWhole),
+          'sootHeightM': n(r.sootHeightM),
+          'sootWidthM': n(r.sootWidthM),
+          'visibleStemHeightM': n(r.visibleStemHeightM),
+          'dbhEstM': n(r.dbhEstM),
+        },
+        'overlay': r.overlayPath,
+      };
+      File(path.join(dir, '${azimuth}_analysis.json'))
+          .writeAsStringSync(_pretty(json), flush: true);
+      File(path.join(dir, '${azimuth}_mask_tree.png'))
+          .writeAsBytesSync(_maskPng(fa.treeMask, fa.mw, fa.mh), flush: true);
+      File(path.join(dir, '${azimuth}_mask_soot.png'))
+          .writeAsBytesSync(_maskPng(fa.sootMask, fa.mw, fa.mh), flush: true);
+    } catch (_) {
+      // 원시 산출물 기록 실패가 분석 결과를 막아서는 안 된다.
+    }
+  }
+
+  static String _pretty(Map<String, dynamic> j) =>
+      const JsonEncoder.withIndent('  ').convert(j);
+
+  /// 0/1 마스크를 0/255 회색 PNG로(모델 proto 해상도 그대로).
+  static Uint8List _maskPng(Uint8List mask, int w, int h) {
+    final im = img.Image(width: w, height: h, numChannels: 1);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        final v = mask[y * w + x] == 1 ? 255 : 0;
+        im.setPixelR(x, y, v);
+      }
+    }
+    return Uint8List.fromList(img.encodePng(im));
+  }
+
+  /// 수고봉 없이 **실측 흉고직경**으로 스케일(px/m, letterbox 공간)을 세운다.
+  ///
+  /// 가슴높이(1.3 m)의 행 위치 자체가 스케일에 달려 있으므로, 줄기 아래 1/3
+  /// 지점의 폭으로 초기값을 잡고 "그 스케일로 1.3 m 행을 찾아 폭을 다시 재는"
+  /// 과정을 몇 번 반복한다. 수간 폭은 높이에 따라 천천히 변하므로 금방 수렴한다.
+  /// 수간이 없거나 폭을 못 재면 null.
+  static double? scaleFromDbhCm(FaceAnalysis fa, double protoToSize, double dbhCm) {
+    if (!fa.hasTree || dbhCm <= 0) return null;
+    final dbhM = dbhCm / 100.0;
+    final first = fa.treeSpanAtHeight((fa.treeBottom - fa.treeTop) ~/ 3);
+    if (first == null || first.width <= 0) return null;
+    var s = first.width * protoToSize / dbhM;
+    for (var i = 0; i < 4; i++) {
+      final rowsUp = (breastHeightM * s / protoToSize).round();
+      final sp = fa.treeSpanAtHeight(rowsUp);
+      if (sp == null || sp.width <= 0) break;
+      final next = sp.width * protoToSize / dbhM;
+      final done = (next - s).abs() < 1e-9;
+      s = next;
+      if (done) break;
+    }
+    return s;
   }
 
   /// BSI = Σ over faces of (scorch height[m] × scorch proportion), per Kwon 2021.

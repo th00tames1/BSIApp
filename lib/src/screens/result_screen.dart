@@ -10,6 +10,8 @@ import '../models/survey.dart';
 import '../services/analysis_service.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
+import '../services/onnx_service.dart';
+import '../services/raw_archive.dart';
 import '../theme.dart';
 import 'bsi_table_screen.dart';
 import 'manual_face_sheet.dart';
@@ -24,6 +26,7 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late Azimuth _sel;
   bool _saving = false;
+  bool _rescaling = false; // 흉고직경 기반 스케일 재분석 중
   late final TextEditingController _dbh =
       TextEditingController(text: d.dbhCm > 0 ? d.dbhCm.toStringAsFixed(0) : '');
 
@@ -94,7 +97,35 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await DbService.instance.insert(d.toRecord());
+      final rec = d.toRecord();
+      await DbService.instance.insert(rec);
+      // 연구용: 저장 시점의 최종 레코드(판정·DBH·직접 입력 포함)를 번들에 남긴다.
+      final raw = d.rawDir;
+      if (raw != null) {
+        await RawArchive.writeJson(raw, 'record.json', {
+          'savedAt': DateTime.now().toIso8601String(),
+          'record': rec.toMap()..remove('faces'),
+          'faces': [for (final f in rec.faces) f.toJson()],
+          'integration': d.integ == null
+              ? null
+              : {
+                  'bsi': d.integ!.bsi.isNaN ? null : d.integ!.bsi,
+                  'facesUsed': d.integ!.facesUsed,
+                  'mortality': d.integ!.mortality.isNaN ? null : d.integ!.mortality,
+                  'verdict': d.integ!.verdict,
+                },
+          'dbh': {
+            'enteredCm': d.dbhCm,
+            'autoEstimateCm': _dbhAuto.isNaN ? null : _dbhAuto,
+            'usedAuto': _dbhFromAuto,
+          },
+          'models': {
+            'seg': d.modelAsset,
+            'pole': d.poleModelAsset,
+          },
+          'environment': RawArchive.environment(),
+        });
+      }
       // 예시 조사 저장이 진행 중이던 실제 조사 초안을 지우면 안 된다.
       if (!d.isSample) await clearDraft();
     } catch (e) {
@@ -198,7 +229,12 @@ class _ResultScreenState extends State<ResultScreen> {
 
           // 이 방위에서 무엇이 안 잡혔는지 — 값이 "–"인 이유를 현장에서 바로 알게.
           if (_faceIssue(f) != null) ...[
-            _faceNotice(p, _faceIssue(f)!),
+            _faceNotice(p, _faceIssue(f)!,
+                action: (f != null && _isUnscaled(f)) ? _rescaleButton(p) : null),
+            const SizedBox(height: 12),
+          ],
+          if (_faceInfo(f) != null) ...[
+            _faceNotice(p, _faceInfo(f)!, warning: false),
             const SizedBox(height: 12),
           ],
           _metricCard(p, f),
@@ -266,11 +302,17 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: 4),
                     Text(
                         prob.isNaN
-                            ? (d.dbhCm > 0
-                                ? tr('판정표 범위를 벗어났습니다',
-                                    'Outside the table range')
-                                : tr('흉고직경을 입력하면 판정됩니다',
-                                    'Enter DBH to evaluate'))
+                            ? (bsi.isNaN
+                                ? (_hasUnscaledFace
+                                    ? tr('높이를 잰 방위가 없어 BSI를 낼 수 없습니다. 실측 흉고직경을 넣고 "흉고직경으로 높이 추정"을 누르세요',
+                                        'No face has a scale, so BSI cannot be computed. Enter the measured DBH and tap "Estimate heights from DBH"')
+                                    : tr('계측된 방위가 없어 BSI를 낼 수 없습니다',
+                                        'No measured face - BSI cannot be computed'))
+                                : d.dbhCm > 0
+                                    ? tr('판정표 범위를 벗어났습니다',
+                                        'Outside the table range')
+                                    : tr('흉고직경을 입력하면 판정됩니다',
+                                        'Enter DBH to evaluate'))
                             : tr('30 % 이상이면 벌채 권고',
                                 'Fell recommended at 30 % or above'),
                         style: TextStyle(fontSize: 11.5, color: p.muted)),
@@ -493,7 +535,12 @@ class _ResultScreenState extends State<ResultScreen> {
               valueColor: p.green),
           Divider(height: 1, color: p.line),
           // 스케일 근거 — 이 값이 모든 미터 단위 수치를 좌우한다
-          _metric(p, Icons.straighten, tr('수고봉 스케일', 'Pole scale'),
+          _metric(
+              p,
+              Icons.straighten,
+              f.scaleSource == 'dbh'
+                  ? tr('스케일 · 흉고직경 기반', 'Scale · from DBH')
+                  : tr('수고봉 스케일', 'Pole scale'),
               f.pxPerMetre.isNaN
                   ? '–'
                   : '${f.pxPerMetre.toStringAsFixed(0)} px/m'),
@@ -504,6 +551,12 @@ class _ResultScreenState extends State<ResultScreen> {
 
   /// 4방위 중 일부만 계측된 경우의 안내. BSI는 4방위 합이라 그대로 두면
   /// 과소평가되므로 환산해 쓰고 있다는 사실을 밝힌다.
+  /// 수간은 잡혔는데 스케일(수고봉)이 없는 촬영 방위가 하나라도 있는지.
+  bool get _hasUnscaledFace => d.results.values.any(_isUnscaled);
+
+  static bool _isUnscaled(AzimuthResult f) =>
+      f.analysed && !f.manual && f.treePx > 0 && f.pxPerMetre.isNaN;
+
   /// 선택된 방위의 검출 실패 사유. 없으면 null.
   String? _faceIssue(AzimuthResult? f) {
     if (f == null || !f.analysed || f.manual) return null;
@@ -512,28 +565,97 @@ class _ResultScreenState extends State<ResultScreen> {
           'No stem detected on this face. Retake with the whole trunk in frame.');
     }
     if (f.pxPerMetre.isNaN) {
-      return tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 온전히 보이게 다시 촬영하세요.',
-          'No 1 m pole marks found, so heights cannot be measured. Retake with the pole fully visible.');
+      return d.dbhCm > 0
+          ? tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 보이게 다시 촬영하거나, 입력한 흉고직경으로 높이를 추정할 수 있습니다(정밀도 낮음).',
+              'No 1 m pole marks found, so heights cannot be measured. Retake with the pole visible, or estimate heights from the entered DBH (lower precision).')
+          : tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 보이게 다시 촬영하거나, 실측 흉고직경을 입력하면 그것으로 높이를 추정할 수 있습니다.',
+              'No 1 m pole marks found, so heights cannot be measured. Retake with the pole visible, or enter the measured DBH to estimate heights from it.');
     }
     return null;
   }
 
-  Widget _faceNotice(AppPalette p, String msg) {
+  /// 수고봉 없이 흉고직경으로 스케일을 세운 방위에는 그 사실을 남긴다.
+  String? _faceInfo(AzimuthResult? f) {
+    if (f == null || f.scaleSource != 'dbh') return null;
+    return tr('이 방위는 수고봉이 없어 입력한 흉고직경(${d.dbhCm.toStringAsFixed(0)} cm)으로 스케일을 추정했습니다. 수고봉 계측보다 정밀도가 낮습니다.',
+        'Scale on this face was estimated from the entered DBH (${d.dbhCm.toStringAsFixed(0)} cm) because no pole was found - lower precision than a pole measurement.');
+  }
+
+  Widget _faceNotice(AppPalette p, String msg,
+      {bool warning = true, Widget? action}) {
+    final c = warning ? p.danger : p.ember;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: p.danger.withValues(alpha: 0.08),
+        color: c.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.danger.withValues(alpha: 0.45)),
+        border: Border.all(color: c.withValues(alpha: 0.45)),
       ),
-      child: Row(children: [
-        Icon(Icons.no_photography_outlined, size: 18, color: p.danger),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(msg,
-              style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4)),
-        ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(warning ? Icons.no_photography_outlined : Icons.info_outline,
+              size: 18, color: c),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(msg,
+                style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4)),
+          ),
+        ]),
+        if (action != null) ...[const SizedBox(height: 8), action],
       ]),
+    );
+  }
+
+  /// 스케일이 없는 촬영 방위에 한해, 입력한 흉고직경으로 스케일을 세워 다시 분석한다.
+  /// 수고봉·수동 스케일이 있는 방위는 건드리지 않는다(analyzeFace가 보장).
+  Future<void> _rescaleFromDbh() async {
+    if (_rescaling || d.dbhCm <= 0) return;
+    setState(() => _rescaling = true);
+    try {
+      await OnnxService.instance.load(d.modelAsset);
+      await OnnxService.pole.tryLoad(d.poleModelAsset);
+      for (final az in d.capturedAzimuths) {
+        final f = d.results[az];
+        if (f == null || !_isUnscaled(f)) continue;
+        final res = await AnalysisService.instance.analyzeFace(
+          az.code,
+          d.photos[az]!,
+          poleLengthM: d.poleLengthM,
+          overlayOutPath: f.overlayPath,
+          dbhCmForScale: d.dbhCm,
+          rawOutDir: d.rawDir, // 흉고직경 스케일 산출물로 덮어쓴다(scale.source='dbh')
+        );
+        if (res.overlayPath != null) {
+          await FileImage(File(res.overlayPath!)).evict();
+        }
+        d.results[az] = res;
+      }
+      d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(
+              content: Text(tr('흉고직경 스케일 추정 실패: $e',
+                  'DBH-scale estimation failed: $e'))));
+      }
+    } finally {
+      if (mounted) setState(() => _rescaling = false);
+    }
+  }
+
+  Widget _rescaleButton(AppPalette p) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FilledButton.tonalIcon(
+        onPressed: (_rescaling || d.dbhCm <= 0) ? null : _rescaleFromDbh,
+        icon: _rescaling
+            ? const SizedBox(
+                width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.straighten, size: 16),
+        label: Text(tr('흉고직경으로 높이 추정', 'Estimate heights from DBH'),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+      ),
     );
   }
 

@@ -32,6 +32,9 @@ class SurveyDraft {
   /// 자동 투어를 돌리지 않고, 저장해도 진행 중이던 실제 조사 초안을 지우지 않는다.
   bool isSample = false;
 
+  /// 원시 데이터 번들 폴더(RawArchive). 첫 촬영 때 만들어지고 저장 기록에 남는다.
+  String? rawDir;
+
   final Map<Azimuth, String> photos = {}; // captured photo path per azimuth
   // Per-azimuth standpoint fix: dwell-averaged position + its scatter (m).
   final Map<Azimuth, ({double lat, double lon, double sigma})> photoPos = {};
@@ -119,6 +122,7 @@ class SurveyDraft {
         mortalityProb: integ?.mortality ?? double.nan,
         verdict: integ?.verdict ?? '',
         createdAt: DateTime.now(),
+        rawDir: rawDir,
       );
 
   /// Has the surveyor started capturing (worth resuming after a close/kill)?
@@ -138,6 +142,7 @@ class SurveyDraft {
         'dbhCm': dbhCm,
         'memo': memo,
         'poleLengthM': poleLengthM,
+        'rawDir': rawDir,
         'modelName': modelName,
         'modelAsset': modelAsset,
         'photos': photos.map((k, v) => MapEntry(k.name, v)),
@@ -161,6 +166,7 @@ class SurveyDraft {
         ..dbhCm = (j['dbhCm'] as num?)?.toDouble() ?? 0
         ..memo = j['memo'] as String? ?? ''
         ..poleLengthM = (j['poleLengthM'] as num?)?.toDouble() ?? 3.0
+        ..rawDir = j['rawDir'] as String?
         ..modelName = j['modelName'] as String? ?? 'YOLO26s@640'
         ..modelAsset = j['modelAsset'] as String? ??
             'assets/models/bsi_seg_yolo26s_640.onnx';

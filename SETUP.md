@@ -1,6 +1,6 @@
 # 설치 및 실행 가이드
 
-다른 컴퓨터에서 GitHub 클론만으로 ReForest 앱을 빌드·실행하기 위한 문서다.
+다른 컴퓨터에서 GitHub 클론만으로 BSI_app 앱을 빌드·실행하기 위한 문서다.
 **AI 모델과 예시 사진이 저장소에 함께 들어 있으므로 별도 내려받기 없이 전체 분석이 동작한다.**
 
 - 저장소 : `https://github.com/th00tames1/BSIApp`
@@ -68,9 +68,9 @@ flutter pub get
 flutter test
 ```
 
-**62건 전부 통과해야 한다.** 수고봉 스케일 환산, 검출 결과 디코딩, 기기 독립성,
-입력 해상도 정규화, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합, BSI 판정표, 경계 파일
-임포트를 검증한다.
+**67건 전부 통과해야 한다.** 수고봉 스케일 환산, 검출 결과 디코딩, 기기 독립성,
+입력 해상도 정규화, 흉고직경 기반 스케일, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
+BSI 판정표, 경계 파일 임포트를 검증한다.
 `54 packages have newer versions incompatible with dependency constraints`는
 `pubspec.lock`으로 버전을 고정해 둔 결과이며 정상 메시지다.
 

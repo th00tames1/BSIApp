@@ -19,6 +19,7 @@ import '../services/demo_sample.dart';
 import '../services/geomag.dart';
 import '../services/location_service.dart';
 import '../services/photo_normalizer.dart';
+import '../services/raw_archive.dart';
 import '../theme.dart';
 import 'analysis_screen.dart';
 
@@ -303,19 +304,69 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     });
   }
 
+  /// 원시 데이터 번들에 원본 사진과 촬영 메타를 남긴다. 실패해도 조사는 계속된다.
+  Future<void> _keepRaw(Azimuth az, String originalPath, String savedPath,
+      DateTime at, {required String source}) async {
+    try {
+      d.rawDir ??= await RawArchive.create(d.treeId);
+      final dir = d.rawDir!;
+      final orig = await RawArchive.keepOriginal(dir, originalPath, az.code);
+      final here = _here;
+      final sp = d.photoPos[az];
+      final rawHeading = _heading;
+      await RawArchive.writeJson(dir, '${az.code}_capture.json', {
+        'azimuth': az.code,
+        'source': source,
+        'capturedAt': at.toIso8601String(),
+        'photo': savedPath,
+        'original': orig,
+        'treeId': d.treeId,
+        'site': d.site,
+        'species': d.species,
+        'poleLengthM': d.poleLengthM,
+        'gps': here == null
+            ? null
+            : {
+                'lat': here.latitude,
+                'lon': here.longitude,
+                'accuracyM': here.accuracy,
+                'altitudeM': here.altitude,
+                'timestamp': here.timestamp.toIso8601String(),
+              },
+        'standpoint': sp == null
+            ? null
+            : {'lat': sp.lat, 'lon': sp.lon, 'sigmaM': sp.sigma},
+        'heading': {
+          'rawDeg': rawHeading,
+          'displayDeg': Geomag.toDisplay(rawHeading, northRef.value),
+          'northRef': Geomag.effective(northRef.value).name,
+          'declinationDeg': Geomag.declinationDeg,
+        },
+        'camera': {
+          'preset': 'max',
+          'normalizedLongSide': PhotoNormalizer.longSide,
+        },
+        'environment': RawArchive.environment(),
+      });
+    } catch (_) {}
+  }
+
   Future<void> _capture() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized || _busy) return;
     setState(() => _busy = true);
     try {
       final shot = await c.takePicture();
+      final shotAt = DateTime.now();
       final destDir = await _photoDir();
       final dest = p.join(destDir.path,
-          '${d.treeId}_${_selected.code}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+          '${d.treeId}_${_selected.code}_${shotAt.millisecondsSinceEpoch}.jpg');
       // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
       await PhotoNormalizer.save(shot.path, dest);
       d.photos[_selected] = dest;
       final tagged = _tagPosition();
+      // 연구용 원시 데이터: 카메라 원본 그대로 + 촬영 당시 GPS·방위각·기기.
+      await _keepRaw(_selected, shot.path, dest, shotAt, source: 'camera');
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (!tagged) {
@@ -348,6 +399,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           '${d.treeId}_${az.code}_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await PhotoNormalizer.save(picked.path, dest);
       d.photos[az] = dest;
+      await _keepRaw(az, picked.path, dest, DateTime.now(), source: 'gallery');
       saveDraftJson(d.toJsonString());
       if (!mounted) return;
       _showNotice(tr('${az.label} 방위에 사진을 불러왔습니다',

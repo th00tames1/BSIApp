@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as pp;
 import 'package:path_provider/path_provider.dart';
 
+import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../models/survey.dart';
@@ -115,6 +116,11 @@ class _SavedScreenState extends State<SavedScreen> {
       final overlayDir = Directory(pp.join(dir.path, 'overlays'));
       if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);
 
+      // 연구용 산출물은 원 분석을 덮어쓰지 않도록 하위 폴더에 따로 둔다.
+      final rawOut = record.rawDir == null
+          ? null
+          : pp.join(record.rawDir!,
+              'reanalysis_${DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-')}');
       // 직접 입력한 방위는 사진이 없어 다시 분석할 수 없다. 그대로 살려 둔다.
       final fresh = record.faces.where((f) => f.manual).toList();
       for (int i = 0; i < shots.length; i++) {
@@ -129,6 +135,7 @@ class _SavedScreenState extends State<SavedScreen> {
           f.imagePath!,
           poleLengthM: record.poleLengthM,
           overlayOutPath: outPath,
+          rawOutDir: rawOut,
         ));
         // 같은 경로에 덮어쓰므로 캐시를 비워야 새 오버레이가 보인다.
         await FileImage(File(outPath)).evict();
@@ -285,11 +292,13 @@ class _SavedScreenState extends State<SavedScreen> {
       appBar: AppBar(
         title: Text(tr('조사목 상세', 'Tree detail')),
         actions: [
-          IconButton(
-            tooltip: tr('이미지 다시 분석', 'Re-analyse images'),
-            onPressed: _reanalyse,
-            icon: const Icon(Icons.refresh),
-          ),
+          // 다시 분석은 연구·검증용이라 개발자 모드에서만 보인다.
+          if (devMode.value)
+            IconButton(
+              tooltip: tr('이미지 다시 분석 (개발자)', 'Re-analyse images (developer)'),
+              onPressed: _reanalyse,
+              icon: const Icon(Icons.refresh),
+            ),
           IconButton(
             tooltip: tr('CSV 내보내기', 'Export CSV'),
             onPressed: () => CsvExport.share([record]),

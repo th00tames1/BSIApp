@@ -16,7 +16,7 @@ class DbService {
     final path = p.join(dir.path, 'bsi_field.db');
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, v) async {
         await db.execute('''
           CREATE TABLE surveys (
@@ -30,6 +30,7 @@ class DbService {
             dbhCm REAL,
             heightM REAL,
             sootMaxM REAL,
+            rawDir TEXT,
             memo TEXT,
             modelName TEXT,
             poleLengthM REAL,
@@ -46,6 +47,10 @@ class DbService {
           // 조사목 상세에서 수정 가능한 수고·그을음 높이(레코드 단위) 열 추가.
           await db.execute('ALTER TABLE surveys ADD COLUMN heightM REAL');
           await db.execute('ALTER TABLE surveys ADD COLUMN sootMaxM REAL');
+        }
+        if (from < 3) {
+          // 원시 데이터 번들 폴더(연구용 재분석·검증).
+          await db.execute('ALTER TABLE surveys ADD COLUMN rawDir TEXT');
         }
       },
     );

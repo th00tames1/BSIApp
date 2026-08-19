@@ -24,6 +24,10 @@ class AzimuthResult {
   /// 채워 4방위 BSI를 완성할 때 쓴다. 재분석은 이 면을 건드리지 않는다.
   final bool manual;
 
+  /// 스케일(px/m)의 출처: 'pole'(수고봉 경계 모델) · 'manual' · 'heuristic'(노란픽셀)
+  /// · 'dbh'(수고봉 없이 실측 흉고직경으로 추정 — 정밀도 낮음) · ''(스케일 없음).
+  final String scaleSource;
+
   const AzimuthResult({
     required this.azimuth,
     this.imagePath,
@@ -39,6 +43,7 @@ class AzimuthResult {
     this.treePx = 0,
     this.analysed = false,
     this.manual = false,
+    this.scaleSource = '',
   });
 
   AzimuthResult copyWith({
@@ -55,6 +60,7 @@ class AzimuthResult {
     int? treePx,
     bool? analysed,
     bool? manual,
+    String? scaleSource,
   }) =>
       AzimuthResult(
         azimuth: azimuth,
@@ -71,6 +77,7 @@ class AzimuthResult {
         treePx: treePx ?? this.treePx,
         analysed: analysed ?? this.analysed,
         manual: manual ?? this.manual,
+        scaleSource: scaleSource ?? this.scaleSource,
       );
 
   Map<String, dynamic> toJson() => {
@@ -88,6 +95,7 @@ class AzimuthResult {
         'treePx': treePx,
         'analysed': analysed,
         'manual': manual,
+        'scaleSource': scaleSource,
       };
 
   factory AzimuthResult.fromJson(Map<String, dynamic> j) => AzimuthResult(
@@ -105,6 +113,7 @@ class AzimuthResult {
         treePx: (j['treePx'] as num?)?.toInt() ?? 0,
         analysed: j['analysed'] as bool? ?? false,
         manual: j['manual'] as bool? ?? false,
+        scaleSource: j['scaleSource'] as String? ?? '',
       );
 }
 
@@ -122,6 +131,8 @@ class SurveyRecord {
   final double heightM;
   /// 그을음 최고 높이 (m). NaN이면 방위별 계측값(sootHeightM 최대)으로 표시한다.
   final double sootMaxM;
+  /// 원시 데이터 번들 폴더(사진 원본·분석 산출물·record.json). 없으면 null.
+  final String? rawDir;
   final String memo;
   final String modelName;
   final double poleLengthM; // measuring-pole real length used for scale
@@ -142,6 +153,7 @@ class SurveyRecord {
     required this.dbhCm,
     this.heightM = double.nan,
     this.sootMaxM = double.nan,
+    this.rawDir,
     this.memo = '',
     required this.modelName,
     this.poleLengthM = 3.0,
@@ -179,6 +191,7 @@ class SurveyRecord {
         dbhCm: dbhCm ?? this.dbhCm,
         heightM: heightM ?? this.heightM,
         sootMaxM: sootMaxM ?? this.sootMaxM,
+        rawDir: rawDir,
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,
@@ -218,6 +231,7 @@ class SurveyRecord {
         'dbhCm': dbhCm,
         'heightM': _n(heightM),
         'sootMaxM': _n(sootMaxM),
+        'rawDir': rawDir,
         'memo': memo,
         'modelName': modelName,
         'poleLengthM': poleLengthM,
@@ -239,6 +253,7 @@ class SurveyRecord {
         dbhCm: (m['dbhCm'] as num?)?.toDouble() ?? 0,
         heightM: (m['heightM'] as num?)?.toDouble() ?? double.nan,
         sootMaxM: (m['sootMaxM'] as num?)?.toDouble() ?? double.nan,
+        rawDir: m['rawDir'] as String?,
         memo: m['memo'] as String? ?? '',
         modelName: m['modelName'] as String? ?? '',
         poleLengthM: (m['poleLengthM'] as num?)?.toDouble() ?? 3.0,

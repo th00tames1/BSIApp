@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../app_prefs.dart';
 import '../models/survey.dart';
+import 'raw_archive.dart';
 
 class CsvExport {
   static const _header = [
@@ -15,7 +17,8 @@ class CsvExport {
     'pole_len_m', 'bsi', 'mortality_prob', 'verdict',
     'face_azimuth', 'face_source', 'soot_height_m', 'soot_proportion',
     'soot_proportion_whole',
-    'soot_width_m', 'visible_stem_m', 'dbh_est_m', 'px_per_m', 'created_at',
+    'soot_width_m', 'visible_stem_m', 'dbh_est_m', 'px_per_m', 'scale_source',
+    'created_at',
   ];
 
   /// NaN은 CSV에서 빈 칸으로 낸다.
@@ -35,8 +38,10 @@ class CsvExport {
         r.modelName, r.poleLengthM, _v(r.bsi), _v(r.mortalityProb), r.verdict,
       ];
       if (r.faces.isEmpty) {
-        rows.add(
-            [...base, '', '', '', '', '', '', '', '', '', r.createdAt.toIso8601String()]);
+        rows.add([
+          ...base, '', '', '', '', '', '', '', '', '', '',
+          r.createdAt.toIso8601String()
+        ]);
       }
       for (final f in r.faces) {
         rows.add([
@@ -45,6 +50,7 @@ class CsvExport {
           f.manual ? 'manual' : 'analysed',
           _v(f.sootHeightM), _v(f.sootProportion), _v(f.sootProportionWhole),
           _v(f.sootWidthM), _v(f.visibleStemHeightM), _v(f.dbhEstM), _v(f.pxPerMetre),
+          f.scaleSource, // 'pole' | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''
           r.createdAt.toIso8601String(),
         ]);
       }
@@ -60,8 +66,18 @@ class CsvExport {
     return f;
   }
 
+  /// 내보내기. 개발자 모드에서는 CSV에 더해 각 기록의 원시 번들(원본 사진·
+  /// 촬영 메타·분석 산출물·마스크·record.json)과 사진·오버레이를 ZIP으로 묶는다.
+  /// 일반 사용자는 CSV만 받는다.
   static Future<void> share(List<SurveyRecord> recs) async {
     final f = await write(recs);
+    if (devMode.value) {
+      final zip = await RawArchive.exportZip(recs, f);
+      await SharePlus.instance.share(
+        ShareParams(text: 'BSI survey export (raw bundle)', files: [XFile(zip.path)]),
+      );
+      return;
+    }
     await SharePlus.instance.share(
       ShareParams(text: 'BSI survey export', files: [XFile(f.path)]),
     );
