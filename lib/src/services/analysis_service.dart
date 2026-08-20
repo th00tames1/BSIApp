@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
@@ -65,7 +66,7 @@ class AnalysisService {
     String? rawOutDir,
   }) async {
     final size = OnnxService.instance.inputSize;
-    final lb = ImageOps.letterboxFromFile(imagePath, size);
+    final lb = await _letterboxCapped(imagePath, size);
     if (lb == null) {
       return AzimuthResult(azimuth: azimuth, imagePath: imagePath, analysed: false);
     }
@@ -316,6 +317,60 @@ class AnalysisService {
       }
     }
     return Uint8List.fromList(img.encodePng(im));
+  }
+
+  /// 과대 입력 보호: 저장 사진은 원래 긴 변 2560으로 정규화돼 있지만, 일부
+  /// 기기에서 정규화가 실패하면 카메라 원본(1억 화소까지)이 그대로 남는다.
+  /// 그걸 순수 Dart로 디코딩하면 수백 MB를 할당하다 저사양 기기에서 OOM으로
+  /// 앱이 죽는다(현장 보고: 4방위 촬영 후 분석 시 튕김). 헤더로 크기만 먼저
+  /// 읽고, 크면 플랫폼 코덱으로 축소 디코딩해 같은 파이프라인에 넣는다.
+  static const int _maxDartDecodeLongSide = 3200;
+
+  static Future<Letterboxed?> _letterboxCapped(String path, int size) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final info = img.JpegDecoder().startDecode(bytes);
+      final long = info == null
+          ? null
+          : (info.width > info.height ? info.width : info.height);
+      if (long != null && long > _maxDartDecodeLongSide) {
+        final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+        final desc = await ui.ImageDescriptor.encoded(buffer);
+        final w = desc.width, h = desc.height;
+        int? tw, th;
+        if (w >= h) {
+          tw = ImageOps.normLongSide * 2; // 2560 — 정규화 저장과 같은 크기
+        } else {
+          th = ImageOps.normLongSide * 2;
+        }
+        final codec =
+            await desc.instantiateCodec(targetWidth: tw, targetHeight: th);
+        final frame = await codec.getNextFrame();
+        final image = frame.image;
+        final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final ow = image.width, oh = image.height;
+        image.dispose();
+        codec.dispose();
+        desc.dispose();
+        buffer.dispose();
+        if (rgba != null) {
+          final im = img.Image.fromBytes(
+              width: ow,
+              height: oh,
+              bytes: rgba.buffer,
+              bytesOffset: rgba.offsetInBytes,
+              numChannels: 4,
+              order: img.ChannelOrder.rgba);
+          return ImageOps.letterbox(ImageOps.normalizeResolution(im), size);
+        }
+      }
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+      return ImageOps.letterbox(ImageOps.normalizeResolution(decoded), size);
+    } catch (_) {
+      // 마지막 안전망 — 기존 경로(전체 디코딩)라도 시도한다.
+      return ImageOps.letterboxFromFile(path, size);
+    }
   }
 
   /// 수고봉 없이 **실측 흉고직경**으로 스케일(px/m, letterbox 공간)을 세운다.
