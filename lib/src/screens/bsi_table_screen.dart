@@ -201,7 +201,8 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
         height: _cellH,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: base.withValues(alpha: cut ? 0.07 : 0.18),
+          // 벌채는 7%로는 흰색과 구분이 안 됐다 — 뚜렷한 분홍(30%)으로.
+          color: base.withValues(alpha: cut ? 0.30 : 0.18),
           border: Border(
             right: BorderSide(color: p.line, width: 0.5),
             bottom: BorderSide(color: p.line, width: 0.5),
@@ -261,7 +262,7 @@ class _BsiTableScreenState extends State<BsiTableScreen> {
         Row(children: [
           key(p.green, 0.18, tr('존치 (30% 미만)', 'Retain (< 30%)')),
           const SizedBox(width: 16),
-          key(p.danger, 0.07, tr('벌채 (30% 이상)', 'Fell (30% or more)')),
+          key(p.danger, 0.30, tr('벌채 (30% 이상)', 'Fell (30% or more)')),
         ]),
         const SizedBox(height: 6),
         Text(tr('가로 = 흉고직경(DBH), 세로 = BSI. 값은 고사 확률(%).',
