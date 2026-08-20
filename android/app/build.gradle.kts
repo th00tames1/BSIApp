@@ -35,6 +35,12 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 축소는 Flutter 기본값대로 켜 두되, ONNX Runtime(JNI) keep 규칙을
+            // 반드시 포함한다 — 없으면 릴리스 빌드가 분석 시작 직후 죽는다.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
