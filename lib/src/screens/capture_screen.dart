@@ -39,6 +39,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   bool _busy = false;
   final _picker = ImagePicker();
 
+  /// 촬영 후 백그라운드로 도는 저장 작업(정규화·원본 보관). 셔터는 즉시
+  /// 다음 방위로 넘어가고, AI 분석 진입 때만 완료를 기다린다.
+  final List<Future<void>> _pendingShots = [];
+
   /// 시연 모드: 카메라 대신 예시 사진을 뷰파인더처럼 띄우고 자동 "촬영"한다.
   late final bool _demo = demoMode.value && d.photos.isEmpty;
   bool _flash = false; // 셔터 순간의 화면 플래시
@@ -304,13 +308,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     });
   }
 
-  /// 원시 데이터 번들에 원본 사진과 촬영 메타를 남긴다. 실패해도 조사는 계속된다.
-  Future<void> _keepRaw(Azimuth az, String originalPath, String savedPath,
-      DateTime at, {required String source}) async {
+  /// 원시 데이터 번들에 분석용 사진 사본과 촬영 메타를 남긴다.
+  /// 실패해도 조사는 계속된다.
+  Future<void> _keepRaw(Azimuth az, String savedPath, DateTime at,
+      {required String source}) async {
     try {
       d.rawDir ??= await RawArchive.create(d.treeId);
       final dir = d.rawDir!;
-      final orig = await RawArchive.keepOriginal(dir, originalPath, az.code);
+      final copy = await RawArchive.keepPhoto(dir, savedPath, az.code);
       final here = _here;
       final sp = d.photoPos[az];
       final rawHeading = _heading;
@@ -319,7 +324,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'source': source,
         'capturedAt': at.toIso8601String(),
         'photo': savedPath,
-        'original': orig,
+        'bundledPhoto': copy,
         'treeId': d.treeId,
         'site': d.site,
         'species': d.species,
@@ -351,6 +356,26 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     } catch (_) {}
   }
 
+  /// 촬영 뒷정리(표준 형태 저장 + 연구용 원본 보관). 실패하면 원본 복사로
+  /// 대체되고, 그마저 실패하면 사진 없는 방위로 돌아간다(알림 표시).
+  Future<void> _finishShot(
+      Azimuth az, String srcPath, String dest, DateTime shotAt) async {
+    try {
+      // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
+      await PhotoNormalizer.save(srcPath, dest);
+      // 연구용 원시 데이터: 분석용 표준 사진 + 촬영 당시 GPS·방위각·기기.
+      await _keepRaw(az, dest, shotAt, source: 'camera');
+      if (d.isInProgress) saveDraftJson(d.toJsonString());
+    } catch (e) {
+      if (d.photos[az] == dest) d.photos.remove(az);
+      if (mounted) {
+        setState(() {});
+        _showNotice(tr('${az.label} 사진 저장 실패: $e',
+            'Failed to save ${az.label} photo: $e'));
+      }
+    }
+  }
+
   Future<void> _capture() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized || _busy) return;
@@ -359,14 +384,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final shot = await c.takePicture();
       final shotAt = DateTime.now();
       final destDir = await _photoDir();
+      final az = _selected;
       final dest = p.join(destDir.path,
-          '${d.treeId}_${_selected.code}_${shotAt.millisecondsSinceEpoch}.jpg');
-      // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
-      await PhotoNormalizer.save(shot.path, dest);
-      d.photos[_selected] = dest;
+          '${d.treeId}_${az.code}_${shotAt.millisecondsSinceEpoch}.jpg');
+      d.photos[az] = dest;
       final tagged = _tagPosition();
-      // 연구용 원시 데이터: 카메라 원본 그대로 + 촬영 당시 GPS·방위각·기기.
-      await _keepRaw(_selected, shot.path, dest, shotAt, source: 'camera');
+      // 정규화·원본 보관은 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
+      // 그걸 기다리면 조사 흐름이 끊기므로 백그라운드로 돌리고 즉시 다음
+      // 방위로 넘어간다. AI 분석 진입 시 [_goAnalyse]가 완료를 기다린다.
+      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt));
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (!tagged) {
@@ -395,11 +421,23 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       if (az == null || !mounted) return;
       setState(() => _busy = true);
       final destDir = await _photoDir();
+      final at = DateTime.now();
       final dest = p.join(destDir.path,
-          '${d.treeId}_${az.code}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await PhotoNormalizer.save(picked.path, dest);
+          '${d.treeId}_${az.code}_${at.millisecondsSinceEpoch}.jpg');
       d.photos[az] = dest;
-      await _keepRaw(az, picked.path, dest, DateTime.now(), source: 'gallery');
+      _pendingShots.add(() async {
+        try {
+          await PhotoNormalizer.save(picked.path, dest);
+          await _keepRaw(az, dest, at, source: 'gallery');
+          if (d.isInProgress) saveDraftJson(d.toJsonString());
+        } catch (e) {
+          if (d.photos[az] == dest) d.photos.remove(az);
+          if (mounted) {
+            setState(() {});
+            _showNotice(tr('불러오기 실패: $e', 'Import failed: $e'));
+          }
+        }
+      }());
       saveDraftJson(d.toJsonString());
       if (!mounted) return;
       _showNotice(tr('${az.label} 방위에 사진을 불러왔습니다',
@@ -473,8 +511,18 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return true;
   }
 
-  void _goAnalyse() {
+  Future<void> _goAnalyse() async {
     if (d.photos.isEmpty) return;
+    // 백그라운드 저장이 남아 있으면 끝날 때까지 잠깐 기다린다 — 분석은
+    // 파일이 완전히 쓰인 뒤에 읽어야 한다.
+    if (_pendingShots.isNotEmpty) {
+      _showNotice(tr('사진 저장을 마무리하는 중…', 'Finishing photo save…'));
+      final waiting = List.of(_pendingShots);
+      await Future.wait(waiting);
+      _pendingShots.removeWhere(waiting.contains);
+      if (!mounted || d.photos.isEmpty) return;
+    }
+    if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => AnalysisScreen(draft: d)));
   }
 

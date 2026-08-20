@@ -15,7 +15,8 @@ const String kAppVersion = '0.1.1';
 /// 나중에 다른 모델·다른 파이프라인으로 같은 사진을 다시 돌려 검증할 수 있도록,
 /// 화면에 보이는 것과 무관하게 아래를 기록별 폴더에 모아 둔다.
 ///   documents/raw/{조사목}_{시각}/
-///     {방위}_original.jpg    카메라 원본 그대로(축소·회전 전, EXIF 포함)
+///     {방위}_photo.jpg       분석용 표준 사진(긴 변 2560 — 원본은 용량 때문에
+///                            보관하지 않는다; 2560이면 상위 모델 재분석에 충분)
 ///     {방위}_capture.json    촬영 시각·GPS·방위각·기기·앱 버전
 ///     {방위}_analysis.json   모델명·입력 기하·분할 통계·수고봉 경계점·계측치
 ///     {방위}_mask_tree.png   수간 마스크(모델 proto 해상도, 0/255)
@@ -46,15 +47,16 @@ class RawArchive {
     return d.path;
   }
 
-  /// 카메라 원본(또는 갤러리 원본)을 손대지 않고 번들에 보관한다.
-  static Future<String?> keepOriginal(
-      String bundleDir, String srcPath, String azCode) async {
+  /// 분석용 표준 사진(정규화 완료본)을 번들에 복사한다 — 내보내기 ZIP이
+  /// 기록 폴더 없이도 자체 완결이 되도록.
+  static Future<String?> keepPhoto(
+      String bundleDir, String normalizedPath, String azCode) async {
     try {
-      final dest = p.join(bundleDir, '${azCode}_original.jpg');
-      await File(srcPath).copy(dest);
+      final dest = p.join(bundleDir, '${azCode}_photo.jpg');
+      await File(normalizedPath).copy(dest);
       return dest;
     } catch (_) {
-      return null; // 원본 보관 실패가 조사 자체를 막아서는 안 된다
+      return null; // 보관 실패가 조사 자체를 막아서는 안 된다
     }
   }
 
