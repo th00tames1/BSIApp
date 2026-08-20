@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n.dart';
+import '../services/raw_archive.dart';
 import '../theme.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -29,8 +30,8 @@ class AboutScreen extends StatelessWidget {
                       fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
               const SizedBox(height: 8),
               Text(
-                  tr('산불피해목 진단·복원 지원 · v0.1',
-                      'Fire-damaged tree assessment & restoration · v0.1'),
+                  tr('산불피해목 진단·복원 지원 · v$kAppVersion',
+                      'Fire-damaged tree assessment & restoration · v$kAppVersion'),
                   style: TextStyle(
                       fontFamily: 'monospace', fontSize: 12, color: p.muted)),
             ]),
