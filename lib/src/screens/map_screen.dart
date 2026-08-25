@@ -154,7 +154,8 @@ class _MapScreenState extends State<MapScreen> {
       ..treeId = nextTreeSeq().toString().padLeft(3, '0')
       ..site = projectSite.value ?? ''
       ..address = projectLocation.value
-      ..species = lastSpecies.value; // 직전 조사목에서 고른 수종을 이어받는다
+      ..species = lastSpecies.value // 직전 조사목에서 고른 수종을 이어받는다
+      ..poleGapM = poleGapM.value; // 설정의 수고봉 경계 간격
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => CaptureScreen(draft: draft)));
     if (!mounted) return;

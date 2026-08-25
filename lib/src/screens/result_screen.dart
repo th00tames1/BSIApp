@@ -621,6 +621,7 @@ class _ResultScreenState extends State<ResultScreen> {
           az.code,
           d.photos[az]!,
           poleLengthM: d.poleLengthM,
+          poleGapMetres: d.poleGapM,
           overlayOutPath: f.overlayPath,
           dbhCmForScale: d.dbhCm,
           rawOutDir: d.rawDir, // 흉고직경 스케일 산출물로 덮어쓴다(scale.source='dbh')

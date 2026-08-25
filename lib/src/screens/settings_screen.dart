@@ -18,6 +18,59 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
 
+  static String _fmtGap(double v) {
+    var s = v.toStringAsFixed(2);
+    if (s.endsWith('0')) s = s.substring(0, s.length - 1);
+    if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+    return s;
+  }
+
+  Future<void> _editPoleGap() async {
+    final ctl = TextEditingController(text: _fmtGap(poleGapM.value));
+    final t = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('수고봉 경계 간격', 'Pole band spacing')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: ctl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(suffixText: 'm'),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                tr('수고봉의 인접 경계(색 띠) 사이 실제 거리입니다. 잘못 넣으면 모든 높이가 그 배율로 틀어집니다.',
+                    'Real distance between adjacent bands on the pole. A wrong value scales every height by that factor.'),
+                style: TextStyle(
+                    fontSize: 12, height: 1.4, color: context.palette.muted)),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('취소', 'Cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, ctl.text.trim()),
+              child: Text(tr('확인', 'OK'))),
+        ],
+      ),
+    );
+    if (t == null || !mounted) return;
+    final v = double.tryParse(t);
+    if (v == null || v < 0.05 || v > 5) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+            content: Text(tr('0.05 ~ 5 m 사이로 입력하세요',
+                'Enter a value between 0.05 and 5 m'))));
+      return;
+    }
+    setState(() => setPoleGapM(v));
+  }
+
   /// 내장 예시 사진 4장을 불러와 바로 AI 분석을 실행한다. 촬영 화면을 거치지
   /// 않으므로 카메라 권한 없이도 전체 분석 파이프라인을 시험할 수 있다.
   Future<void> _runDemo() async {
@@ -108,6 +161,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       selected: {want},
                       onSelectionChanged: (s) => setNorthRef(s.first),
                     )),
+              ),
+              Divider(height: 1, color: p.line),
+              // 봉마다 띠 간격이 다르다 — 스케일(px/m)이 이 값으로 환산된다.
+              InkWell(
+                onTap: _editPoleGap,
+                child: _row(p, Icons.linear_scale,
+                    tr('수고봉 경계 간격', 'Pole band spacing'),
+                    sub: tr('인접 경계(띠) 사이 실제 거리 — 새 조사부터 적용',
+                        'Distance between adjacent bands — applies to new surveys'),
+                    trailing: Text('${_fmtGap(poleGapM.value)} m',
+                        style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700))),
               ),
             ]),
           ),

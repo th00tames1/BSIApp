@@ -134,6 +134,7 @@ class _SavedScreenState extends State<SavedScreen> {
           f.azimuth,
           f.imagePath!,
           poleLengthM: record.poleLengthM,
+          poleGapMetres: record.poleGapM,
           overlayOutPath: outPath,
           rawOutDir: rawOut,
         ));

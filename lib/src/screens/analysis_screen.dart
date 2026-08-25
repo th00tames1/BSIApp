@@ -56,6 +56,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           az.code,
           d.photos[az]!,
           poleLengthM: d.poleLengthM,
+          poleGapMetres: d.poleGapM,
           overlayOutPath: overlayPath,
           rawOutDir: d.rawDir, // 연구용 원시 산출물(없으면 건너뜀)
         );

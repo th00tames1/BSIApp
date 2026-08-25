@@ -14,7 +14,7 @@ class CsvExport {
   static const _header = [
     'tree_id', 'site', 'address', 'lat', 'lon', 'species', 'dbh_cm',
     'height_m', 'soot_max_m', 'model',
-    'pole_len_m', 'bsi', 'mortality_prob', 'verdict',
+    'pole_len_m', 'pole_gap_m', 'bsi', 'mortality_prob', 'verdict',
     'face_azimuth', 'face_source', 'soot_height_m', 'soot_proportion',
     'soot_proportion_whole',
     'soot_width_m', 'visible_stem_m', 'dbh_est_m', 'px_per_m', 'scale_source',
@@ -35,13 +35,14 @@ class CsvExport {
       final base = [
         r.treeId, r.site, r.address, r.lat, r.lon, r.species, r.dbhCm,
         _v(r.effectiveHeightM), _v(r.effectiveSootMaxM),
-        r.modelName, r.poleLengthM, _v(r.bsi), _v(r.mortalityProb), r.verdict,
+        r.modelName, r.poleLengthM, r.poleGapM,
+        _v(r.bsi), _v(r.mortalityProb), r.verdict,
       ];
       if (r.faces.isEmpty) {
         rows.add([
           ...base, '', '', '', '', '', '', '', '', '', '',
           r.createdAt.toIso8601String()
-        ]);
+        ]); // face 칸 10개 + created_at — 헤더 칸 수와 맞아야 한다(테스트가 검증)
       }
       for (final f in r.faces) {
         rows.add([

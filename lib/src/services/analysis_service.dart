@@ -64,6 +64,7 @@ class AnalysisService {
     double? manualPxPerMetre,
     double? dbhCmForScale,
     String? rawOutDir,
+    double poleGapMetres = 1.0,
   }) async {
     final size = OnnxService.instance.inputSize;
     final lb = await _letterboxCapped(imagePath, size);
@@ -85,12 +86,29 @@ class AnalysisService {
     // 비워 두고, integrate()가 계측된 면으로 4방위를 환산한다.
     PoleScaleSolution? sol;
     var modelUsable = false;
+    var poleModelPass = 'direct';
     if (manualPxPerMetre == null && OnnxService.pole.isLoaded) {
       modelUsable = true;
       try {
         final o = await OnnxService.pole.inferDetect(lb.chw, lb.size);
         final pts = PoleDetector.decode(o.data, o.shape, lb.size);
-        sol = PoleDetector.solve(pts, lb.size);
+        sol = PoleDetector.solve(pts, lb.size, gapMetres: poleGapMetres);
+        // 빨강/흰 봉 대응: 모델은 노랑/흰 봉으로 학습돼 빨간 띠에서 점을
+        // 놓친다. 점이 사영 보정 기준(4개)에 못 미치면 빨강→노랑으로 바꾼
+        // 입력으로 한 번 더 검출하고, 더 많은 점을 찾은 쪽을 쓴다.
+        if (sol == null ||
+            sol.boundaryCount < PoleDetector.minPointsForPerspective) {
+          final o2 = await OnnxService.pole
+              .inferDetect(ImageOps.chwRedToYellow(lb.square, lb.size), lb.size);
+          final pts2 = PoleDetector.decode(o2.data, o2.shape, lb.size);
+          final sol2 =
+              PoleDetector.solve(pts2, lb.size, gapMetres: poleGapMetres);
+          if (sol2 != null &&
+              (sol == null || sol2.boundaryCount > sol.boundaryCount)) {
+            sol = sol2;
+            poleModelPass = 'redRemap';
+          }
+        }
       } catch (_) {
         modelUsable = false; // 추론 자체가 실패하면 휴리스틱이라도 쓴다
         sol = null;
@@ -207,7 +225,7 @@ class AnalysisService {
     if (rawOutDir != null) {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
-        result, dbhCmForScale, manualPxPerMetre,
+        result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
       );
     }
     return result;
@@ -225,6 +243,8 @@ class AnalysisService {
     AzimuthResult r,
     double? dbhCmForScale,
     double? manualPxPerMetre,
+    double poleGapMetres,
+    String poleModelPass,
   ) {
     try {
       Directory(dir).createSync(recursive: true);
@@ -264,6 +284,8 @@ class AnalysisService {
         'scale': {
           'source': r.scaleSource,
           'pxPerMetre': n(r.pxPerMetre),
+          'poleGapMetres': poleGapMetres,
+          'poleModelPass': poleModelPass,
           'manualPxPerMetre': manualPxPerMetre,
           'dbhCmForScale': dbhCmForScale,
           'poleModel': sol == null

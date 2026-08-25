@@ -54,6 +54,7 @@ class DemoSample {
       ..treeId = treeId
       ..site = site
       ..address = ''
+      ..poleGapM = 1.0 // 예시 사진의 봉은 1 m — 설정과 무관하게 고정
       ..isSample = true;
 
     for (final e in _assets.entries) {

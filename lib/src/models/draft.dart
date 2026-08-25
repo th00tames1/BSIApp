@@ -18,6 +18,9 @@ class SurveyDraft {
   double dbhCm = 0;
   String memo = '';
   double poleLengthM = 3.0;
+
+  /// 수고봉 경계 간격(m). 새 조사는 설정값을 이어받고, 예시 조사는 1 m 고정.
+  double poleGapM = 1.0;
   /// 저장된 조사목을 다시 분석할 때도 같은 모델을 써야 하므로 기본값을 상수로 둔다.
   static const defaultModelName = 'YOLO26s@640';
   static const defaultModelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
@@ -117,6 +120,7 @@ class SurveyDraft {
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,
+        poleGapM: poleGapM,
         faces: faces,
         bsi: integ?.bsi ?? double.nan,
         mortalityProb: integ?.mortality ?? double.nan,
@@ -142,6 +146,7 @@ class SurveyDraft {
         'dbhCm': dbhCm,
         'memo': memo,
         'poleLengthM': poleLengthM,
+        'poleGapM': poleGapM,
         'rawDir': rawDir,
         'modelName': modelName,
         'modelAsset': modelAsset,
@@ -166,6 +171,7 @@ class SurveyDraft {
         ..dbhCm = (j['dbhCm'] as num?)?.toDouble() ?? 0
         ..memo = j['memo'] as String? ?? ''
         ..poleLengthM = (j['poleLengthM'] as num?)?.toDouble() ?? 3.0
+        ..poleGapM = (j['poleGapM'] as num?)?.toDouble() ?? 1.0
         ..rawDir = j['rawDir'] as String?
         ..modelName = j['modelName'] as String? ?? 'YOLO26s@640'
         ..modelAsset = j['modelAsset'] as String? ??

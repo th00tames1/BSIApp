@@ -70,12 +70,16 @@ class PoleScaleSolution {
   final List<double> gaps;
   final double curvature; // 봉 직선성 잔차(방사왜곡 지표)
 
+  /// 인접 경계 사이의 실제 거리(m). 기본 1 m 봉이 아니면 설정에서 바꾼다.
+  final double gapMetres;
+
   const PoleScaleSolution({
     required this.pxPerMetre,
     required this.staff,
     required List<double> params,
     required this.gaps,
     required this.curvature,
+    this.gapMetres = 1.0,
   }) : _params = params;
 
   bool get perspectiveCorrected => _params.length == 4;
@@ -90,7 +94,8 @@ class PoleScaleSolution {
     if (t < proj.first) t = proj.first;
     if (t > proj.last) t = proj.last;
     final k = PoleDetector._metreIndexAt(_params, t);
-    return PoleDetector._localPxPerM(_params, k);
+    // 내부 적합은 "경계 간격 = 1 단위"로 돌므로 실제 간격(m)으로 나눠 준다.
+    return PoleDetector._localPxPerM(_params, k) / gapMetres;
   }
 }
 
@@ -171,7 +176,9 @@ class PoleDetector {
   ///
   /// 중복 병합을 여기서도 한 번 더 한다. [decode]가 이미 걸렀으면 멱등이고,
   /// 다른 경로로 들어온 점(테스트·외부 호출)에도 같은 규칙이 적용된다.
-  static PoleScaleSolution? solve(List<PoleBoundary> dets, int imageWidth) {
+  /// [gapMetres]: 인접 경계 사이 실제 거리(m). 1 m 봉이 아니면 설정값을 준다.
+  static PoleScaleSolution? solve(List<PoleBoundary> dets, int imageWidth,
+      {double gapMetres = 1.0}) {
     if (dets.length < 2) return null;
     dets = _dedupe(dets, imageWidth * 0.012);
     if (dets.length < 2) return null;
@@ -208,10 +215,12 @@ class PoleDetector {
       }
     }
     return PoleScaleSolution(
-      pxPerMetre: base,
+      // base는 "픽셀/경계간격" — 실제 간격(m)으로 나눠야 픽셀/미터가 된다.
+      pxPerMetre: base / gapMetres,
       staff: staff,
       params: params,
       gaps: gaps,
+      gapMetres: gapMetres,
       curvature: _straightness(staff.points),
     );
   }

@@ -136,6 +136,8 @@ class SurveyRecord {
   final String memo;
   final String modelName;
   final double poleLengthM; // measuring-pole real length used for scale
+  /// 수고봉 경계 간격(m) — 스케일 산출에 쓴 값(재분석·학습 데이터 추적용).
+  final double poleGapM;
   final List<AzimuthResult> faces;
   final double bsi; // integrated BSI = Σ(height × proportion)
   final double mortalityProb; // [0..1]
@@ -157,6 +159,7 @@ class SurveyRecord {
     this.memo = '',
     required this.modelName,
     this.poleLengthM = 3.0,
+    this.poleGapM = 1.0,
     required this.faces,
     this.bsi = double.nan,
     this.mortalityProb = double.nan,
@@ -195,6 +198,7 @@ class SurveyRecord {
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,
+        poleGapM: poleGapM,
         faces: faces ?? this.faces,
         bsi: bsi ?? this.bsi,
         mortalityProb: mortalityProb ?? this.mortalityProb,
@@ -235,6 +239,7 @@ class SurveyRecord {
         'memo': memo,
         'modelName': modelName,
         'poleLengthM': poleLengthM,
+        'poleGapM': poleGapM,
         'faces': jsonEncode(faces.map((f) => f.toJson()).toList()),
         'bsi': _n(bsi),
         'mortalityProb': _n(mortalityProb),
@@ -257,6 +262,7 @@ class SurveyRecord {
         memo: m['memo'] as String? ?? '',
         modelName: m['modelName'] as String? ?? '',
         poleLengthM: (m['poleLengthM'] as num?)?.toDouble() ?? 3.0,
+        poleGapM: (m['poleGapM'] as num?)?.toDouble() ?? 1.0,
         faces: ((jsonDecode(m['faces'] as String? ?? '[]')) as List)
             .map((e) => AzimuthResult.fromJson(e as Map<String, dynamic>))
             .toList(),

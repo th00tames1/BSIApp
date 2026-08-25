@@ -16,7 +16,7 @@ class DbService {
     final path = p.join(dir.path, 'bsi_field.db');
     _db = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, v) async {
         await db.execute('''
           CREATE TABLE surveys (
@@ -34,6 +34,7 @@ class DbService {
             memo TEXT,
             modelName TEXT,
             poleLengthM REAL,
+            poleGapM REAL,
             faces TEXT,
             bsi REAL,
             mortalityProb REAL,
@@ -51,6 +52,10 @@ class DbService {
         if (from < 3) {
           // 원시 데이터 번들 폴더(연구용 재분석·검증).
           await db.execute('ALTER TABLE surveys ADD COLUMN rawDir TEXT');
+        }
+        if (from < 4) {
+          // 수고봉 경계 간격(m) — 1 m가 아닌 봉 대응.
+          await db.execute('ALTER TABLE surveys ADD COLUMN poleGapM REAL');
         }
       },
     );

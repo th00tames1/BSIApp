@@ -71,6 +71,30 @@ class ImageOps {
     return Letterboxed(canvas, chw, r, padX, padY, size);
   }
 
+  /// 수고봉 2차 검출용: 빨강 우세 픽셀을 노랑으로 바꾼 CHW 텐서.
+  ///
+  /// 경계 검출 모델은 노랑/흰 봉으로 학습돼 빨강/흰 봉에서는 점을 놓친다.
+  /// 빨강을 노랑으로 옮겨 다시 추론하면 같은 경계가 잡힌다(PC A/B: 2점→4점).
+  /// 원본 추론이 충분할 때는 호출되지 않으므로 기존 결과에는 영향이 없다.
+  static Float32List chwRedToYellow(img.Image square, int size) {
+    final bytes = square.getBytes(order: img.ChannelOrder.rgb);
+    final area = size * size;
+    final chw = Float32List(3 * area);
+    for (int i = 0; i < area; i++) {
+      final p = i * 3;
+      int r = bytes[p], g = bytes[p + 1], b = bytes[p + 2];
+      final maxGb = g > b ? g : b;
+      if (r > 110 && g < r * 0.62 && b < r * 0.62 && (r - maxGb) > 45) {
+        g = (r * 0.92).round().clamp(0, 255);
+        b = (b * 0.55).round().clamp(0, 255);
+      }
+      chw[i] = r / 255.0;
+      chw[area + i] = g / 255.0;
+      chw[2 * area + i] = b / 255.0;
+    }
+    return chw;
+  }
+
   /// Nearest-neighbour upsample a proto-grid boolean mask to size×size.
   static Uint8List upsampleMask(Uint8List maskProto, int mh, int mw, int size) {
     final out = Uint8List(size * size);

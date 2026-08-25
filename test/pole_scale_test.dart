@@ -22,6 +22,22 @@ void main() {
       expect(s.boundaryCount, 4);
     });
 
+    test('경계 간격 설정: 0.5 m 봉이면 px/m이 2배가 된다', () {
+      final one = PoleDetector.solve(column(400, 100, [220, 218, 222]), 960)!;
+      final half = PoleDetector.solve(column(400, 100, [220, 218, 222]), 960,
+          gapMetres: 0.5)!;
+      expect(half.pxPerMetre, closeTo(one.pxPerMetre * 2, 1e-6));
+      // 국소 배율(원근 보정 경로)도 같은 배율로 환산돼야 한다.
+      expect(half.pxPerMetreAt(400, 300),
+          closeTo(one.pxPerMetreAt(400, 300) * 2, 1e-6));
+    });
+
+    test('경계 간격 설정: 2 m 봉이면 px/m이 절반이 된다', () {
+      final s = PoleDetector.solve(column(400, 100, [220, 218, 222]), 960,
+          gapMetres: 2.0)!;
+      expect(s.pxPerMetre, closeTo(110, 2));
+    });
+
     test('가려져 건너뛴 경계(2 m 간격)를 정수배로 되돌린다', () {
       final s = PoleDetector.solve(column(400, 100, [200, 400, 200]), 960)!;
       expect(s.pxPerMetre, closeTo(200, 5));

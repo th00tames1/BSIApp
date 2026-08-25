@@ -329,6 +329,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'site': d.site,
         'species': d.species,
         'poleLengthM': d.poleLengthM,
+        'poleGapM': d.poleGapM,
         'gps': here == null
             ? null
             : {

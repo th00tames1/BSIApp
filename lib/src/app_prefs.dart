@@ -75,6 +75,10 @@ bool demoTourSaved = false;
 /// 다음 조사목의 기본값으로 이어진다.
 final ValueNotifier<String> lastSpecies = ValueNotifier('소나무');
 
+/// 수고봉의 인접 경계(띠) 사이 실제 거리(m). 기본 1 m 봉 기준이며,
+/// 간격이 다른 봉을 쓰는 날은 설정에서 실제 간격을 입력한다.
+final ValueNotifier<double> poleGapM = ValueNotifier(1.0);
+
 /// 나침반이 가리키는 북쪽의 기준. 기본은 **진북** — 지도·좌표·야장이 쓰는 기준이다.
 /// 촬영 화면의 나침반을 누르면 바뀐다(설정에서도 바꿀 수 있다).
 final ValueNotifier<NorthRef> northRef = ValueNotifier(NorthRef.trueNorth);
@@ -134,6 +138,7 @@ Future<void> loadPrefs() async {
   // 개발자 모드가 꺼져 있으면 시연 모드도 반드시 꺼진 상태로 시작한다.
   demoMode.value = devMode.value && (sp.getBool('demoMode') ?? false);
   lastSpecies.value = sp.getString('lastSpecies') ?? '소나무';
+  poleGapM.value = sp.getDouble('poleGapM') ?? 1.0;
   northRef.value = NorthRef.values.firstWhere(
       (r) => r.name == sp.getString('northRef'),
       orElse: () => NorthRef.trueNorth);
@@ -260,6 +265,12 @@ void setDevMode(bool v) {
   devMode.value = v;
   _sp?.setBool('devMode', v);
   if (!v) setDemoMode(false); // 개발자 모드를 끄면 시연 모드도 끈다
+}
+
+void setPoleGapM(double v) {
+  if (v <= 0) return;
+  poleGapM.value = v;
+  _sp?.setDouble('poleGapM', v);
 }
 
 void setLastSpecies(String s) {
