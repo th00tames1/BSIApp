@@ -15,6 +15,7 @@ import '../services/db_service.dart';
 import '../services/mortality.dart';
 import '../services/onnx_service.dart';
 import '../theme.dart';
+import '../widgets/pole_gap_dialog.dart';
 
 /// Detail view for a saved survey record (opened from the map pin / 기록).
 class SavedScreen extends StatefulWidget {
@@ -57,7 +58,43 @@ class _SavedScreenState extends State<SavedScreen> {
   // BSI는 방위별 Σ(그을음 높이 × 그을음 면적비)라서 저장된 스칼라 하나를 고쳐서는
   // 되돌릴 수 없다. 대신 저장해 둔 사진을 같은 모델로 다시 돌려 방위별 값부터
   // 새로 얻는다. 입력(사진·모델·수고봉 길이)이 같으면 결과도 같다.
-  Future<void> _reanalyse() async {
+  /// 수고봉 경계 간격을 고친다.
+  ///
+  /// 봉은 조사목마다 다를 수 있는데(현장에서 나무마다 다른 봉을 썼다), 이 값이
+  /// 어긋나면 **모든 높이가 같은 배율로** 틀어진다. 촬영을 다시 할 수는 없으니
+  /// 찍힌 기록에서 고칠 수 있어야 한다. 고치는 동안 바뀔 값을 미리 보여 주고,
+  /// 확정하면 산술로 즉시 반영한 뒤 사진을 다시 분석해 흉고직경까지 맞춘다.
+  Future<void> _editPoleGap() async {
+    final v = await showDialog<double>(
+      context: context,
+      builder: (_) => PoleGapDialog(
+        faces: record.faces,
+        dbhCm: record.dbhCm,
+        currentGap: record.poleGapM,
+      ),
+    );
+    if (v == null || !mounted || v == record.poleGapM) return;
+    final scaled = record.withPoleGap(v);
+    final integ = AnalysisService.instance.integrate(scaled.faces, scaled.dbhCm);
+    await _apply(scaled.copyWith(
+      bsi: integ.bsi,
+      mortalityProb: integ.mortality,
+      verdict: integ.verdict,
+    ));
+    if (!mounted) return;
+    final hasShots = record.faces
+        .any((f) => !f.manual && !f.manualEdited && f.imagePath != null);
+    // 간격 변경은 이미 확정됐다. 이어지는 재분석이 실패하더라도 조사자가
+    // "취소된 줄" 알면 안 되므로, 결과와 무관하게 이 사실부터 알린다.
+    _snack(tr('수고봉 간격을 ${v.toStringAsFixed(2)} m로 바꿨습니다.',
+        'Pole spacing set to ${v.toStringAsFixed(2)} m.'));
+    // 조사자는 간격만 고쳤다. 야장에 직접 넣은 수고·그을음 높이는 실측값이라
+    // 여기서 지우면 안 된다(보통의 '다시 분석'은 그것을 알리고 지운다).
+    if (hasShots) await _reanalyse(silent: true, keepRecordHeights: true);
+  }
+
+  Future<void> _reanalyse(
+      {bool silent = false, bool keepRecordHeights = false}) async {
     final shots = record.faces
         .where((f) => !f.manual && !f.manualEdited && f.imagePath != null)
         .toList(growable: false);
@@ -74,10 +111,12 @@ class _SavedScreenState extends State<SavedScreen> {
       return;
     }
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(tr('이미지 다시 분석', 'Re-analyse images')),
+    final ok = silent
+        ? true
+        : await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text(tr('이미지 다시 분석', 'Re-analyse images')),
         content: Text(tr(
             '저장된 ${shots.length}장을 같은 모델로 다시 분석해 방위별 계측값과 통합 BSI를 '
                 '새로 계산합니다. 흉고직경이 입력돼 있으면 수고봉이 없던 면도 그 값으로 스케일을 세웁니다.\n\n조사자가 값을 직접 넣은 면은 그대로 둡니다. '
@@ -153,9 +192,10 @@ class _SavedScreenState extends State<SavedScreen> {
         bsi: integ.bsi,
         mortalityProb: integ.mortality,
         verdict: integ.verdict,
-        // 손으로 고친 값은 버리고 분석값이 다시 보이게 한다.
-        heightM: double.nan,
-        sootMaxM: double.nan,
+        // 손으로 고친 값은 버리고 분석값이 다시 보이게 한다. 다만 간격만
+        // 바로잡는 경우엔 조사자가 그것을 지우라고 한 적이 없으므로 남긴다.
+        heightM: keepRecordHeights ? record.heightM : double.nan,
+        sootMaxM: keepRecordHeights ? record.sootMaxM : double.nan,
       );
     } catch (e) {
       err = '$e';
@@ -415,6 +455,13 @@ class _SavedScreenState extends State<SavedScreen> {
                           'Stored for the record and CSV; does not change the BSI. '
                               'Use Re-analyse above to recompute the BSI.'));
                 }),
+                Divider(height: 1, color: p.line),
+                _row(
+                    p,
+                    Icons.straighten_outlined,
+                    tr('수고봉 간격', 'Pole spacing'),
+                    '${record.poleGapM.toStringAsFixed(2)} m',
+                    onTap: _editPoleGap),
                 Divider(height: 1, color: p.line),
                 _row(
                     p,

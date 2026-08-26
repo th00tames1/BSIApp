@@ -14,6 +14,7 @@ import '../services/mortality.dart';
 import '../services/onnx_service.dart';
 import '../services/raw_archive.dart';
 import '../theme.dart';
+import '../widgets/pole_gap_dialog.dart';
 import 'bsi_table_screen.dart';
 import 'face_adjust_screen.dart';
 import 'manual_face_sheet.dart';
@@ -35,15 +36,32 @@ class _ResultScreenState extends State<ResultScreen> {
   SurveyDraft get d => widget.draft;
 
   /// 수간 폭과 픽셀 스케일로 앱이 추정한 흉고직경(cm). 없으면 NaN.
-  late final double _dbhAuto =
-      AnalysisService.estimateDbhCm(d.results.values.toList());
+  ///
+  /// 흉고직경은 스케일에 비례하므로 수고봉 간격을 고치면 함께 움직인다.
+  /// 한 번 굳혀 두면 판정(BSI × 흉고직경)이 서로 다른 간격 기준으로 나오므로
+  /// 스케일이 바뀔 때마다 [_refreshAutoDbh]로 다시 센다.
+  double _dbhAuto = double.nan;
 
   /// 자동 추정값을 그대로 쓰는 중인지(= 조사자가 손대지 않았는지).
   bool _dbhFromAuto = false;
 
+  /// 면 계측값이 바뀐 뒤 자동 추정 흉고직경을 다시 센다.
+  ///
+  /// 조사자가 실측값을 넣지 않아 추정값을 쓰는 중이었다면 그 값도 함께 따라가야
+  /// 한다. 그러지 않으면 BSI만 새 간격으로 줄고 흉고직경은 옛 스케일로 남아,
+  /// 고사 확률이 두 기준을 섞어 계산된다(존치 쪽으로 기울 수 있다).
+  void _refreshAutoDbh() {
+    _dbhAuto = AnalysisService.estimateDbhCm(d.results.values.toList());
+    if (_dbhFromAuto && !_dbhAuto.isNaN && _dbhAuto > 0) {
+      _dbh.text = _dbhAuto.toStringAsFixed(0);
+      _setDbh(_dbh.text); // 판정까지 새 값으로 다시 낸다
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _dbhAuto = AnalysisService.estimateDbhCm(d.results.values.toList());
     _sel = d.capturedAzimuths.isNotEmpty ? d.capturedAzimuths.first : Azimuth.east;
     // 조사자가 값을 넣지 않았으면 추정값을 채워 넣고 바로 판정까지 낸다.
     // 실측값이 있으면 언제든 덮어쓸 수 있다.
@@ -264,10 +282,18 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(height: 12),
           ],
           _metricCard(p, f),
+          const SizedBox(height: 10),
+
+          // 수고봉은 조사목마다 다를 수 있다. 간격이 어긋나면 모든 높이가 같은
+          // 배율로 틀어지므로, 저장하기 전에 여기서 바로잡을 수 있어야 한다.
+          _poleGapRow(p),
           const SizedBox(height: 22),
 
           ElevatedButton(
-            onPressed: _saving ? null : _save,
+            // 재분석 중 저장하면 일부는 환산값, 일부는 재분석값인 반쯤 갱신된
+            // 상태가 저장되고, 화면을 벗어난 뒤에도 남은 루프가 같은 경로의
+            // 오버레이·산출물을 덮어써 기록과 어긋난다.
+            onPressed: (_saving || _rescaling) ? null : _save,
             child: _saving
                 ? SizedBox(
                     width: 22,
@@ -791,6 +817,7 @@ class _ResultScreenState extends State<ResultScreen> {
         }
         d.results[az] = res.copyWith(tuning: t);
       }
+      _refreshAutoDbh();
       d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -816,6 +843,92 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   /// 스케일 없는 면이 있을 때 늘 보이는 카드 — 어느 면을 보고 있든 접근 가능.
+  /// 앱이 낸 값이 실제와 동떨어져 보이는가 — 대개 수고봉 간격이 어긋난 탓이다.
+  ///
+  /// 간격은 스케일에 그대로 곱해지므로, 값이 틀리면 수고·흉고직경이 함께
+  /// 비현실적인 크기로 나온다. 조사자가 저장 전에 알아채도록 짚어 준다.
+  bool get _scaleSuspect {
+    double best = double.nan;
+    for (final f in d.faces) {
+      final v = f.visibleStemHeightM;
+      if (v.isNaN) continue;
+      if (best.isNaN || v > best) best = v;
+    }
+    if (!best.isNaN && (best > 40 || best < 1.0)) return true;
+    if (!_dbhAuto.isNaN && (_dbhAuto > 150 || _dbhAuto < 3)) return true;
+    return false;
+  }
+
+  /// 수고봉 간격을 고치고 다시 계산한다.
+  ///
+  /// 간격은 스케일에 선형으로 곱해지므로 산술만으로 즉시 정확히 반영된다.
+  /// 사진이 있으면 이어서 다시 분석해 흉고직경 추정까지 맞춘다.
+  Future<void> _editPoleGap() async {
+    final v = await showDialog<double>(
+      context: context,
+      builder: (_) => PoleGapDialog(
+        faces: d.faces,
+        dbhCm: d.dbhCm,
+        currentGap: d.poleGapM,
+      ),
+    );
+    if (v == null || !mounted || v == d.poleGapM) return;
+    final k = v / d.poleGapM;
+    setState(() {
+      for (final az in d.results.keys.toList()) {
+        d.results[az] = rescaleFacesForGap([d.results[az]!], k).first;
+      }
+      d.poleGapM = v;
+      _refreshAutoDbh();
+      d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
+    });
+    final hasShots = d.capturedAzimuths
+        .any((az) => d.photos[az] != null && !(d.results[az]?.manual ?? true));
+    if (hasShots) await _reanalyse();
+  }
+
+  Widget _poleGapRow(AppPalette p) {
+    final suspect = _scaleSuspect;
+    return InkWell(
+      onTap: _rescaling ? null : _editPoleGap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: suspect ? p.ember.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: suspect
+                  ? p.ember.withValues(alpha: 0.45)
+                  : p.line),
+        ),
+        child: Row(children: [
+          Icon(suspect ? Icons.warning_amber_rounded : Icons.straighten_outlined,
+              size: 18, color: suspect ? p.ember : p.green),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+                suspect
+                    ? tr('계측값이 실제와 달라 보입니다. 수고봉 간격이 맞는지 확인하세요.',
+                        'Measurements look off — check the pole spacing.')
+                    : tr('수고봉 간격', 'Pole spacing'),
+                style: TextStyle(
+                    fontSize: suspect ? 11.5 : 12.5,
+                    height: 1.4,
+                    color: suspect ? p.ember : p.muted)),
+          ),
+          const SizedBox(width: 8),
+          Text('${d.poleGapM.toStringAsFixed(2)} m',
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700)),
+          Icon(Icons.chevron_right, size: 18, color: p.muted),
+        ]),
+      ),
+    );
+  }
+
   Widget _dbhScaleCard(AppPalette p) {
     final n = d.results.values.where(_isUnscaled).length;
     return Container(

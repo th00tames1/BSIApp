@@ -197,6 +197,7 @@ class SurveyRecord {
     double? dbhCm,
     double? heightM,
     double? sootMaxM,
+    double? poleGapM,
     List<AzimuthResult>? faces,
     double? bsi,
     double? mortalityProb,
@@ -217,7 +218,7 @@ class SurveyRecord {
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,
-        poleGapM: poleGapM,
+        poleGapM: poleGapM ?? this.poleGapM,
         faces: faces ?? this.faces,
         bsi: bsi ?? this.bsi,
         mortalityProb: mortalityProb ?? this.mortalityProb,
@@ -236,6 +237,27 @@ class SurveyRecord {
   }
 
   /// 화면·CSV가 쓰는 유효 수고: 수정값이 있으면 그것, 없으면 방위별 최대.
+  /// 수고봉 경계 간격을 [newGap]으로 바꾼 기록.
+  ///
+  /// 스케일(px/m)은 간격에 반비례하므로 **미터 단위 계측값은 간격에 정비례**한다.
+  /// 그래서 사진을 다시 분석하지 않아도 산술만으로 정확히 환산된다. 조사자가
+  /// 값을 고치는 즉시 화면이 맞게 바뀌고, 무엇이 맞는 값인지 눈으로 고를 수 있다.
+  ///
+  /// 다만 흉고직경 자동 추정만은 가슴높이 1.3 m에 해당하는 **행 위치**가 스케일에
+  /// 따라 달라져 비례하지 않는다. 그 값은 이어지는 재분석이 정확히 채운다.
+  /// 조사자가 손으로 넣은 면·값은 이미 실제 미터값이라 건드리지 않는다.
+  SurveyRecord withPoleGap(double newGap) {
+    if (newGap <= 0 || poleGapM <= 0) return this;
+    if (newGap == poleGapM) return copyWith(poleGapM: newGap);
+    return copyWith(
+      poleGapM: newGap,
+      faces: rescaleFacesForGap(faces, newGap / poleGapM),
+      // 조사자가 직접 넣은 수고·그을음 높이는 실측값이라 그대로 둔다.
+      heightM: heightM,
+      sootMaxM: sootMaxM,
+    );
+  }
+
   double get effectiveHeightM =>
       heightM.isNaN ? _maxOf((f) => f.visibleStemHeightM) : heightM;
 
@@ -290,4 +312,51 @@ class SurveyRecord {
         verdict: m['verdict'] as String? ?? '',
         createdAt: DateTime.tryParse(m['createdAt'] as String? ?? '') ?? DateTime.now(),
       );
+}
+
+/// 이 면의 스케일이 수고봉 간격에서 나왔는가.
+///
+/// px/m에 간격이 들어가는 경로는 **수고봉 경계 모델의 해(scaleSource 'pole')
+/// 하나뿐**이다. 'heuristic'은 봉 전장(spanPx/poleLengthM), 'dbh'는 실측
+/// 흉고직경, 'manual'은 조사자가 준 px/m에서 나오므로 간격을 고쳐도 값이
+/// 달라지면 안 된다 — 같은 사진을 새 간격으로 다시 분석해도 그 면은 그대로다.
+///
+/// ''(스케일 없음)은 계측값이 모두 NaN이라 환산해도 무해하고, scaleSource를
+/// 남기지 않던 옛 기록이 조용히 빠지는 일도 막는다.
+bool _gapScaled(AzimuthResult f) =>
+    f.scaleSource == 'pole' || f.scaleSource.isEmpty;
+
+/// 간격을 고쳐도 값이 움직이지 않는 면의 수 — 미리보기에서 그 사실을 알린다.
+int gapIndependentFaceCount(List<AzimuthResult> faces) => faces
+    .where((f) => !f.manual && !_gapScaled(f) && !f.sootHeightM.isNaN)
+    .length;
+
+/// 수고봉 간격이 [factor]배로 바뀌었을 때의 면 계측값.
+///
+/// 수고봉으로 세운 스케일(px/m)은 간격에 반비례하므로, 그 면의 미터 단위 값은
+/// 간격에 **정비례**한다. 사진을 다시 분석하지 않아도 산술만으로 정확히
+/// 환산된다(흉고직경 자동 추정만은 가슴높이 1.3 m의 행 위치가 스케일에 따라
+/// 달라져 비례하지 않으므로, 정확한 값은 재분석이 채운다).
+///
+/// 건드리지 않는 것:
+///   · 사진 없이 야장 값으로 채운 면 — 통째로 조사자의 실측값이다.
+///   · 수고봉에서 나오지 않은 스케일 — 간격과 무관하다([_gapScaled]).
+///   · 손으로 고친 면의 **그을음 높이** — 조사자가 잰 미터값이다. 다만 그 면의
+///     나머지(줄기 높이·폭·흉고직경·px/m)는 여전히 분석이 낸 값이라 환산한다.
+///     재분석이 이 면을 건너뛰므로, 여기서 안 고치면 영영 옛 간격에 묶인다.
+List<AzimuthResult> rescaleFacesForGap(List<AzimuthResult> faces, double factor) {
+  if (!factor.isFinite || factor <= 0 || factor == 1.0) return faces;
+  return [
+    for (final f in faces)
+      (f.manual || !_gapScaled(f))
+          ? f
+          : f.copyWith(
+              sootHeightM:
+                  f.manualEdited ? f.sootHeightM : f.sootHeightM * factor,
+              sootWidthM: f.sootWidthM * factor,
+              visibleStemHeightM: f.visibleStemHeightM * factor,
+              dbhEstM: f.dbhEstM * factor,
+              pxPerMetre: f.pxPerMetre / factor,
+            )
+  ];
 }
