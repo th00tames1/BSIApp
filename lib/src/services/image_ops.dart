@@ -4,13 +4,37 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import 'auto_tone.dart';
+
 /// A photo letterboxed to size×size, plus the CHW tensor and the geometry.
 class Letterboxed {
   final img.Image square; // size×size RGB (gray-114 padded)
   final Float32List chw; // [3*size*size] normalized CHW
   final double scale; // resize ratio applied to the original
   final int padX, padY, size;
-  Letterboxed(this.square, this.chw, this.scale, this.padX, this.padY, this.size);
+
+  /// letterbox 전의 (정규화된) 원본. 일부만 잘라 다시 분석할 때 쓴다.
+  final img.Image source;
+
+  /// 이 입력에 역광 자동 보정(CLAHE)이 실제로 걸렸는지.
+  final bool toneApplied;
+
+  /// [source] 안에서 이 letterbox가 담고 있는 영역(잘라 쓴 경우).
+  final int srcX, srcY, srcW, srcH;
+
+  Letterboxed(this.square, this.chw, this.scale, this.padX, this.padY, this.size,
+      {required this.source,
+      this.toneApplied = false,
+      this.srcX = 0,
+      this.srcY = 0,
+      int? srcW,
+      int? srcH})
+      : srcW = srcW ?? source.width,
+        srcH = srcH ?? source.height;
+
+  /// letterbox 좌표(0..size) → [source] 좌표.
+  double toSourceX(double x) => srcX + (x - padX) / scale;
+  double toSourceY(double y) => srcY + (y - padY) / scale;
 }
 
 class ImageOps {
@@ -24,12 +48,12 @@ class ImageOps {
   /// JPEG의 EXIF 회전은 디코더가 적용하므로(image 4.8) 카메라 원본(가로 픽셀 +
   /// Orientation 태그)도 똑바로 선 채로 들어온다.
   static Letterboxed? letterboxFromFile(String path, int size,
-      {double brightness = 0, double contrast = 1}) {
+      {double brightness = 0, double contrast = 1, bool? autoTone}) {
     final raw = File(path).readAsBytesSync();
     final decoded = img.decodeImage(raw);
     if (decoded == null) return null;
     return letterbox(normalizeResolution(decoded), size,
-        brightness: brightness, contrast: contrast);
+        brightness: brightness, contrast: contrast, autoTone: autoTone);
   }
 
   /// 밝기·대비 보정 룩업 테이블. 역광 사진에서 어두운 줄기를 살리거나,
@@ -63,18 +87,28 @@ class ImageOps {
   }
 
   static Letterboxed letterbox(img.Image src, int size,
-      {double brightness = 0, double contrast = 1}) {
+      {double brightness = 0, double contrast = 1, bool? autoTone}) {
     final r = math.min(size / src.width, size / src.height);
     final nw = math.max(1, (src.width * r).round());
     final nh = math.max(1, (src.height * r).round());
     final resized = img.copyResize(src,
         width: nw, height: nh, interpolation: img.Interpolation.linear);
-    final canvas = img.Image(width: size, height: size, numChannels: 3);
+    var canvas = img.Image(width: size, height: size, numChannels: 3);
     img.fill(canvas, color: img.ColorRgb8(114, 114, 114));
     final padX = ((size - nw) / 2).round();
     final padY = ((size - nh) / 2).round();
     img.compositeImage(canvas, resized, dstX: padX, dstY: padY);
 
+    // 역광·짙은 그늘이면 CLAHE로 어두운 부분을 살린다. 조사자가 만지지 않아도
+    // 되도록 기본은 **자동 판단**이며, 밝은 사진에는 아무 일도 일어나지 않는다.
+    var toneApplied = false;
+    if (autoTone != false) {
+      final stats = AutoTone.measure(canvas);
+      if (autoTone == true || stats.needsTone) {
+        canvas = AutoTone.applyClahe(canvas);
+        toneApplied = true;
+      }
+    }
     // 보정은 letterbox 뒤에 한 번만 — 텐서와 오버레이 바탕이 같은 그림이라
     // 조사자가 화면에서 본 대로 분석된다.
     if (brightness != 0 || contrast != 1) {
@@ -96,7 +130,8 @@ class ImageOps {
       chw[area + i] = bytes[p + 1] / 255.0;
       chw[2 * area + i] = bytes[p + 2] / 255.0;
     }
-    return Letterboxed(canvas, chw, r, padX, padY, size);
+    return Letterboxed(canvas, chw, r, padX, padY, size,
+        source: src, toneApplied: toneApplied);
   }
 
   /// 수고봉 2차 검출용: 빨강 우세 픽셀을 노랑으로 바꾼 CHW 텐서.

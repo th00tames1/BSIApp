@@ -69,14 +69,18 @@ class AnalysisService {
     FaceTuning tuning = FaceTuning.none,
   }) async {
     final size = OnnxService.instance.inputSize;
-    final lb = await _letterboxCapped(imagePath, size,
-        brightness: tuning.brightness, contrast: tuning.contrast);
-    if (lb == null) {
+    final decoded = await _letterboxCapped(imagePath, size,
+        brightness: tuning.brightness,
+        contrast: tuning.contrast,
+        autoTone: tuning.autoTone);
+    if (decoded == null) {
       return AzimuthResult(azimuth: azimuth, imagePath: imagePath, analysed: false);
     }
+    var lb = decoded; // 확대 재분석에서 교체될 수 있다
     final analysedAt = DateTime.now();
     // 수고봉을 **먼저** 찾는다. 봉은 대상목에 붙여 세우므로 그 x 위치가
     // 옆·뒤 나무를 걸러 내는 단서가 된다(대상목 선택에 넘긴다).
+    // (아래 1차 분석 뒤, 대상이 너무 작게 담겼으면 ROI를 확대해 다시 본다)
     // 스케일 우선순위: 수동 입력 > 수고봉 경계 검출 모델 > (모델 미탑재 시에만)
     // 노란픽셀 휴리스틱.
     //
@@ -115,7 +119,7 @@ class AnalysisService {
         sol = null;
       }
     }
-    final PoleScale pole = PoleScale.detect(lb.square, lb.size, poleLengthM);
+    var pole = PoleScale.detect(lb.square, lb.size, poleLengthM);
 
     // 수고봉 x(있으면) → 대상목 선택 단서. 조사자가 줄기를 직접 찍었으면
     // 그 점이 최우선이다.
@@ -127,7 +131,7 @@ class AnalysisService {
       poleHintX = pole.x.toDouble();
     }
     final raw = await OnnxService.instance.infer(lb.chw, lb.size);
-    final fa = SegDecoder.analyze(
+    var fa = SegDecoder.analyze(
       raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
       targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
       targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
@@ -135,6 +139,29 @@ class AnalysisService {
       poleHintX: poleHintX,
       groundNorm: tuning.groundNorm,
     );
+
+    // ── 그을음을 놓쳤을 때의 마지막 구제 ─────────────────────────────
+    //
+    // 임계값은 이미 0.15까지 내려와 있다. 그런데도 나무는 찾았는데 그을음이
+    // 하나도 없다면, 같은 추론 결과를 더 낮은 값으로 한 번 더 읽어 본다
+    // (추가 추론이 없어 비용이 들지 않는다). 여기서 잡히는 것은 대개 멀리서
+    // 찍혀 신뢰도가 바닥에 깔린 실제 그을음이다.
+    var sootPass = 'normal';
+    if (fa.hasTree && fa.interPx == 0) {
+      final relaxed = SegDecoder.analyze(
+        raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+        confSoot: 0.08,
+        targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
+        targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
+        hintIsTap: tuning.targetX != null,
+        poleHintX: poleHintX,
+        groundNorm: tuning.groundNorm,
+      );
+      if (relaxed.interPx > 0) {
+        fa = relaxed;
+        sootPass = 'lowConf';
+      }
+    }
     double pxPerM = manualPxPerMetre ??
         sol?.pxPerMetre ??
         (modelUsable ? double.nan : pole.pxPerMetre);
@@ -246,7 +273,7 @@ class AnalysisService {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
         result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
-        tuning,
+        tuning, sootPass,
       );
     }
     return result;
@@ -267,6 +294,7 @@ class AnalysisService {
     double poleGapMetres,
     String poleModelPass,
     FaceTuning tuning,
+    String sootPass,
   ) {
     try {
       Directory(dir).createSync(recursive: true);
@@ -304,6 +332,16 @@ class AnalysisService {
           'treeBottom': fa.treeBottom,
         },
         'tuning': tuning.toJson(),
+        'autoTone': lb.toneApplied,
+        'sootPass': sootPass,
+        'inputRegion': {
+          'x': lb.srcX,
+          'y': lb.srcY,
+          'w': lb.srcW,
+          'h': lb.srcH,
+          'sourceW': lb.source.width,
+          'sourceH': lb.source.height,
+        },
         'scale': {
           'source': r.scaleSource,
           'pxPerMetre': n(r.pxPerMetre),
@@ -372,7 +410,7 @@ class AnalysisService {
   static const int _maxDartDecodeLongSide = 3200;
 
   static Future<Letterboxed?> _letterboxCapped(String path, int size,
-      {double brightness = 0, double contrast = 1}) async {
+      {double brightness = 0, double contrast = 1, bool? autoTone}) async {
     try {
       final bytes = await File(path).readAsBytes();
       final info = img.JpegDecoder().startDecode(bytes);
@@ -408,17 +446,17 @@ class AnalysisService {
               numChannels: 4,
               order: img.ChannelOrder.rgba);
           return ImageOps.letterbox(ImageOps.normalizeResolution(im), size,
-              brightness: brightness, contrast: contrast);
+              brightness: brightness, contrast: contrast, autoTone: autoTone);
         }
       }
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
       return ImageOps.letterbox(ImageOps.normalizeResolution(decoded), size,
-          brightness: brightness, contrast: contrast);
+          brightness: brightness, contrast: contrast, autoTone: autoTone);
     } catch (_) {
       // 마지막 안전망 — 기존 경로(전체 디코딩)라도 시도한다.
       return ImageOps.letterboxFromFile(path, size,
-          brightness: brightness, contrast: contrast);
+          brightness: brightness, contrast: contrast, autoTone: autoTone);
     }
   }
 

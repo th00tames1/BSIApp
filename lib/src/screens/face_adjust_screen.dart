@@ -143,6 +143,32 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
                         'Tap the target trunk — use when a neighbouring tree is picked.'),
                 style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
           ),
+          // 역광 자동 보정 — 기본은 앱이 사진 밝기를 보고 판단한다.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Row(children: [
+              Expanded(
+                child: Text(tr('역광 보정', 'Backlight fix'),
+                    style: TextStyle(fontSize: 12.5, color: p.muted)),
+              ),
+              SegmentedButton<int>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: [
+                  ButtonSegment(value: 0, label: Text(tr('자동', 'Auto'))),
+                  ButtonSegment(value: 1, label: Text(tr('켬', 'On'))),
+                  ButtonSegment(value: 2, label: Text(tr('끔', 'Off'))),
+                ],
+                selected: {_t.autoTone == null ? 0 : (_t.autoTone! ? 1 : 2)},
+                onSelectionChanged: (sel) => setState(() {
+                  final v = sel.first;
+                  _t = v == 0
+                      ? _t.copyWith(clearAutoTone: true)
+                      : _t.copyWith(autoTone: v == 1);
+                }),
+              ),
+            ]),
+          ),
           // 밝기·대비는 연구·검증용이라 개발자 모드에서만 연다.
           if (devMode.value) ...[
             _slider(p, tr('밝기', 'Brightness'), _t.brightness, -0.5, 0.5,

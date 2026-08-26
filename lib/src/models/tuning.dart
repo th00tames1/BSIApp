@@ -14,12 +14,17 @@ class FaceTuning {
   /// 밝기(-1~1)·대비(0.5~2). 역광·그늘 사진을 보정해 다시 분석할 때 쓴다.
   final double brightness, contrast;
 
+  /// 역광 자동 보정(CLAHE). null이면 사진 밝기를 보고 앱이 판단한다(기본),
+  /// true면 항상 적용, false면 끈다.
+  final bool? autoTone;
+
   const FaceTuning({
     this.groundNorm,
     this.targetX,
     this.targetY,
     this.brightness = 0,
     this.contrast = 1,
+    this.autoTone,
   });
 
   static const FaceTuning none = FaceTuning();
@@ -29,7 +34,8 @@ class FaceTuning {
       targetX == null &&
       targetY == null &&
       brightness == 0 &&
-      contrast == 1;
+      contrast == 1 &&
+      autoTone == null;
 
   bool get adjustsImage => brightness != 0 || contrast != 1;
 
@@ -41,6 +47,8 @@ class FaceTuning {
     bool clearTarget = false,
     double? brightness,
     double? contrast,
+    bool? autoTone,
+    bool clearAutoTone = false,
   }) =>
       FaceTuning(
         groundNorm: clearGround ? null : (groundNorm ?? this.groundNorm),
@@ -48,6 +56,7 @@ class FaceTuning {
         targetY: clearTarget ? null : (targetY ?? this.targetY),
         brightness: brightness ?? this.brightness,
         contrast: contrast ?? this.contrast,
+        autoTone: clearAutoTone ? null : (autoTone ?? this.autoTone),
       );
 
   Map<String, dynamic> toJson() => {
@@ -56,6 +65,7 @@ class FaceTuning {
         if (targetY != null) 'targetY': targetY,
         if (brightness != 0) 'brightness': brightness,
         if (contrast != 1) 'contrast': contrast,
+        if (autoTone != null) 'autoTone': autoTone,
       };
 
   factory FaceTuning.fromJson(Map<String, dynamic>? j) {
@@ -66,6 +76,7 @@ class FaceTuning {
       targetY: (j['targetY'] as num?)?.toDouble(),
       brightness: (j['brightness'] as num?)?.toDouble() ?? 0,
       contrast: (j['contrast'] as num?)?.toDouble() ?? 1,
+      autoTone: j['autoTone'] as bool?,
     );
   }
 }

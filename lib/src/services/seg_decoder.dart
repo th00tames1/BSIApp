@@ -111,7 +111,13 @@ class SegDecoder {
     Float32List proto,
     List<int> protoShape,
     int size, {
-    double confSoot = 0.25,
+    // 그을음 임계값이 0.25면 멀리서 찍은 나무가 절벽에 걸린다. 현장 사례
+    // (같은 나무를 거리만 달리해 찍은 005 동/북)에서 먼 쪽 검출 점수가
+    // 0.279·0.240이었고, 기기별 수치 차이로 0.25 아래로 내려가면 그을음이
+    // 통째로 사라졌다("그을음이 덮여 있는데 없다고 나옴"). 0.15로 낮추면
+    // 검증용 예시 4장과 현장 사진의 계측값은 **완전히 그대로**이면서
+    // 그 절벽만 없어진다(0.10까지 내리면 예시 S면이 흔들려 여기가 하한).
+    double confSoot = 0.15,
     double confTree = 0.25,
     double iou = 0.45,
     double? targetHintX,

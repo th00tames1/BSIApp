@@ -115,6 +115,54 @@ void main() {
     });
   });
 
+  group('멀리서 찍은 그을음 (신뢰도 절벽)', () {
+    // 현장 사례: 같은 나무를 거리만 달리해 찍었더니 먼 쪽만 "그을음 없음"으로
+    // 나왔다. 그을음 검출 점수가 0.279·0.240으로 임계값 0.25에 걸쳐 있었고,
+    // 기기별 수치 차이로 아래로 내려가면 통째로 버려졌다.
+    ({Float32List det, List<int> shape, Float32List proto, List<int> protoShape})
+        withSootScore(double sootScore) {
+      const nm = 2, feat = 6 + nm;
+      final det = Float32List(2 * feat);
+      // 0: 나무(중앙)  1: 그을음(같은 자리)
+      det[0] = 280; det[1] = 60; det[2] = 360; det[3] = 600;
+      det[4] = 0.95; det[5] = kTree.toDouble(); det[6] = 20.0;
+      det[feat] = 285; det[feat + 1] = 80; det[feat + 2] = 355;
+      det[feat + 3] = 400; det[feat + 4] = sootScore;
+      det[feat + 5] = kSoot.toDouble(); det[feat + 7] = 20.0;
+      final proto = Float32List(nm * mh * mh);
+      void band(int idx, int y1, int y2, int x1, int x2) {
+        for (var y = y1; y < y2; y++) {
+          for (var x = x1; x < x2; x++) {
+            proto[idx * mh * mh + y * mh + x] = 1.0;
+          }
+        }
+      }
+      band(0, 15, 150, 70, 90);
+      band(1, 20, 100, 71, 89);
+      return (det: det, shape: [1, 2, feat], proto: proto, protoShape: [1, nm, mh, mh]);
+    }
+
+    test('0.25 바로 아래(0.24) 점수의 그을음도 이제 잡힌다', () {
+      final m = withSootScore(0.24);
+      final fa =
+          SegDecoder.analyze(m.det, m.shape, m.proto, m.protoShape, size);
+      expect(fa.interPx, greaterThan(0), reason: '기본 임계값이 0.15여야 한다');
+    });
+
+    test('0.1 미만의 잡음은 기본 분석에서 걸러진다', () {
+      final m = withSootScore(0.06);
+      final fa =
+          SegDecoder.analyze(m.det, m.shape, m.proto, m.protoShape, size);
+      expect(fa.interPx, 0);
+      // 마지막 구제 단계(0.08)로 다시 읽으면 살아난다 — 나무는 있는데 그을음이
+      // 하나도 없을 때만 쓰는 경로다.
+      final relaxed = SegDecoder.analyze(
+          m.det, m.shape, m.proto, m.protoShape, size,
+          confSoot: 0.05);
+      expect(relaxed.interPx, greaterThan(0));
+    });
+  });
+
   group('지표면 지정', () {
     test('지정한 선 아래의 줄기·그을음은 계측에서 빠진다', () {
       final m = fakeModel(size: size, mh: mh, boxes: [
