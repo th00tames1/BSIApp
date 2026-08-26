@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'tuning.dart';
+
 /// NaN is not valid JSON and breaks sqflite; store it as null (round-trips
 /// back to NaN via the `?? double.nan` fallbacks on read).
 Object? _n(double v) => v.isNaN ? null : v;
@@ -24,6 +26,13 @@ class AzimuthResult {
   /// 채워 4방위 BSI를 완성할 때 쓴다. 재분석은 이 면을 건드리지 않는다.
   final bool manual;
 
+  /// 조사자가 이 면의 값(그을음 높이·면적비)을 직접 고쳤는지.
+  /// 사진이 있는 면도 현장에서 손으로 바로잡을 수 있다 — 그 값이 BSI에 들어간다.
+  final bool manualEdited;
+
+  /// 이 면의 분석 조정값(지표면·대상목 지정·밝기/대비). 재분석 재현에 쓴다.
+  final FaceTuning tuning;
+
   /// 스케일(px/m)의 출처: 'pole'(수고봉 경계 모델) · 'manual' · 'heuristic'(노란픽셀)
   /// · 'dbh'(수고봉 없이 실측 흉고직경으로 추정 — 정밀도 낮음) · ''(스케일 없음).
   final String scaleSource;
@@ -43,6 +52,8 @@ class AzimuthResult {
     this.treePx = 0,
     this.analysed = false,
     this.manual = false,
+    this.manualEdited = false,
+    this.tuning = FaceTuning.none,
     this.scaleSource = '',
   });
 
@@ -60,6 +71,8 @@ class AzimuthResult {
     int? treePx,
     bool? analysed,
     bool? manual,
+    bool? manualEdited,
+    FaceTuning? tuning,
     String? scaleSource,
   }) =>
       AzimuthResult(
@@ -77,6 +90,8 @@ class AzimuthResult {
         treePx: treePx ?? this.treePx,
         analysed: analysed ?? this.analysed,
         manual: manual ?? this.manual,
+        manualEdited: manualEdited ?? this.manualEdited,
+        tuning: tuning ?? this.tuning,
         scaleSource: scaleSource ?? this.scaleSource,
       );
 
@@ -95,6 +110,8 @@ class AzimuthResult {
         'treePx': treePx,
         'analysed': analysed,
         'manual': manual,
+        'manualEdited': manualEdited,
+        'tuning': tuning.toJson(),
         'scaleSource': scaleSource,
       };
 
@@ -113,6 +130,8 @@ class AzimuthResult {
         treePx: (j['treePx'] as num?)?.toInt() ?? 0,
         analysed: j['analysed'] as bool? ?? false,
         manual: j['manual'] as bool? ?? false,
+        manualEdited: j['manualEdited'] as bool? ?? false,
+        tuning: FaceTuning.fromJson(j['tuning'] as Map<String, dynamic>?),
         scaleSource: j['scaleSource'] as String? ?? '',
       );
 }

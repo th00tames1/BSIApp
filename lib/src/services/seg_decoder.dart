@@ -114,6 +114,11 @@ class SegDecoder {
     double confSoot = 0.25,
     double confTree = 0.25,
     double iou = 0.45,
+    double? targetHintX,
+    double? targetHintY,
+    bool hintIsTap = false,
+    double? poleHintX,
+    double? groundNorm,
   }) {
     final nm = protoShape[1], mh = protoShape[2], mw = protoShape[3];
     final dim1 = detShape[1], dim2 = detShape[2];
@@ -165,9 +170,33 @@ class SegDecoder {
     for (final d in soot) {
       _fillMask(d, sootMask, proto, nm, mh, mw, factor);
     }
-    final target = _pickTarget(tree, size);
+    final target = _pickTarget(tree, size,
+        hintX: targetHintX,
+        hintY: targetHintY,
+        hintIsTap: hintIsTap,
+        poleHintX: poleHintX);
     final treeMask = Uint8List(mhmw);
-    if (target != null) _fillMask(target, treeMask, proto, nm, mh, mw, factor);
+    if (target != null) {
+      _fillMask(target, treeMask, proto, nm, mh, mw, factor);
+      // 뒤에 겹쳐 선 나무가 같은 상자 안에 들어오면 마스크가 두 줄기를 함께
+      // 물고, 흉고직경 폭이 부풀고 그을음 비율이 흐려진다(현장 보고).
+      // 상자 중심 세로선에 걸친 **하나의 연결 덩어리**만 남긴다.
+      _keepMainComponent(
+          treeMask, mh, mw, (((target.x1 + target.x2) / 2) * factor).round());
+    }
+    // 지표면을 조사자가 지정했으면 그 아래(풀·그림자·낙엽에 붙은 마스크)는
+    // 줄기로 세지 않는다. 밑동이 곧 높이 계측의 기준선이라 여기서 잘라야
+    // 그을음 높이·줄기 높이·흉고 위치가 모두 같은 기준을 쓴다.
+    if (groundNorm != null) {
+      final gRow = (groundNorm * mh).round().clamp(0, mh - 1);
+      for (int y = gRow + 1; y < mh; y++) {
+        final base = y * mw;
+        for (int x = 0; x < mw; x++) {
+          treeMask[base + x] = 0;
+          sootMask[base + x] = 0;
+        }
+      }
+    }
 
     int sootPx = 0, treePx = 0, interPx = 0;
     int iTop = -1, iBot = -1, iLeft = mw, iRight = -1, tTop = -1, tBot = -1;
@@ -244,17 +273,69 @@ class SegDecoder {
     }
   }
 
-  static _Det? _pickTarget(List<_Det> trees, int size) {
+  /// 조사 대상목 하나를 고른다.
+  ///
+  /// 조사자는 **대상목을 화면 중앙에 세우고 그 옆에 수고봉을 붙여** 찍는다.
+  /// 옛 규칙(면적 × 중심거리)은 옆·뒤 나무가 더 크게 잡히면 그쪽으로 넘어갔다
+  /// (현장 보고). 그래서 아래를 함께 본다.
+  ///   · 가로로 중앙에서 얼마나 벗어났는지 — 가장 강한 단서
+  ///   · 수고봉과 얼마나 가까운지 — 봉은 대상목에 붙여 세운다
+  ///   · 프레임을 세로로 채우는지, 밑동이 아래쪽에 있는지
+  /// [hintIsTap]이면 조사자가 줄기를 직접 찍은 것이므로 그 점을 품는 검출을
+  /// 최우선으로 고른다(겹친 경우 더 작은 쪽 = 앞의 나무).
+  static _Det? _pickTarget(
+    List<_Det> trees,
+    int size, {
+    double? hintX,
+    double? hintY,
+    bool hintIsTap = false,
+    double? poleHintX,
+  }) {
     if (trees.isEmpty) return null;
-    final cx = size / 2, cy = size / 2;
-    final halfDiag = 0.5 * math.sqrt(2 * size * size).toDouble();
+
+    if (hintIsTap && hintX != null && hintY != null) {
+      final hit = trees
+          .where((d) => hintX >= d.x1 && hintX <= d.x2 && hintY >= d.y1 && hintY <= d.y2)
+          .toList();
+      if (hit.isNotEmpty) {
+        hit.sort((a, b) => _area(a).compareTo(_area(b)));
+        return hit.first; // 겹치면 더 작은(앞에 선) 나무
+      }
+      // 품는 검출이 없으면 지정점에 가장 가까운 것
+      _Det? near;
+      double bestD = double.infinity;
+      for (final d in trees) {
+        final mx = (d.x1 + d.x2) / 2, my = (d.y1 + d.y2) / 2;
+        final dd = (mx - hintX) * (mx - hintX) + (my - hintY) * (my - hintY);
+        if (dd < bestD) {
+          bestD = dd;
+          near = d;
+        }
+      }
+      return near;
+    }
+
+    // 기준 가로 위치: 수고봉이 있으면 **봉 쪽**이 대상목이다(봉은 조사목에
+    // 붙여 세운다). 없으면 화면 중앙 — 조사자가 대상목을 가운데 두고 찍는다.
+    final cx = size / 2;
+    final refX = poleHintX == null ? cx : 0.35 * cx + 0.65 * poleHintX;
     _Det? best;
     double bestScore = -1;
     for (final d in trees) {
-      final area = math.max(0, d.x2 - d.x1) * math.max(0, d.y2 - d.y1);
-      final mx = (d.x1 + d.x2) / 2, my = (d.y1 + d.y2) / 2;
-      final dist = math.sqrt((mx - cx) * (mx - cx) + (my - cy) * (my - cy));
-      final score = area * (1 - 0.5 * (dist / halfDiag));
+      final area = _area(d);
+      if (area <= 0) continue;
+      final mx = (d.x1 + d.x2) / 2;
+      // 0 = 기준 위치, 1 = 화면 가장자리만큼 떨어짐
+      final dx = ((mx - refX).abs() / (size / 2)).clamp(0.0, 1.0);
+      final hFrac = ((d.y2 - d.y1) / size).clamp(0.0, 1.0);
+      final bottomFrac = (d.y2 / size).clamp(0.0, 1.0);
+      // 면적은 **제곱근**으로만 반영한다. 그대로 쓰면 가까이 선 옆 나무가
+      // 면적만으로 이겨 버린다(현장 보고). 가로 위치가 가장 강한 단서다.
+      final dev = math.max(0.05, 1 - dx);
+      final score = math.sqrt(area) *
+          dev * dev * // 기준에서 멀수록 제곱으로 감점
+          (0.5 + 0.5 * hFrac) * // 세로로 길게 잡힌 줄기 우대
+          (bottomFrac > 0.55 ? 1.15 : 0.85); // 밑동이 아래쪽에 오면 가점
       if (score > bestScore) {
         bestScore = score;
         best = d;
@@ -262,6 +343,59 @@ class SegDecoder {
     }
     return best;
   }
+
+  /// 마스크에서 [seedX] 세로선에 걸친 가장 큰 연결 덩어리만 남긴다(4이웃).
+  /// 걸친 덩어리가 없으면 전체에서 가장 큰 덩어리를 남긴다.
+  static void _keepMainComponent(Uint8List mask, int mh, int mw, int seedX) {
+    final sx = seedX.clamp(0, mw - 1);
+    final label = Int32List(mh * mw); // 0 = 미방문
+    final stack = <int>[];
+    var bestLabel = 0, bestScore = -1;
+    var cur = 0;
+    for (var i = 0; i < mask.length; i++) {
+      if (mask[i] != 1 || label[i] != 0) continue;
+      cur++;
+      var size = 0;
+      var touchesSeed = false;
+      stack.add(i);
+      label[i] = cur;
+      while (stack.isNotEmpty) {
+        final k = stack.removeLast();
+        size++;
+        final y = k ~/ mw, x = k % mw;
+        if (x == sx) touchesSeed = true;
+        if (x > 0 && mask[k - 1] == 1 && label[k - 1] == 0) {
+          label[k - 1] = cur;
+          stack.add(k - 1);
+        }
+        if (x < mw - 1 && mask[k + 1] == 1 && label[k + 1] == 0) {
+          label[k + 1] = cur;
+          stack.add(k + 1);
+        }
+        if (y > 0 && mask[k - mw] == 1 && label[k - mw] == 0) {
+          label[k - mw] = cur;
+          stack.add(k - mw);
+        }
+        if (y < mh - 1 && mask[k + mw] == 1 && label[k + mw] == 0) {
+          label[k + mw] = cur;
+          stack.add(k + mw);
+        }
+      }
+      // 중심선에 걸친 덩어리를 우선(가중 10배), 그중 큰 것.
+      final score = size * (touchesSeed ? 10 : 1);
+      if (score > bestScore) {
+        bestScore = score;
+        bestLabel = cur;
+      }
+    }
+    if (bestLabel == 0) return;
+    for (var i = 0; i < mask.length; i++) {
+      if (mask[i] == 1 && label[i] != bestLabel) mask[i] = 0;
+    }
+  }
+
+  static double _area(_Det d) =>
+      math.max(0, d.x2 - d.x1) * math.max(0, d.y2 - d.y1);
 
   static List<_Det> _nms(List<_Det> input, double iouThr) {
     input.sort((a, b) => b.score.compareTo(a.score));

@@ -48,7 +48,9 @@ class CsvExport {
         rows.add([
           ...base, f.azimuth,
           // 분석값인지 조사자가 직접 넣은 값인지 구분할 수 있어야 한다.
-          f.manual ? 'manual' : 'analysed',
+          f.manual
+              ? 'manual' // 사진 없이 야장 값으로 채운 면
+              : (f.manualEdited ? 'edited' : 'analysed'), // 분석 후 손으로 고친 면
           _v(f.sootHeightM), _v(f.sootProportion), _v(f.sootProportionWhole),
           _v(f.sootWidthM), _v(f.visibleStemHeightM), _v(f.dbhEstM), _v(f.pxPerMetre),
           f.scaleSource, // 'pole' | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''

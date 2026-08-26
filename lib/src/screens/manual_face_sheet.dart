@@ -40,6 +40,9 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
       TextEditingController(text: _fmt(_ratioPct(widget.existing?.sootProportion)));
   String? _err;
 
+  /// 사진이 있는 면을 고치는 중인지(값만 덮어쓴다).
+  bool get _hasPhoto => widget.existing?.imagePath != null;
+
   static double? _ratioPct(double? v) => (v == null || v.isNaN) ? null : v * 100;
 
   /// 저장된 값을 손실 없이 되돌려준다. 프리필이 반올림되면 값을 고치지 않고
@@ -74,6 +77,21 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
       setState(() => _err = tr('그을음 면적비는 0 ~ 100 % 입니다', 'Char ratio must be 0-100%'));
       return;
     }
+    final base = widget.existing;
+    if (base != null && base.imagePath != null) {
+      // 사진이 있는 면을 손으로 고치는 경우 — 사진·오버레이·스케일은 그대로 두고
+      // BSI에 들어가는 두 값만 조사자 값으로 덮는다(출처는 'edited'로 남는다).
+      Navigator.pop(
+        context,
+        base.copyWith(
+          sootHeightM: h,
+          sootProportion: rPct / 100,
+          analysed: true,
+          manualEdited: true,
+        ),
+      );
+      return;
+    }
     Navigator.pop(
       context,
       AzimuthResult(
@@ -99,7 +117,10 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-                tr('${widget.az.label} 직접 입력', 'Enter ${widget.az.label} manually'),
+                _hasPhoto
+                    ? tr('${widget.az.label} 값 수정', 'Edit ${widget.az.label}')
+                    : tr('${widget.az.label} 직접 입력',
+                        'Enter ${widget.az.label} manually'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
         ]),
@@ -107,9 +128,12 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-              tr('사진을 찍지 못한 방위를 야장 값으로 채웁니다. 두 값이 그대로 BSI 합에 들어갑니다.',
-                  'Fill an un-photographed aspect from your field notes. '
-                      'Both values feed the BSI sum directly.'),
+              _hasPhoto
+                  ? tr('분석값 대신 조사자 값이 BSI 합에 들어갑니다. 사진과 오버레이는 그대로 남습니다.',
+                      'Your values replace the analysed ones in the BSI sum; the photo and overlay are kept.')
+                  : tr('사진을 찍지 못한 방위를 야장 값으로 채웁니다. 두 값이 그대로 BSI 합에 들어갑니다.',
+                      'Fill an un-photographed aspect from your field notes. '
+                          'Both values feed the BSI sum directly.'),
               style: TextStyle(fontSize: 12, height: 1.45, color: p.muted)),
         ),
         const SizedBox(height: 16),
@@ -140,7 +164,7 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
         ],
         const SizedBox(height: 18),
         Row(children: [
-          if (widget.existing != null)
+          if (widget.existing != null && !_hasPhoto)
             TextButton(
               onPressed: () => Navigator.pop(context, removedManualFace),
               child: Text(tr('입력 지우기', 'Clear'),

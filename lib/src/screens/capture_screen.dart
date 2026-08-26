@@ -39,6 +39,17 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   bool _busy = false;
   final _picker = ImagePicker();
 
+  // 배율. 기기가 지원하는 범위 안에서만 버튼을 보여 준다(0.6배는 초광각이
+  // 있는 기기에서만 가능). 배율은 사진 안에서 봉·나무가 함께 커지므로
+  // 스케일 산출에는 영향이 없다 — 다만 기록에는 남긴다.
+  static const List<double> _zoomSteps = [0.6, 1, 2, 3];
+  List<double> _zooms = const [1];
+  double _zoom = 1;
+
+  // 노출 보정(EV). 역광에서 줄기가 까맣게 뭉개지는 것을 현장에서 바로잡는다.
+  double _ev = 0, _evMin = 0, _evMax = 0;
+  bool _evOpen = false;
+
   /// 촬영 후 백그라운드로 도는 저장 작업(정규화·원본 보관). 셔터는 즉시
   /// 다음 방위로 넘어가고, AI 분석 진입 때만 완료를 기다린다.
   final List<Future<void>> _pendingShots = [];
@@ -257,6 +268,22 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await controller.initialize();
       await controller.setFlashMode(FlashMode.off);
+      // 지원 범위 조회 — 실패해도 촬영은 되어야 하므로 조용히 기본값을 쓴다.
+      var zooms = const <double>[1.0];
+      var evMin = 0.0, evMax = 0.0;
+      try {
+        final zMin = await controller.getMinZoomLevel();
+        final zMax = await controller.getMaxZoomLevel();
+        zooms = [
+          for (final z in _zoomSteps)
+            if (z >= zMin - 1e-6 && z <= zMax + 1e-6) z
+        ];
+        if (zooms.isEmpty) zooms = const [1.0];
+      } catch (_) {}
+      try {
+        evMin = await controller.getMinExposureOffset();
+        evMax = await controller.getMaxExposureOffset();
+      } catch (_) {}
       if (!mounted) {
         await controller.dispose();
         return;
@@ -264,7 +291,17 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       setState(() {
         _controller = controller;
         _initing = false;
+        _zooms = zooms;
+        _zoom = zooms.contains(1.0) ? 1.0 : zooms.first;
+        _evMin = evMin;
+        _evMax = evMax;
+        _ev = 0;
       });
+      if (_zoom != 1.0) {
+        try {
+          await controller.setZoomLevel(_zoom);
+        } catch (_) {}
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -351,6 +388,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'camera': {
           'preset': 'max',
           'normalizedLongSide': PhotoNormalizer.longSide,
+          'zoom': _zoom,
+          'exposureOffsetEv': _ev,
         },
         'environment': RawArchive.environment(),
       });
@@ -375,6 +414,26 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
             'Failed to save ${az.label} photo: $e'));
       }
     }
+  }
+
+  Future<void> _setZoom(double z) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    try {
+      await c.setZoomLevel(z);
+      if (mounted) setState(() => _zoom = z);
+    } catch (e) {
+      if (mounted) _showNotice(tr('배율을 바꾸지 못했습니다', 'Could not change zoom'));
+    }
+  }
+
+  Future<void> _setEv(double v) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    setState(() => _ev = v);
+    try {
+      await c.setExposureOffset(v);
+    } catch (_) {}
   }
 
   Future<void> _capture() async {
@@ -730,11 +789,21 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
+                if (!_demo && _evOpen && _evMax > _evMin) _evSlider(),
+                if (!_demo && _zooms.length > 1) _zoomBar(),
+                const SizedBox(height: 8),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   _CamBtn(
                       icon: Icons.photo_library_outlined, onTap: _pickFromGallery),
                   Expanded(child: Center(child: _compassBlock(n))),
-                  const SizedBox(width: 42), // keep the compass centred
+                  // 노출 보정 토글 — 역광일 때만 쓰므로 평소엔 접어 둔다.
+                  _evMax > _evMin && !_demo
+                      ? _CamBtn(
+                          icon: _evOpen
+                              ? Icons.brightness_6
+                              : Icons.brightness_6_outlined,
+                          onTap: () => setState(() => _evOpen = !_evOpen))
+                      : const SizedBox(width: 42),
                 ]),
                 const SizedBox(height: 12),
                 _analyseButton(n),
@@ -779,6 +848,79 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         child: _compass(),
       ),
     ]);
+  }
+
+  /// 배율 선택. 초광각(0.6배)은 나무 전체와 수고봉을 한 프레임에 담을 때,
+  /// 2·3배는 멀리 선 나무의 그을음 경계를 또렷하게 볼 때 쓴다.
+  Widget _zoomBar() {
+    return Center(
+      child: _Scrim(
+        radius: 999,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final z in _zooms) ...[
+            GestureDetector(
+              onTap: () => _setZoom(z),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: z == _zoom ? _pole : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(_zoomLabel(z),
+                    style: TextStyle(
+                        color: z == _zoom
+                            ? const Color(0xFF11151C)
+                            : Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  static String _zoomLabel(double z) {
+    final s = z.toStringAsFixed(1);
+    return '${s.endsWith('.0') ? z.toStringAsFixed(0) : s}×';
+  }
+
+  Widget _evSlider() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _Scrim(
+        radius: 16,
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+        child: Row(children: [
+          const Icon(Icons.brightness_low, size: 16, color: Colors.white70),
+          Expanded(
+            child: Slider(
+              value: _ev.clamp(_evMin, _evMax),
+              min: _evMin,
+              max: _evMax,
+              activeColor: _pole,
+              onChanged: _setEv,
+            ),
+          ),
+          const Icon(Icons.brightness_high, size: 16, color: Colors.white70),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 42,
+            child: Text('${_ev >= 0 ? '+' : ''}${_ev.toStringAsFixed(1)}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      ),
+    );
   }
 
   Widget _analyseButton(int n) {

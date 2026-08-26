@@ -23,11 +23,26 @@ class ImageOps {
   ///
   /// JPEG의 EXIF 회전은 디코더가 적용하므로(image 4.8) 카메라 원본(가로 픽셀 +
   /// Orientation 태그)도 똑바로 선 채로 들어온다.
-  static Letterboxed? letterboxFromFile(String path, int size) {
+  static Letterboxed? letterboxFromFile(String path, int size,
+      {double brightness = 0, double contrast = 1}) {
     final raw = File(path).readAsBytesSync();
     final decoded = img.decodeImage(raw);
     if (decoded == null) return null;
-    return letterbox(normalizeResolution(decoded), size);
+    return letterbox(normalizeResolution(decoded), size,
+        brightness: brightness, contrast: contrast);
+  }
+
+  /// 밝기·대비 보정 룩업 테이블. 역광 사진에서 어두운 줄기를 살리거나,
+  /// 흐린 사진의 그을음 경계를 세울 때 쓴다.
+  ///   out = clamp(((in - 128) * contrast + 128) + brightness * 255)
+  static Uint8List _toneLut(double brightness, double contrast) {
+    final lut = Uint8List(256);
+    final add = brightness * 255.0;
+    for (var i = 0; i < 256; i++) {
+      final v = (i - 128) * contrast + 128 + add;
+      lut[i] = v < 0 ? 0 : (v > 255 ? 255 : v.round());
+    }
+    return lut;
   }
 
   /// 입력을 예시 사진과 같은 크기(긴 변 [normLongSide])로 **면적 평균** 축소한다.
@@ -47,7 +62,8 @@ class ImageOps {
         interpolation: img.Interpolation.average);
   }
 
-  static Letterboxed letterbox(img.Image src, int size) {
+  static Letterboxed letterbox(img.Image src, int size,
+      {double brightness = 0, double contrast = 1}) {
     final r = math.min(size / src.width, size / src.height);
     final nw = math.max(1, (src.width * r).round());
     final nh = math.max(1, (src.height * r).round());
@@ -59,6 +75,18 @@ class ImageOps {
     final padY = ((size - nh) / 2).round();
     img.compositeImage(canvas, resized, dstX: padX, dstY: padY);
 
+    // 보정은 letterbox 뒤에 한 번만 — 텐서와 오버레이 바탕이 같은 그림이라
+    // 조사자가 화면에서 본 대로 분석된다.
+    if (brightness != 0 || contrast != 1) {
+      final lut = _toneLut(brightness, contrast);
+      for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+          final px = canvas.getPixel(x, y);
+          canvas.setPixelRgb(
+              x, y, lut[px.r.toInt()], lut[px.g.toInt()], lut[px.b.toInt()]);
+        }
+      }
+    }
     final bytes = canvas.getBytes(order: img.ChannelOrder.rgb);
     final area = size * size;
     final chw = Float32List(3 * area);

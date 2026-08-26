@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 
 import '../models/survey.dart';
+import '../models/tuning.dart';
 import 'image_ops.dart';
 import 'mortality.dart';
 import 'onnx_service.dart';
@@ -65,17 +66,17 @@ class AnalysisService {
     double? dbhCmForScale,
     String? rawOutDir,
     double poleGapMetres = 1.0,
+    FaceTuning tuning = FaceTuning.none,
   }) async {
     final size = OnnxService.instance.inputSize;
-    final lb = await _letterboxCapped(imagePath, size);
+    final lb = await _letterboxCapped(imagePath, size,
+        brightness: tuning.brightness, contrast: tuning.contrast);
     if (lb == null) {
       return AzimuthResult(azimuth: azimuth, imagePath: imagePath, analysed: false);
     }
     final analysedAt = DateTime.now();
-    final raw = await OnnxService.instance.infer(lb.chw, lb.size);
-    final fa = SegDecoder.analyze(
-        raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size);
-
+    // 수고봉을 **먼저** 찾는다. 봉은 대상목에 붙여 세우므로 그 x 위치가
+    // 옆·뒤 나무를 걸러 내는 단서가 된다(대상목 선택에 넘긴다).
     // 스케일 우선순위: 수동 입력 > 수고봉 경계 검출 모델 > (모델 미탑재 시에만)
     // 노란픽셀 휴리스틱.
     //
@@ -115,6 +116,25 @@ class AnalysisService {
       }
     }
     final PoleScale pole = PoleScale.detect(lb.square, lb.size, poleLengthM);
+
+    // 수고봉 x(있으면) → 대상목 선택 단서. 조사자가 줄기를 직접 찍었으면
+    // 그 점이 최우선이다.
+    double? poleHintX;
+    if (sol != null && sol.staff.points.isNotEmpty) {
+      poleHintX = sol.staff.points.map((q) => q.x).reduce((a, b) => a + b) /
+          sol.staff.points.length;
+    } else if (pole.detected) {
+      poleHintX = pole.x.toDouble();
+    }
+    final raw = await OnnxService.instance.infer(lb.chw, lb.size);
+    final fa = SegDecoder.analyze(
+      raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+      targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
+      targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
+      hintIsTap: tuning.targetX != null,
+      poleHintX: poleHintX,
+      groundNorm: tuning.groundNorm,
+    );
     double pxPerM = manualPxPerMetre ??
         sol?.pxPerMetre ??
         (modelUsable ? double.nan : pole.pxPerMetre);
@@ -226,6 +246,7 @@ class AnalysisService {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
         result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
+        tuning,
       );
     }
     return result;
@@ -245,6 +266,7 @@ class AnalysisService {
     double? manualPxPerMetre,
     double poleGapMetres,
     String poleModelPass,
+    FaceTuning tuning,
   ) {
     try {
       Directory(dir).createSync(recursive: true);
@@ -281,6 +303,7 @@ class AnalysisService {
           'treeTop': fa.treeTop,
           'treeBottom': fa.treeBottom,
         },
+        'tuning': tuning.toJson(),
         'scale': {
           'source': r.scaleSource,
           'pxPerMetre': n(r.pxPerMetre),
@@ -348,7 +371,8 @@ class AnalysisService {
   /// 읽고, 크면 플랫폼 코덱으로 축소 디코딩해 같은 파이프라인에 넣는다.
   static const int _maxDartDecodeLongSide = 3200;
 
-  static Future<Letterboxed?> _letterboxCapped(String path, int size) async {
+  static Future<Letterboxed?> _letterboxCapped(String path, int size,
+      {double brightness = 0, double contrast = 1}) async {
     try {
       final bytes = await File(path).readAsBytes();
       final info = img.JpegDecoder().startDecode(bytes);
@@ -383,15 +407,18 @@ class AnalysisService {
               bytesOffset: rgba.offsetInBytes,
               numChannels: 4,
               order: img.ChannelOrder.rgba);
-          return ImageOps.letterbox(ImageOps.normalizeResolution(im), size);
+          return ImageOps.letterbox(ImageOps.normalizeResolution(im), size,
+              brightness: brightness, contrast: contrast);
         }
       }
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
-      return ImageOps.letterbox(ImageOps.normalizeResolution(decoded), size);
+      return ImageOps.letterbox(ImageOps.normalizeResolution(decoded), size,
+          brightness: brightness, contrast: contrast);
     } catch (_) {
       // 마지막 안전망 — 기존 경로(전체 디코딩)라도 시도한다.
-      return ImageOps.letterboxFromFile(path, size);
+      return ImageOps.letterboxFromFile(path, size,
+          brightness: brightness, contrast: contrast);
     }
   }
 

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as pp;
 import 'package:path_provider/path_provider.dart';
 
-import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../models/survey.dart';
@@ -60,7 +59,7 @@ class _SavedScreenState extends State<SavedScreen> {
   // 새로 얻는다. 입력(사진·모델·수고봉 길이)이 같으면 결과도 같다.
   Future<void> _reanalyse() async {
     final shots = record.faces
-        .where((f) => !f.manual && f.imagePath != null)
+        .where((f) => !f.manual && !f.manualEdited && f.imagePath != null)
         .toList(growable: false);
     if (shots.isEmpty) {
       _snack(tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
@@ -81,11 +80,12 @@ class _SavedScreenState extends State<SavedScreen> {
         title: Text(tr('이미지 다시 분석', 'Re-analyse images')),
         content: Text(tr(
             '저장된 ${shots.length}장을 같은 모델로 다시 분석해 방위별 계측값과 통합 BSI를 '
-                '새로 계산합니다.\n\n손으로 고친 수고·그을음 높이는 분석값으로 되돌아갑니다. '
+                '새로 계산합니다. 흉고직경이 입력돼 있으면 수고봉이 없던 면도 그 값으로 스케일을 세웁니다.\n\n조사자가 값을 직접 넣은 면은 그대로 둡니다. '
                 '흉고직경은 그대로 두고 고사 확률만 다시 판정합니다.',
             'Re-runs the same model on the ${shots.length} stored photos and '
                 'recomputes the per-azimuth measurements and the integrated BSI.\n\n'
-                'Manually edited tree/char heights revert to the analysed values. '
+                'Faces without a pole scale fall back to the entered DBH; faces you '
+                'filled in by hand are kept. '
                 'DBH is kept; only the mortality verdict is recomputed.')),
         actions: [
           TextButton(
@@ -121,8 +121,10 @@ class _SavedScreenState extends State<SavedScreen> {
           ? null
           : pp.join(record.rawDir!,
               'reanalysis_${DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-')}');
-      // 직접 입력한 방위는 사진이 없어 다시 분석할 수 없다. 그대로 살려 둔다.
-      final fresh = record.faces.where((f) => f.manual).toList();
+      // 사진 없이 넣은 면과, 조사자가 값을 고친 면은 다시 분석하지 않고 살려 둔다
+      // (다시 분석했다고 애써 넣은 야장 값이 조용히 사라지면 안 된다).
+      final fresh =
+          record.faces.where((f) => f.manual || f.manualEdited).toList();
       for (int i = 0; i < shots.length; i++) {
         final f = shots[i];
         progress.value = tr(
@@ -136,8 +138,11 @@ class _SavedScreenState extends State<SavedScreen> {
           poleLengthM: record.poleLengthM,
           poleGapMetres: record.poleGapM,
           overlayOutPath: outPath,
+          // 수고봉이 없던 면도 실측 흉고직경이 있으면 여기서 스케일이 선다.
+          dbhCmForScale: record.dbhCm > 0 ? record.dbhCm : null,
           rawOutDir: rawOut,
-        ));
+          tuning: f.tuning,
+        ).then((r) => r.copyWith(tuning: f.tuning)));
         // 같은 경로에 덮어쓰므로 캐시를 비워야 새 오버레이가 보인다.
         await FileImage(File(outPath)).evict();
       }
@@ -293,13 +298,12 @@ class _SavedScreenState extends State<SavedScreen> {
       appBar: AppBar(
         title: Text(tr('조사목 상세', 'Tree detail')),
         actions: [
-          // 다시 분석은 연구·검증용이라 개발자 모드에서만 보인다.
-          if (devMode.value)
-            IconButton(
-              tooltip: tr('이미지 다시 분석 (개발자)', 'Re-analyse images (developer)'),
-              onPressed: _reanalyse,
-              icon: const Icon(Icons.refresh),
-            ),
+          // 흉고직경을 고친 뒤 스케일을 다시 세우려면 현장에서도 필요하다.
+          IconButton(
+            tooltip: tr('이미지 다시 분석', 'Re-analyse images'),
+            onPressed: _reanalyse,
+            icon: const Icon(Icons.refresh),
+          ),
           IconButton(
             tooltip: tr('CSV 내보내기', 'Export CSV'),
             onPressed: () => CsvExport.share([record]),

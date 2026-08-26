@@ -68,8 +68,9 @@ flutter pub get
 flutter test
 ```
 
-**67건 전부 통과해야 한다.** 수고봉 스케일 환산, 검출 결과 디코딩, 기기 독립성,
-입력 해상도 정규화, 흉고직경 기반 스케일, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
+**79건 전부 통과해야 한다.** 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
+기기 독립성, 입력 해상도 정규화, 흉고직경 기반 스케일, 대상목 선택(옆·뒤 나무),
+지표면 지정, 밝기·대비 보정, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
 BSI 판정표, 경계 파일 임포트를 검증한다.
 `54 packages have newer versions incompatible with dependency constraints`는
 `pubspec.lock`으로 버전을 고정해 둔 결과이며 정상 메시지다.
