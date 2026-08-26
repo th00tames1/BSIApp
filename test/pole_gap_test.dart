@@ -29,7 +29,10 @@ void main() {
         scaleSource: source ?? (manual ? 'manual' : 'pole'),
       );
 
-  SurveyRecord rec(List<AzimuthResult> faces, {double gap = 1.0}) => SurveyRecord(
+  SurveyRecord rec(List<AzimuthResult> faces,
+          {double gap = 1.0, bool dbhAuto = false}) =>
+      SurveyRecord(
+        dbhAuto: dbhAuto,
         treeId: '001',
         site: '현장검증',
         address: '',
@@ -168,6 +171,47 @@ void main() {
       final f = r.withPoleGap(2.0).faces.single;
       expect(f.sootHeightM.isNaN, isTrue);
       expect(f.visibleStemHeightM.isNaN, isTrue);
+    });
+  });
+
+  group('흉고직경으로 세운 스케일은 그 값의 출처를 따른다', () {
+    // 'dbh' 면의 px/m은 흉고직경에서 나온다. 그 흉고직경이 조사자 실측값이면
+    // 간격과 무관하지만, 앱이 추정한 값이면 그것 자체가 스케일에 비례하므로
+    // 결국 간격을 따라 움직인다. 미리보기와 재분석 결과가 갈리지 않으려면
+    // 산술 환산도 같은 규칙을 따라야 한다.
+    test('실측 흉고직경이면 그 면은 움직이지 않는다', () {
+      final r = rec([face('E', source: 'dbh')], gap: 1.0);
+      expect(r.withPoleGap(0.5).faces.single.sootHeightM, 2.0);
+    });
+
+    test('앱이 추정한 흉고직경이면 그 면도 함께 움직인다', () {
+      final r = rec([face('E', source: 'dbh')], gap: 1.0, dbhAuto: true);
+      expect(r.withPoleGap(0.5).faces.single.sootHeightM, closeTo(1.0, 1e-9));
+    });
+
+    test('추정 여부가 저장·복원된다', () {
+      final r = rec([face('E')], dbhAuto: true);
+      expect(SurveyRecord.fromMap(r.toMap()).dbhAuto, isTrue);
+      expect(SurveyRecord.fromMap(rec([face('E')]).toMap()).dbhAuto, isFalse);
+    });
+  });
+
+  group('영향받지 않는 면을 빠짐없이 센다', () {
+    test('직접 넣은 면과 손으로 고친 면도 안내에 포함한다', () {
+      // 세지 않으면 "왜 BSI가 그대로지?"의 답이 안내에서 빠진다.
+      final faces = [
+        face('E'), // 수고봉 — 움직인다
+        face('W', manual: true), // 야장 — 안 움직인다
+        face('S', edited: true), // 손으로 고침 — 그을음 높이가 안 움직인다
+        face('N', source: 'heuristic'), // 봉 전장 — 안 움직인다
+      ];
+      expect(gapIndependentFaceCount(faces), 3);
+    });
+
+    test('추정 흉고직경이면 dbh 면은 안내에서 빠진다', () {
+      final faces = [face('E'), face('W', source: 'dbh')];
+      expect(gapIndependentFaceCount(faces), 1);
+      expect(gapIndependentFaceCount(faces, dbhFollowsGap: true), 0);
     });
   });
 

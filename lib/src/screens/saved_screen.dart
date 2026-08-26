@@ -71,10 +71,18 @@ class _SavedScreenState extends State<SavedScreen> {
         faces: record.faces,
         dbhCm: record.dbhCm,
         currentGap: record.poleGapM,
+        dbhFollowsGap: record.dbhAuto,
       ),
     );
     if (v == null || !mounted || v == record.poleGapM) return;
-    final scaled = record.withPoleGap(v);
+    var scaled = record.withPoleGap(v);
+    // 흉고직경이 앱 추정값이면 그것도 스케일에 비례하므로 함께 다시 센다.
+    // 그러지 않으면 새 간격의 BSI를 옛 간격의 흉고직경과 짝지어 판정하게 되고,
+    // 판정표는 두 축의 조합으로 읽으므로 존치/벌채가 뒤집힐 수 있다.
+    if (record.dbhAuto) {
+      final est = AnalysisService.estimateDbhCm(scaled.faces);
+      if (!est.isNaN && est > 0) scaled = scaled.copyWith(dbhCm: est);
+    }
     final integ = AnalysisService.instance.integrate(scaled.faces, scaled.dbhCm);
     await _apply(scaled.copyWith(
       bsi: integ.bsi,
@@ -85,28 +93,36 @@ class _SavedScreenState extends State<SavedScreen> {
     final hasShots = record.faces
         .any((f) => !f.manual && !f.manualEdited && f.imagePath != null);
     // 간격 변경은 이미 확정됐다. 이어지는 재분석이 실패하더라도 조사자가
-    // "취소된 줄" 알면 안 되므로, 결과와 무관하게 이 사실부터 알린다.
-    _snack(tr('수고봉 간격을 ${v.toStringAsFixed(2)} m로 바꿨습니다.',
-        'Pole spacing set to ${v.toStringAsFixed(2)} m.'));
+    // "취소된 줄" 알면 안 되므로, 그 사실을 재분석 결과와 **한 문장으로 묶어**
+    // 알린다(_snack은 앞선 스낵바를 지우므로 따로 띄우면 덮인다).
+    final gapMsg = tr('수고봉 간격을 ${v.toStringAsFixed(2)} m로 바꿨습니다.',
+        'Pole spacing set to ${v.toStringAsFixed(2)} m.');
     // 조사자는 간격만 고쳤다. 야장에 직접 넣은 수고·그을음 높이는 실측값이라
     // 여기서 지우면 안 된다(보통의 '다시 분석'은 그것을 알리고 지운다).
-    if (hasShots) await _reanalyse(silent: true, keepRecordHeights: true);
+    if (hasShots) {
+      await _reanalyse(
+          silent: true, keepRecordHeights: true, prefix: '$gapMsg ');
+    } else {
+      _snack(gapMsg);
+    }
   }
 
   Future<void> _reanalyse(
-      {bool silent = false, bool keepRecordHeights = false}) async {
+      {bool silent = false,
+      bool keepRecordHeights = false,
+      String prefix = ''}) async {
     final shots = record.faces
         .where((f) => !f.manual && !f.manualEdited && f.imagePath != null)
         .toList(growable: false);
     if (shots.isEmpty) {
-      _snack(tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
+      _snack(prefix + tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
           'No stored photos to re-analyse'));
       return;
     }
     final missing =
         shots.where((f) => !File(f.imagePath!).existsSync()).toList();
     if (missing.isNotEmpty) {
-      _snack(tr('사진 파일 ${missing.length}장을 찾을 수 없어 다시 분석할 수 없습니다',
+      _snack(prefix + tr('사진 파일 ${missing.length}장을 찾을 수 없어 다시 분석할 수 없습니다',
           '${missing.length} photo file(s) missing — cannot re-analyse'));
       return;
     }
@@ -186,8 +202,15 @@ class _SavedScreenState extends State<SavedScreen> {
         await FileImage(File(outPath)).evict();
       }
 
-      final integ = AnalysisService.instance.integrate(fresh, record.dbhCm);
+      // 추정 흉고직경은 스케일에 비례하므로 재분석 뒤에도 다시 센다.
+      var dbh = record.dbhCm;
+      if (record.dbhAuto) {
+        final est = AnalysisService.estimateDbhCm(fresh);
+        if (!est.isNaN && est > 0) dbh = est;
+      }
+      final integ = AnalysisService.instance.integrate(fresh, dbh);
       next = record.copyWith(
+        dbhCm: dbh,
         faces: fresh,
         bsi: integ.bsi,
         mortalityProb: integ.mortality,
@@ -205,7 +228,7 @@ class _SavedScreenState extends State<SavedScreen> {
     Navigator.pop(context); // 진행 다이얼로그
     progress.dispose();
     if (err != null) {
-      _snack(tr('다시 분석 실패: $err', 'Re-analysis failed: $err'));
+      _snack(prefix + tr('다시 분석 실패: $err', 'Re-analysis failed: $err'));
       return;
     }
     await _apply(next!);
@@ -214,7 +237,7 @@ class _SavedScreenState extends State<SavedScreen> {
       _page = 0;
       if (_pager.hasClients) _pager.jumpToPage(0);
     });
-    _snack(tr('다시 분석했습니다', 'Re-analysed'));
+    _snack(prefix + tr('다시 분석했습니다', 'Re-analysed'));
   }
 
   Future<void> _delete(BuildContext context) async {

@@ -43,7 +43,11 @@ class _ResultScreenState extends State<ResultScreen> {
   double _dbhAuto = double.nan;
 
   /// 자동 추정값을 그대로 쓰는 중인지(= 조사자가 손대지 않았는지).
-  bool _dbhFromAuto = false;
+  ///
+  /// 저장할 때 기록에 함께 남긴다. 추정 흉고직경은 스케일에 비례하므로, 나중에
+  /// 수고봉 간격을 고칠 때 함께 움직여야 하는지가 이 값으로 갈린다.
+  bool get _dbhFromAuto => d.dbhFromAuto;
+  set _dbhFromAuto(bool v) => d.dbhFromAuto = v;
 
   /// 면 계측값이 바뀐 뒤 자동 추정 흉고직경을 다시 센다.
   ///
@@ -870,13 +874,15 @@ class _ResultScreenState extends State<ResultScreen> {
         faces: d.faces,
         dbhCm: d.dbhCm,
         currentGap: d.poleGapM,
+        dbhFollowsGap: _dbhFromAuto,
       ),
     );
     if (v == null || !mounted || v == d.poleGapM) return;
     final k = v / d.poleGapM;
     setState(() {
       for (final az in d.results.keys.toList()) {
-        d.results[az] = rescaleFacesForGap([d.results[az]!], k).first;
+        d.results[az] = rescaleFacesForGap([d.results[az]!], k,
+            dbhFollowsGap: _dbhFromAuto).first;
       }
       d.poleGapM = v;
       _refreshAutoDbh();

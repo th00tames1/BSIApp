@@ -145,7 +145,15 @@ class SurveyRecord {
   final double? lat;
   final double? lon;
   final String species; // 수종
-  final double dbhCm; // 흉고직경 (user-entered, cm)
+  final double dbhCm;
+
+  /// [dbhCm]이 조사자 실측값이 아니라 **앱이 추정한 값**인지.
+  ///
+  /// 추정 흉고직경은 수간 폭 ÷ 픽셀 스케일이라 수고봉 간격에 정비례한다. 즉
+  /// 간격을 고치면 이 값도 따라 움직여야 하는데, 실측값이라면 절대 건드리면
+  /// 안 된다. 판정은 BSI와 흉고직경의 **조합**으로 나므로 둘이 서로 다른 간격
+  /// 기준이면 존치/벌채가 뒤집힐 수 있다.
+  final bool dbhAuto; // 흉고직경 (user-entered, cm)
   /// 수고 (m). NaN이면 방위별 계측값(visibleStemHeightM 최대)으로 표시한다.
   final double heightM;
   /// 그을음 최고 높이 (m). NaN이면 방위별 계측값(sootHeightM 최대)으로 표시한다.
@@ -172,6 +180,7 @@ class SurveyRecord {
     this.lon,
     required this.species,
     required this.dbhCm,
+    this.dbhAuto = false,
     this.heightM = double.nan,
     this.sootMaxM = double.nan,
     this.rawDir,
@@ -195,6 +204,7 @@ class SurveyRecord {
     bool clearGps = false,
     String? species,
     double? dbhCm,
+    bool? dbhAuto,
     double? heightM,
     double? sootMaxM,
     double? poleGapM,
@@ -212,6 +222,7 @@ class SurveyRecord {
         lon: clearGps ? null : lon ?? this.lon,
         species: species ?? this.species,
         dbhCm: dbhCm ?? this.dbhCm,
+        dbhAuto: dbhAuto ?? this.dbhAuto,
         heightM: heightM ?? this.heightM,
         sootMaxM: sootMaxM ?? this.sootMaxM,
         rawDir: rawDir,
@@ -251,7 +262,8 @@ class SurveyRecord {
     if (newGap == poleGapM) return copyWith(poleGapM: newGap);
     return copyWith(
       poleGapM: newGap,
-      faces: rescaleFacesForGap(faces, newGap / poleGapM),
+      faces: rescaleFacesForGap(faces, newGap / poleGapM,
+          dbhFollowsGap: dbhAuto),
       // 조사자가 직접 넣은 수고·그을음 높이는 실측값이라 그대로 둔다.
       heightM: heightM,
       sootMaxM: sootMaxM,
@@ -274,6 +286,7 @@ class SurveyRecord {
         'lon': lon,
         'species': species,
         'dbhCm': dbhCm,
+        'dbhAuto': dbhAuto ? 1 : 0,
         'heightM': _n(heightM),
         'sootMaxM': _n(sootMaxM),
         'rawDir': rawDir,
@@ -297,6 +310,7 @@ class SurveyRecord {
         lon: (m['lon'] as num?)?.toDouble(),
         species: m['species'] as String? ?? '',
         dbhCm: (m['dbhCm'] as num?)?.toDouble() ?? 0,
+        dbhAuto: ((m['dbhAuto'] as num?)?.toInt() ?? 0) == 1,
         heightM: (m['heightM'] as num?)?.toDouble() ?? double.nan,
         sootMaxM: (m['sootMaxM'] as num?)?.toDouble() ?? double.nan,
         rawDir: m['rawDir'] as String?,
@@ -323,13 +337,25 @@ class SurveyRecord {
 ///
 /// ''(스케일 없음)은 계측값이 모두 NaN이라 환산해도 무해하고, scaleSource를
 /// 남기지 않던 옛 기록이 조용히 빠지는 일도 막는다.
-bool _gapScaled(AzimuthResult f) =>
-    f.scaleSource == 'pole' || f.scaleSource.isEmpty;
+/// [dbhFollowsGap]: 스케일을 세운 흉고직경이 **앱의 추정값**이면 그 값 자체가
+/// 간격에 비례하므로, 'dbh'로 세운 면도 결국 간격을 따라 움직인다. 조사자가
+/// 실측한 흉고직경이면 반대로 간격과 무관하다.
+bool _gapScaled(AzimuthResult f, bool dbhFollowsGap) =>
+    f.scaleSource == 'pole' ||
+    f.scaleSource.isEmpty ||
+    (dbhFollowsGap && f.scaleSource == 'dbh');
 
 /// 간격을 고쳐도 값이 움직이지 않는 면의 수 — 미리보기에서 그 사실을 알린다.
-int gapIndependentFaceCount(List<AzimuthResult> faces) => faces
-    .where((f) => !f.manual && !_gapScaled(f) && !f.sootHeightM.isNaN)
-    .length;
+///
+/// 조사자가 값을 직접 넣은 면도 움직이지 않으므로 함께 센다. 그러지 않으면
+/// "왜 BSI가 그대로지?"의 답이 안내에서 빠진다.
+int gapIndependentFaceCount(List<AzimuthResult> faces,
+        {bool dbhFollowsGap = false}) =>
+    faces
+        .where((f) =>
+            !f.sootHeightM.isNaN &&
+            (f.manual || f.manualEdited || !_gapScaled(f, dbhFollowsGap)))
+        .length;
 
 /// 수고봉 간격이 [factor]배로 바뀌었을 때의 면 계측값.
 ///
@@ -344,11 +370,12 @@ int gapIndependentFaceCount(List<AzimuthResult> faces) => faces
 ///   · 손으로 고친 면의 **그을음 높이** — 조사자가 잰 미터값이다. 다만 그 면의
 ///     나머지(줄기 높이·폭·흉고직경·px/m)는 여전히 분석이 낸 값이라 환산한다.
 ///     재분석이 이 면을 건너뛰므로, 여기서 안 고치면 영영 옛 간격에 묶인다.
-List<AzimuthResult> rescaleFacesForGap(List<AzimuthResult> faces, double factor) {
+List<AzimuthResult> rescaleFacesForGap(List<AzimuthResult> faces, double factor,
+    {bool dbhFollowsGap = false}) {
   if (!factor.isFinite || factor <= 0 || factor == 1.0) return faces;
   return [
     for (final f in faces)
-      (f.manual || !_gapScaled(f))
+      (f.manual || !_gapScaled(f, dbhFollowsGap))
           ? f
           : f.copyWith(
               sootHeightM:

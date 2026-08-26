@@ -140,12 +140,68 @@ class AnalysisService {
       groundNorm: tuning.groundNorm,
     );
 
-    // ── 그을음을 놓쳤을 때의 마지막 구제 ─────────────────────────────
+    // ── 수간을 아예 놓쳤을 때의 마지막 구제 ───────────────────────────
     //
-    // 임계값은 이미 0.15까지 내려와 있다. 그런데도 나무는 찾았는데 그을음이
-    // 하나도 없다면, 같은 추론 결과를 더 낮은 값으로 한 번 더 읽어 본다
-    // (추가 추론이 없어 비용이 들지 않는다). 여기서 잡히는 것은 대개 멀리서
-    // 찍혀 신뢰도가 바닥에 깔린 실제 그을음이다.
+    // 줄기가 온통 그을린 나무는 'tree'로는 문턱을 못 넘고 'soot'로만 잡히는
+    // 일이 있다(현장 007 동: 최고 수간 점수 0.19). 그러면 분모가 없어 그을음이
+    // 덮여 있는데도 비율을 못 낸다. **하나도 못 찾았을 때만** 같은 추론 결과를
+    // 아주 낮은 값으로 다시 읽는다 — 잃을 것이 없고 추가 추론도 없다.
+    //
+    // 점수는 기기마다 조금씩 다르므로(같은 사진에서 PC 0.19, 기기 0.10 미만)
+    // 여유를 크게 잡는다. 잘못 잡히면 오버레이에 그대로 보이고, 조사자가
+    // 대상목을 직접 찍거나 값을 손으로 넣어 바로잡을 수 있다.
+    var treePass = 'normal';
+    if (!fa.hasTree) {
+      final relaxed = SegDecoder.analyze(
+        raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+        confTree: 0.05,
+        targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
+        targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
+        hintIsTap: tuning.targetX != null,
+        poleHintX: poleHintX,
+        groundNorm: tuning.groundNorm,
+      );
+      if (relaxed.hasTree) {
+        fa = relaxed;
+        treePass = 'lowConf';
+      }
+    }
+
+    // 그래도 못 찾으면 **대비를 펴서** 한 번 더 본다(추론 1회 추가 — 이 면은
+    // 지금 아무 값도 못 내는 상태라 잃을 것이 없다). 역광·강한 그늘에서
+    // 까맣게 뭉친 줄기가 여기서 살아난다: 현장 007 동에서 수간 점수가
+    // 0.19 → 0.91로 올랐다.
+    //
+    // 단, 같은 보정이 그을음 마스크는 줄인다(비율 0.877 → 0.602). 그래서
+    // 보정본에서는 **줄기(분모)만** 빌려 오고 그을음은 원본에서 잰 것을 쓴다.
+    if (!fa.hasTree && tuning.autoTone != true) {
+      final toned = await _letterboxCapped(imagePath, size,
+          brightness: tuning.brightness,
+          contrast: tuning.contrast,
+          autoTone: true);
+      if (toned != null) {
+        try {
+          final rawT = await OnnxService.instance.infer(toned.chw, toned.size);
+          final ft = SegDecoder.analyze(
+            rawT.det, rawT.detShape, rawT.proto, rawT.protoShape, toned.size,
+            targetHintX:
+                tuning.targetX == null ? null : tuning.targetX! * toned.size,
+            targetHintY:
+                tuning.targetY == null ? null : tuning.targetY! * toned.size,
+            hintIsTap: tuning.targetX != null,
+            poleHintX: poleHintX,
+            groundNorm: tuning.groundNorm,
+          );
+          if (ft.hasTree) {
+            fa = SegDecoder.recombine(ft, fa);
+            treePass = 'tone';
+          }
+        } catch (_) {
+          // 구제 실패는 조용히 넘긴다 — 원래도 값이 없던 면이다.
+        }
+      }
+    }
+
     var sootPass = 'normal';
     if (fa.hasTree && fa.interPx == 0) {
       final relaxed = SegDecoder.analyze(
@@ -273,7 +329,7 @@ class AnalysisService {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
         result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
-        tuning, sootPass,
+        tuning, treePass, sootPass,
       );
     }
     return result;
@@ -294,6 +350,7 @@ class AnalysisService {
     double poleGapMetres,
     String poleModelPass,
     FaceTuning tuning,
+    String treePass,
     String sootPass,
   ) {
     try {
@@ -333,6 +390,7 @@ class AnalysisService {
         },
         'tuning': tuning.toJson(),
         'autoTone': lb.toneApplied,
+        'treePass': treePass,
         'sootPass': sootPass,
         'inputRegion': {
           'x': lb.srcX,

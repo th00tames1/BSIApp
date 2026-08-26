@@ -20,11 +20,16 @@ class PoleGapDialog extends StatefulWidget {
   final double dbhCm;
   final double currentGap;
 
+  /// 스케일을 세운 흉고직경이 앱 추정값이면 그것도 간격에 비례하므로,
+  /// 흉고직경으로 스케일을 세운 면까지 함께 움직인다.
+  final bool dbhFollowsGap;
+
   const PoleGapDialog({
     super.key,
     required this.faces,
     required this.dbhCm,
     required this.currentGap,
+    this.dbhFollowsGap = false,
   });
 
   @override
@@ -56,7 +61,8 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
     final v = _value;
     final scaled = (v == null || widget.currentGap <= 0)
         ? null
-        : rescaleFacesForGap(widget.faces, v / widget.currentGap);
+        : rescaleFacesForGap(widget.faces, v / widget.currentGap,
+            dbhFollowsGap: widget.dbhFollowsGap);
     final integ = scaled == null
         ? null
         : AnalysisService.instance.integrate(scaled, widget.dbhCm);
@@ -121,14 +127,16 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
                 _pv(p, tr('통합 BSI', 'Total BSI'), integ.bsi, ''),
                 // 수고봉이 아닌 방법으로 스케일을 세운 면은 간격과 무관하다.
                 // 알리지 않으면 "왜 기대만큼 안 움직이지?"로 읽힌다.
-                if (gapIndependentFaceCount(widget.faces) > 0)
+                if (gapIndependentFaceCount(widget.faces,
+                        dbhFollowsGap: widget.dbhFollowsGap) >
+                    0)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                        tr('${gapIndependentFaceCount(widget.faces)}개 방위는 수고봉이 아닌 '
-                            '방법으로 스케일을 세워 이 값에 영향받지 않습니다.',
-                            '${gapIndependentFaceCount(widget.faces)} face(s) were scaled '
-                                'without the pole and are unaffected.'),
+                        tr('${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)}개 방위는 이 값에 영향받지 않습니다 '
+                            '(수고봉이 아닌 방법으로 스케일을 세웠거나 값을 직접 넣은 면).',
+                            '${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)} face(s) are unaffected '
+                                '(scaled without the pole, or entered by hand).'),
                         style:
                             TextStyle(fontSize: 10.5, height: 1.35, color: p.muted)),
                   ),

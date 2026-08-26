@@ -16,7 +16,7 @@ class DbService {
     final path = p.join(dir.path, 'bsi_field.db');
     _db = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, v) async {
         await db.execute('''
           CREATE TABLE surveys (
@@ -28,6 +28,7 @@ class DbService {
             lon REAL,
             species TEXT,
             dbhCm REAL,
+            dbhAuto INTEGER,
             heightM REAL,
             sootMaxM REAL,
             rawDir TEXT,
@@ -56,6 +57,11 @@ class DbService {
         if (from < 4) {
           // 수고봉 경계 간격(m) — 1 m가 아닌 봉 대응.
           await db.execute('ALTER TABLE surveys ADD COLUMN poleGapM REAL');
+        }
+        if (from < 5) {
+          // 흉고직경이 실측값인지 앱 추정값인지 — 간격을 고칠 때 함께
+          // 움직여야 하는지가 갈린다.
+          await db.execute('ALTER TABLE surveys ADD COLUMN dbhAuto INTEGER');
         }
       },
     );

@@ -21,6 +21,9 @@ class SurveyDraft {
 
   /// 수고봉 경계 간격(m). 새 조사는 설정값을 이어받고, 예시 조사는 1 m 고정.
   double poleGapM = 1.0;
+
+  /// [dbhCm]이 조사자 실측값이 아니라 앱이 추정해 채운 값인지.
+  bool dbhFromAuto = false;
   /// 저장된 조사목을 다시 분석할 때도 같은 모델을 써야 하므로 기본값을 상수로 둔다.
   static const defaultModelName = 'YOLO26s@640';
   static const defaultModelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
@@ -117,6 +120,7 @@ class SurveyDraft {
         lon: treeLocation?.lon,
         species: species,
         dbhCm: dbhCm,
+        dbhAuto: dbhFromAuto,
         memo: memo,
         modelName: modelName,
         poleLengthM: poleLengthM,

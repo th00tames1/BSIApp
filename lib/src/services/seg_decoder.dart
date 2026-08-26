@@ -204,6 +204,30 @@ class SegDecoder {
       }
     }
 
+    return _measure(sootMask, treeMask, mh, mw, size, tree.length, soot.length);
+  }
+
+  /// 보정한 사진에서 찾은 **줄기**와 원본에서 잰 **그을음**을 합친다.
+  ///
+  /// 줄기가 온통 그을려 'tree'로 안 잡히는 사진은 대비를 펴 주면 잘 잡힌다
+  /// (현장 007 동: 0.19 → 0.91). 그런데 같은 보정이 그을음 마스크는 줄인다
+  /// (측정: 비율 0.877 → 0.602). 그래서 보정본에서는 **분모만 빌려 오고**
+  /// 그을음은 원본에서 잰 것을 쓴다(혼합 0.861 — 원본 기준과 거의 같다).
+  ///
+  /// 두 분석은 같은 모델·같은 입력 크기라 마스크 격자가 일치한다.
+  static FaceAnalysis recombine(FaceAnalysis treeFrom, FaceAnalysis sootFrom) {
+    if (treeFrom.mh != sootFrom.mh ||
+        treeFrom.mw != sootFrom.mw ||
+        treeFrom.size != sootFrom.size) {
+      return treeFrom;
+    }
+    return _measure(sootFrom.sootMask, treeFrom.treeMask, treeFrom.mh,
+        treeFrom.mw, treeFrom.size, treeFrom.nTree, sootFrom.nSoot);
+  }
+
+  /// 두 마스크에서 계측값을 낸다.
+  static FaceAnalysis _measure(Uint8List sootMask, Uint8List treeMask, int mh,
+      int mw, int size, int nTree, int nSoot) {
     int sootPx = 0, treePx = 0, interPx = 0;
     int iTop = -1, iBot = -1, iLeft = mw, iRight = -1, tTop = -1, tBot = -1;
     for (int y = 0; y < mh; y++) {
@@ -248,8 +272,8 @@ class SegDecoder {
       sootPx: sootPx,
       treePx: treePx,
       interPx: interPx,
-      nTree: tree.length,
-      nSoot: soot.length,
+      nTree: nTree,
+      nSoot: nSoot,
       interTop: iTop,
       interBottom: iBot,
       interLeft: iLeft,
