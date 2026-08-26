@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/survey.dart';
 
 /// 앱 버전(연구용 원시 데이터에 함께 남긴다 — 어떤 빌드가 만든 값인지 추적).
-const String kAppVersion = '0.2.0';
+const String kAppVersion = '0.3.0';
 
 /// 조사목별 **원시 데이터 번들**.
 ///

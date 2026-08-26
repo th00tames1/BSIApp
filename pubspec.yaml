@@ -1,7 +1,7 @@
 name: bsi_field
 description: "BSI_app — 산불피해목 진단·복원 지원 현장 앱"
 publish_to: 'none'
-version: 0.2.0+5
+version: 0.3.0+6
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
