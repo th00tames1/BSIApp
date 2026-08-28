@@ -64,6 +64,21 @@ class _SavedScreenState extends State<SavedScreen> {
   /// 어긋나면 **모든 높이가 같은 배율로** 틀어진다. 촬영을 다시 할 수는 없으니
   /// 찍힌 기록에서 고칠 수 있어야 한다. 고치는 동안 바뀔 값을 미리 보여 주고,
   /// 확정하면 산술로 즉시 반영한 뒤 사진을 다시 분석해 흉고직경까지 맞춘다.
+  /// 저장된 흉고직경이 조사자 실측이 아니라 **앱이 추정해 채운 값**인가.
+  ///
+  /// 출처를 기록에 남기기 시작한 것은 최근이라, 그 전 기록에는 표시가 없다.
+  /// 그런데 추정값을 채울 때 앱은 1 cm 단위로 반올림해 넣으므로, 지금 면들로
+  /// 다시 센 추정값과 저장된 값이 그 자릿수 안에서 같으면 추정값으로 본다.
+  /// (현장검증 기록에서 003·005는 242·270 cm로 추정값과 일치하고, 007은
+  /// 실측 44 cm 대 추정 238 cm로 뚜렷이 갈린다.)
+  bool get _dbhLooksAuto {
+    if (record.dbhAuto) return true;
+    if (record.dbhCm <= 0) return false;
+    final est = AnalysisService.estimateDbhCm(record.faces);
+    if (est.isNaN || est <= 0) return false;
+    return (est.roundToDouble() - record.dbhCm).abs() < 0.5;
+  }
+
   Future<void> _editPoleGap() async {
     final v = await showDialog<double>(
       context: context,
@@ -71,17 +86,20 @@ class _SavedScreenState extends State<SavedScreen> {
         faces: record.faces,
         dbhCm: record.dbhCm,
         currentGap: record.poleGapM,
-        dbhFollowsGap: record.dbhAuto,
+        dbhFollowsGap: _dbhLooksAuto,
       ),
     );
     if (v == null || !mounted || v == record.poleGapM) return;
-    var scaled = record.withPoleGap(v);
+    final dbhAuto = _dbhLooksAuto;
+    var scaled = record.withPoleGap(v, dbhFollowsGap: dbhAuto);
     // 흉고직경이 앱 추정값이면 그것도 스케일에 비례하므로 함께 다시 센다.
     // 그러지 않으면 새 간격의 BSI를 옛 간격의 흉고직경과 짝지어 판정하게 되고,
     // 판정표는 두 축의 조합으로 읽으므로 존치/벌채가 뒤집힐 수 있다.
-    if (record.dbhAuto) {
+    if (dbhAuto) {
       final est = AnalysisService.estimateDbhCm(scaled.faces);
-      if (!est.isNaN && est > 0) scaled = scaled.copyWith(dbhCm: est);
+      if (!est.isNaN && est > 0) {
+        scaled = scaled.copyWith(dbhCm: est, dbhAuto: true);
+      }
     }
     final integ = AnalysisService.instance.integrate(scaled.faces, scaled.dbhCm);
     await _apply(scaled.copyWith(
@@ -204,7 +222,7 @@ class _SavedScreenState extends State<SavedScreen> {
 
       // 추정 흉고직경은 스케일에 비례하므로 재분석 뒤에도 다시 센다.
       var dbh = record.dbhCm;
-      if (record.dbhAuto) {
+      if (record.dbhAuto || _dbhLooksAuto) {
         final est = AnalysisService.estimateDbhCm(fresh);
         if (!est.isNaN && est > 0) dbh = est;
       }

@@ -257,13 +257,15 @@ class SurveyRecord {
   /// 다만 흉고직경 자동 추정만은 가슴높이 1.3 m에 해당하는 **행 위치**가 스케일에
   /// 따라 달라져 비례하지 않는다. 그 값은 이어지는 재분석이 정확히 채운다.
   /// 조사자가 손으로 넣은 면·값은 이미 실제 미터값이라 건드리지 않는다.
-  SurveyRecord withPoleGap(double newGap) {
+  /// [dbhFollowsGap]을 주면 [dbhAuto] 대신 그 판단을 쓴다. 출처를 남기지 않던
+  /// 옛 기록에서 화면이 추정해 넘긴다.
+  SurveyRecord withPoleGap(double newGap, {bool? dbhFollowsGap}) {
     if (newGap <= 0 || poleGapM <= 0) return this;
     if (newGap == poleGapM) return copyWith(poleGapM: newGap);
     return copyWith(
       poleGapM: newGap,
       faces: rescaleFacesForGap(faces, newGap / poleGapM,
-          dbhFollowsGap: dbhAuto),
+          dbhFollowsGap: dbhFollowsGap ?? dbhAuto),
       // 조사자가 직접 넣은 수고·그을음 높이는 실측값이라 그대로 둔다.
       heightM: heightM,
       sootMaxM: sootMaxM,

@@ -189,6 +189,31 @@ void main() {
       expect(r.withPoleGap(0.5).faces.single.sootHeightM, closeTo(1.0, 1e-9));
     });
 
+    test('출처가 없는 옛 기록은 값이 추정값과 같은지로 가른다', () {
+      // 앱은 추정값을 1 cm로 반올림해 채운다. 저장된 값이 지금 다시 센
+      // 추정값과 그 자릿수 안에서 같으면 실측이 아니라고 본다.
+      // (현장검증 003·005는 242·270 cm로 추정값과 일치, 007은 실측 44 대 추정 238)
+      double est(List<AzimuthResult> fs) {
+        final v = [
+          for (final f in fs)
+            if (f.analysed && f.scaleSource != 'dbh' && !f.dbhEstM.isNaN)
+              f.dbhEstM * 100
+        ]..sort();
+        return v.isEmpty ? double.nan : v[v.length ~/ 2];
+      }
+
+      final faces = [face('E'), face('W')];
+      expect(est(faces).roundToDouble(), 35); // dbhEstM 0.35 m
+      // 저장값이 추정값과 같다 → 추정으로 보고 간격을 따라 움직여야 한다
+      final auto = rec(faces, gap: 1.0);
+      expect((est(auto.faces).roundToDouble() - auto.dbhCm).abs() < 0.5, isTrue);
+      // 저장값이 뚜렷이 다르다 → 실측으로 본다
+      final measured = rec(faces, gap: 1.0).copyWith(dbhCm: 44);
+      expect(
+          (est(measured.faces).roundToDouble() - measured.dbhCm).abs() < 0.5,
+          isFalse);
+    });
+
     test('추정 여부가 저장·복원된다', () {
       final r = rec([face('E')], dbhAuto: true);
       expect(SurveyRecord.fromMap(r.toMap()).dbhAuto, isTrue);
