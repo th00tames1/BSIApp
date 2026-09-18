@@ -68,12 +68,26 @@ flutter pub get
 flutter test
 ```
 
-**119건 전부 통과해야 한다.** 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
+**132건 전부 통과해야 한다**(현장 재현 1건은 환경변수가 없으면 건너뜀). 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
 기기 독립성, 입력 해상도 정규화, 흉고직경 기반 스케일, 대상목 선택(옆·뒤 나무),
-지표면 지정, 밝기·대비·역광 자동 보정, 촬영 노출 확장, 그을음 검출 임계값, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
+지표면 지정, 밝기·대비·역광 자동 보정, 촬영 노출 확장, 역광 실루엣 판정, 그을음 검출 임계값, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
 BSI 판정표, 경계 파일 임포트를 검증한다.
 `54 packages have newer versions incompatible with dependency constraints`는
 `pubspec.lock`으로 버전을 고정해 둔 결과이며 정상 메시지다.
+
+---
+
+### 현장 사진 재현(개발용)
+
+현장에서 받은 원시 번들(개발자 모드 → 기록 → 전체 내보내기 ZIP을 푼 폴더)을 넣으면
+**앱의 Dart 분석 코드를 PC에서 그대로** 돌려 "지금 앱이라면 무엇을 냈을지"를 본다.
+추론만 `tool/ort_server.py`가 앱과 같은 `.onnx`로 대신한다(`onnxruntime`이 있는 파이썬 필요).
+
+```bash
+BSI_FIELD_DIR=<풀어 둔 폴더> BSI_ORT_PY=<python 경로> BSI_GAPS=1.0,0.2 flutter test test/field_replay_test.dart
+```
+
+`BSI_FACES=001:E,003:W`처럼 면을 고를 수 있고, `BSI_GAPS`에 수고봉 간격을 여러 개 주면 비교해 준다.
 
 ---
 

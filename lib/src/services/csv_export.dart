@@ -15,7 +15,7 @@ class CsvExport {
     'tree_id', 'site', 'address', 'lat', 'lon', 'species', 'dbh_cm',
     'height_m', 'soot_max_m', 'model',
     'pole_len_m', 'pole_gap_m', 'bsi', 'mortality_prob', 'verdict',
-    'face_azimuth', 'face_source', 'soot_height_m', 'soot_proportion',
+    'face_azimuth', 'face_source', 'face_issue', 'soot_height_m', 'soot_proportion',
     'soot_proportion_whole',
     'soot_width_m', 'visible_stem_m', 'dbh_est_m', 'px_per_m', 'scale_source',
     'created_at',
@@ -40,9 +40,9 @@ class CsvExport {
       ];
       if (r.faces.isEmpty) {
         rows.add([
-          ...base, '', '', '', '', '', '', '', '', '', '',
+          ...base, '', '', '', '', '', '', '', '', '', '', '',
           r.createdAt.toIso8601String()
-        ]); // face 칸 10개 + created_at — 헤더 칸 수와 맞아야 한다(테스트가 검증)
+        ]); // face 칸 11개 + created_at — 헤더 칸 수와 맞아야 한다(테스트가 검증)
       }
       for (final f in r.faces) {
         rows.add([
@@ -51,6 +51,7 @@ class CsvExport {
           f.manual
               ? 'manual' // 사진 없이 야장 값으로 채운 면
               : (f.manualEdited ? 'edited' : 'analysed'), // 분석 후 손으로 고친 면
+          f.issue, // 'backlit'(역광 실루엣 — BSI에서 빠짐) | ''
           _v(f.sootHeightM), _v(f.sootProportion), _v(f.sootProportionWhole),
           _v(f.sootWidthM), _v(f.visibleStemHeightM), _v(f.dbhEstM), _v(f.pxPerMetre),
           f.scaleSource, // 'pole' | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''

@@ -616,6 +616,10 @@ class _ResultScreenState extends State<ResultScreen> {
   /// 선택된 방위의 검출 실패 사유. 없으면 null.
   String? _faceIssue(AzimuthResult? f) {
     if (f == null || !f.analysed || f.manual) return null;
+    if (f.issue == 'backlit' && !f.manualEdited) {
+      return tr('역광으로 줄기가 새까맣게 찍혀 그을음을 판단할 수 없어 이 방위는 BSI에서 뺐습니다. 해를 등지지 않는 쪽에서 다시 찍거나 값을 직접 입력하세요.',
+          'Backlit silhouette: bark is black so char cannot be judged - this face is left out of the BSI. Retake from a side not facing the sun, or enter values manually.');
+    }
     if (f.treePx == 0) {
       return tr('이 방위에서 수간을 찾지 못했습니다. 나무 전체가 화면에 들어오게 다시 촬영하세요.',
           'No stem detected on this face. Retake with the whole trunk in frame.');

@@ -14,6 +14,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
+import '../services/backlight.dart';
 import '../services/demo_sample.dart';
 import '../services/exposure.dart';
 import '../services/geomag.dart';
@@ -401,9 +402,48 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
 
   /// 원시 데이터 번들에 분석용 사진 사본과 촬영 메타를 남긴다.
   /// 실패해도 조사는 계속된다.
+  /// 역광 실루엣일 때 줄기(화면 가운데)에 노출을 맞춰 한 장 더 찍는다.
+  /// 줄기가 실제로 밝아졌을 때만 새 사진을 돌려주고, 끝나면 측광을 원래대로 돌린다.
+  Future<({XFile file, ShotScore score})?> _retakeForBacklight(
+      CameraController c, ShotScore first) async {
+    final byPoint = c.value.exposurePointSupported;
+    if (!byPoint && _hwEvMax <= _hwEvMin) return null;
+    _showNotice(tr('역광 — 줄기에 노출을 맞추는 중, 그대로 들고 계세요',
+        'Backlit — metering on the trunk, hold still'), ms: 2400);
+    try {
+      if (byPoint) {
+        await c.setExposurePoint(const Offset(0.5, 0.5));
+      } else {
+        await c.setExposureOffset(_hwEvMax);
+      }
+      await Future.delayed(const Duration(milliseconds: 900)); // 자동노출 수렴
+      final f2 = await c.takePicture();
+      final s2 = await Backlight.scoreFile(f2.path, await File(f2.path).readAsBytes());
+      if (s2 == null || s2.trunk <= first.trunk) {
+        try {
+          await File(f2.path).delete();
+        } catch (_) {}
+        return null; // 나아지지 않았으면 첫 사진을 쓴다
+      }
+      return (file: f2, score: s2);
+    } catch (_) {
+      return null;
+    } finally {
+      try {
+        if (byPoint) {
+          await c.setExposurePoint(null);
+        } else {
+          await c.setExposureOffset(_hwEv);
+        }
+      } catch (_) {}
+    }
+  }
+
   /// 셔터(또는 불러오기) 순간의 상태. 저장은 백그라운드로 돌기 때문에 기록할
   /// 때 필드를 다시 읽으면 **다음 방위를 위해 바꾼 배율·노출**이 남는다.
-  _ShotMeta _snapshot({bool camera = true}) => (
+  _ShotMeta _snapshot(
+          {bool camera = true, ShotScore? backlight, bool autoMetered = false}) =>
+      (
         here: _here,
         heading: _heading,
         zoom: camera ? _zoom : null,
@@ -411,6 +451,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         hwEv: camera ? _hwEv : null,
         swEv: camera ? _swEv : null,
         gain: camera ? _swGain : 1.0,
+        backlight: backlight,
+        autoMetered: autoMetered,
       );
 
   Future<void> _keepRaw(Azimuth az, String savedPath, DateTime at,
@@ -465,6 +507,9 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                 'softwareEv': meta.swEv,
                 'softwareGain': meta.gain,
                 'softwareGainApplied': gainApplied,
+                // 역광 판정과, 실루엣이라 줄기에 노출을 맞춰 다시 찍었는지
+                'backlight': meta.backlight?.toJson(),
+                'autoMeteredOnTrunk': meta.autoMetered,
               },
         'environment': RawArchive.environment(),
       });
@@ -524,14 +569,31 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     if (c == null || !c.value.isInitialized || _busy) return;
     setState(() => _busy = true);
     try {
-      final shot = await c.takePicture();
+      var shot = await c.takePicture();
+      // 역광 실루엣이면 조사자가 아직 같은 면을 겨누고 있는 지금 줄기에 노출을
+      // 맞춰 한 장 더 찍는다. 정상·그을린 줄기에는 아무 일도 없다(검은 수피에
+      // 노출을 맞추면 그을음이 회색으로 옅어지므로 실루엣일 때만 개입한다).
+      var backlight = await Backlight.scoreFile(
+          shot.path, await File(shot.path).readAsBytes());
+      var autoMetered = false;
+      if (backlight != null && backlight.silhouette && mounted) {
+        final retake = await _retakeForBacklight(c, backlight);
+        if (retake != null) {
+          try {
+            await File(shot.path).delete();
+          } catch (_) {}
+          shot = retake.file;
+          backlight = retake.score;
+          autoMetered = true;
+        }
+      }
       final shotAt = DateTime.now();
       final destDir = await _photoDir();
       final az = _selected;
       final dest = p.join(destDir.path,
           '${d.treeId}_${az.code}_${shotAt.millisecondsSinceEpoch}.jpg');
       d.photos[az] = dest;
-      final meta = _snapshot();
+      final meta = _snapshot(backlight: backlight, autoMetered: autoMetered);
       final tagged = _tagPosition();
       // 정규화·원본 보관은 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
       // 그걸 기다리면 조사 흐름이 끊기므로 백그라운드로 돌리고 즉시 다음
@@ -539,7 +601,16 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta));
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
-      if (!tagged) {
+      if (autoMetered) {
+        _showNotice(
+            tr('역광이라 줄기에 노출을 맞춰 다시 찍었습니다', 'Backlit — re-shot metered on the trunk'),
+            ms: 2600);
+      } else if (backlight != null && backlight.silhouette) {
+        _showNotice(
+            tr('역광으로 줄기가 까맣게 찍혔습니다. 해를 등지지 않는 쪽에서 다시 찍어 주세요',
+                'Backlit silhouette — retake from a side not facing the sun'),
+            ms: 3600);
+      } else if (!tagged) {
         _showNotice(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS'));
       }
       _advance();
@@ -1374,6 +1445,8 @@ typedef _ShotMeta = ({
   double? hwEv,
   double? swEv,
   double gain,
+  ShotScore? backlight,
+  bool autoMetered,
 });
 
 /// GPS 상태 세 단계 — 빨강(없음) · 주황(약함) · 초록(촬영 지점이 기록됨).

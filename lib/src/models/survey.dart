@@ -37,6 +37,11 @@ class AzimuthResult {
   /// · 'dbh'(수고봉 없이 실측 흉고직경으로 추정 — 정밀도 낮음) · ''(스케일 없음).
   final String scaleSource;
 
+  /// 계측을 믿을 수 없는 사유. 'backlit' = 역광 실루엣(줄기가 새까매 수피 정보가
+  /// 없다). 사유가 있는 면은 통합 BSI에서 빠진다 — 조사자가 값을 직접 고치면
+  /// ([manualEdited]) 다시 들어간다. ''이면 문제없음.
+  final String issue;
+
   const AzimuthResult({
     required this.azimuth,
     this.imagePath,
@@ -55,6 +60,7 @@ class AzimuthResult {
     this.manualEdited = false,
     this.tuning = FaceTuning.none,
     this.scaleSource = '',
+    this.issue = '',
   });
 
   AzimuthResult copyWith({
@@ -74,6 +80,7 @@ class AzimuthResult {
     bool? manualEdited,
     FaceTuning? tuning,
     String? scaleSource,
+    String? issue,
   }) =>
       AzimuthResult(
         azimuth: azimuth,
@@ -93,6 +100,7 @@ class AzimuthResult {
         manualEdited: manualEdited ?? this.manualEdited,
         tuning: tuning ?? this.tuning,
         scaleSource: scaleSource ?? this.scaleSource,
+        issue: issue ?? this.issue,
       );
 
   Map<String, dynamic> toJson() => {
@@ -113,6 +121,7 @@ class AzimuthResult {
         'manualEdited': manualEdited,
         'tuning': tuning.toJson(),
         'scaleSource': scaleSource,
+        'issue': issue,
       };
 
   factory AzimuthResult.fromJson(Map<String, dynamic> j) => AzimuthResult(
@@ -133,6 +142,7 @@ class AzimuthResult {
         manualEdited: j['manualEdited'] as bool? ?? false,
         tuning: FaceTuning.fromJson(j['tuning'] as Map<String, dynamic>?),
         scaleSource: j['scaleSource'] as String? ?? '',
+        issue: j['issue'] as String? ?? '',
       );
 }
 

@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 
 import '../models/survey.dart';
 import '../models/tuning.dart';
+import 'backlight.dart';
 import 'image_ops.dart';
 import 'mortality.dart';
 import 'onnx_service.dart';
@@ -306,6 +307,13 @@ class AnalysisService {
       overlayPath = overlayOutPath;
     }
 
+    // 역광 실루엣이면 수간 마스크 안이 새까맣고 둘레만 밝다. 이 면의 그을음
+    // 비율은 사진에 없는 정보를 모델이 "검다 = 그을음"으로 채운 값이라 BSI에
+    // 넣으면 안 된다(현장 001 동: 0.98). 계측값은 기록에 남기되 합에서는 뺀다.
+    final backlight = fa.treePx > 0
+        ? Backlight.scoreMask(lb.square, fa.treeMask, fa.mh, fa.mw)
+        : const MaskScore(median: double.nan, darkFraction: 0, surround: double.nan);
+
     final result = AzimuthResult(
       azimuth: azimuth,
       imagePath: imagePath,
@@ -321,6 +329,7 @@ class AnalysisService {
       treePx: fa.treePx,
       analysed: true,
       scaleSource: scaleSource,
+      issue: backlight.silhouette ? 'backlit' : '',
     );
 
     // 연구용 원시 산출물 — 나중에 다른 모델·파이프라인으로 같은 입력을 다시 돌려
@@ -329,7 +338,7 @@ class AnalysisService {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
         result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
-        tuning, treePass, sootPass,
+        tuning, treePass, sootPass, backlight,
       );
     }
     return result;
@@ -352,6 +361,7 @@ class AnalysisService {
     FaceTuning tuning,
     String treePass,
     String sootPass,
+    MaskScore backlight,
   ) {
     try {
       Directory(dir).createSync(recursive: true);
@@ -432,6 +442,9 @@ class AnalysisService {
           'visibleStemHeightM': n(r.visibleStemHeightM),
           'dbhEstM': n(r.dbhEstM),
         },
+        // 역광 실루엣 판정(수간 마스크 안 휘도). silhouette이면 BSI에서 빠진다.
+        'backlight': backlight.toJson(),
+        'issue': r.issue,
         'overlay': r.overlayPath,
       };
       File(path.join(dir, '${azimuth}_analysis.json'))
@@ -552,6 +565,8 @@ class AnalysisService {
     double sum = 0;
     int n = 0;
     for (final f in faces) {
+      // 실루엣 등 사유가 있는 면은 빼되, 조사자가 값을 고쳤으면 그 값을 믿는다.
+      if (f.issue.isNotEmpty && !f.manualEdited && !f.manual) continue;
       if (f.analysed && !f.sootHeightM.isNaN && !f.sootProportion.isNaN) {
         sum += f.sootHeightM * f.sootProportion;
         n++;
