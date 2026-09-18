@@ -55,7 +55,6 @@ void _syncActive() {
 
 // ── Settings ────────────────────────────────────────────────────────
 final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.light);
-final ValueNotifier<bool> showGuides = ValueNotifier(true);
 /// Map basemap: false = 일반(OSM), true = 위성(Esri World Imagery).
 final ValueNotifier<bool> satelliteBasemap = ValueNotifier(false);
 /// 개발자 모드: 지도의 현재 위치 버튼을 7번 연속 누르면 켜지고/꺼진다.
@@ -132,7 +131,6 @@ Future<void> loadPrefs() async {
 
   themeMode.value =
       sp.getString('theme') == 'dark' ? ThemeMode.dark : ThemeMode.light;
-  showGuides.value = sp.getBool('showGuides') ?? true;
   satelliteBasemap.value = sp.getBool('satelliteBasemap') ?? false;
   devMode.value = sp.getBool('devMode') ?? false;
   // 개발자 모드가 꺼져 있으면 시연 모드도 반드시 꺼진 상태로 시작한다.
@@ -244,11 +242,6 @@ Future<void> clearDraft() async => await _sp?.remove('activeDraft');
 void setThemeMode(ThemeMode m) {
   themeMode.value = m;
   _sp?.setString('theme', m == ThemeMode.dark ? 'dark' : 'light');
-}
-
-void setShowGuides(bool v) {
-  showGuides.value = v;
-  _sp?.setBool('showGuides', v);
 }
 
 void setSatelliteBasemap(bool v) {

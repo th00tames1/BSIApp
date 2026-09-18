@@ -124,13 +124,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _section(p, tr('촬영', 'CAPTURE')),
           Card(
             child: Column(children: [
-              _row(p, Icons.straighten, tr('촬영 안내선', 'Capture guide'),
-                  sub: tr('수고봉 정렬선 표시', 'Show the pole alignment line'),
-                  trailing: Switch(
-                    value: showGuides.value,
-                    onChanged: (v) => setState(() => setShowGuides(v)),
-                  )),
-              Divider(height: 1, color: p.line),
               // 촬영 화면의 나침반을 눌러도 같은 값이 바뀐다.
               // 선택은 **저장된 설정**을 그대로 보여 준다. 편각을 아직 몰라
               // 표시가 다른 상황은 선택값이 아니라 부제로 알린다(선택을 흔들면

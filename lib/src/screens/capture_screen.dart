@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +15,7 @@ import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/demo_sample.dart';
+import '../services/exposure.dart';
 import '../services/geomag.dart';
 import '../services/location_service.dart';
 import '../services/photo_normalizer.dart';
@@ -47,8 +47,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   double _zoom = 1;
 
   // 노출 보정(EV). 역광에서 줄기가 까맣게 뭉개지는 것을 현장에서 바로잡는다.
+  // 슬라이더는 하드웨어 범위의 [Exposure.stretch]배이고, 한계를 넘는 몫은
+  // 소프트웨어 밝기로 미리보기와 저장 사진에 똑같이 건다(Exposure 참고).
   double _ev = 0, _evMin = 0, _evMax = 0;
+  double _hwEvMin = 0, _hwEvMax = 0;
   bool _evOpen = false;
+
+  double get _hwEv => Exposure.hardware(_ev, _hwEvMin, _hwEvMax);
+  double get _swEv => Exposure.software(_ev, _hwEvMin, _hwEvMax);
+  double get _swGain => Exposure.gain(_swEv);
 
   /// 촬영 후 백그라운드로 도는 저장 작업(정규화·원본 보관). 셔터는 즉시
   /// 다음 방위로 넘어가고, AI 분석 진입 때만 완료를 기다린다.
@@ -61,7 +68,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   // GPS: tagged onto each shot (silently) so the tree gets a map coordinate.
   StreamSubscription<Position>? _posSub;
   final List<Position> _buf = []; // recent fixes, for dwell-averaging each shot
-  Position? _here; // 화면에 띄우는 현재 좌표(가장 최근 픽스)
+  Position? _here; // 가장 최근 픽스(기록용 — 화면에는 좌표를 띄우지 않는다)
+  bool _gpsOk = true; // 권한·위치 서비스가 켜져 있는지
+  Timer? _gpsTick; // 픽스가 끊겨도 신선도에 따라 색이 바뀌도록 주기적으로 확인
+  _GpsLevel? _lastLevel;
 
   // Real device compass.
   StreamSubscription<CompassEvent>? _compassSub;
@@ -154,14 +164,27 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   Future<void> _startGps() async {
     await _posSub?.cancel();
     _posSub = null;
-    if (await LocationService.ensure() != GpsStatus.ok) return;
+    // 픽스가 끊겨도 신선도가 떨어지면 색이 바뀌어야 한다 — 상태가 바뀔 때만 다시 그린다.
+    _gpsTick ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final now = _gpsLevel;
+      if (now != _lastLevel) setState(() => _lastLevel = now);
+    });
+    if (await LocationService.ensure() != GpsStatus.ok) {
+      if (mounted) setState(() => _gpsOk = false);
+      return;
+    }
+    if (mounted && !_gpsOk) setState(() => _gpsOk = true);
     _posSub = LocationService.stream().listen(
       (p) {
         if (!mounted) return;
         _buf.add(p);
         final cutoff = DateTime.now().subtract(const Duration(seconds: 6));
         _buf.removeWhere((x) => x.timestamp.isBefore(cutoff));
-        setState(() => _here = p); // 화면 상단 좌표 표시용
+        setState(() {
+          _here = p;
+          _lastLevel = _gpsLevel;
+        });
         // 편각은 위치에 따라 달라진다. 조사지 안에서는 거의 변하지 않으므로
         // 첫 픽스에서 한 번만 구한다.
         if (Geomag.declinationDeg == null) {
@@ -170,18 +193,45 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           });
         }
       },
-      onError: (_) {},
+      onError: (_) {
+        if (mounted) setState(() => _gpsOk = false);
+      },
       cancelOnError: true,
     );
   }
 
-  /// 좌표를 클립보드로. 지도 앱 검색창이나 야장에 그대로 붙여 넣는다.
-  Future<void> _copyCoords() async {
+  /// GPS 상태 세 단계. 초록은 **지금 찍으면 촬영 지점이 기록되는** 상태로
+  /// [_tagPosition]과 같은 기준(정확도 20 m 이내 · 6초 이내)을 쓴다.
+  _GpsLevel get _gpsLevel {
+    if (!_gpsOk) return _GpsLevel.none;
     final h = _here;
-    if (h == null) return;
-    final s = '${h.latitude.toStringAsFixed(6)}, ${h.longitude.toStringAsFixed(6)}';
-    await Clipboard.setData(ClipboardData(text: s));
-    _showNotice(tr('좌표를 복사했습니다 · $s', 'Coordinates copied · $s'));
+    if (h == null) return _GpsLevel.none;
+    final age = DateTime.now().difference(h.timestamp).inSeconds;
+    if (age > 15) return _GpsLevel.none; // 픽스가 끊겼다
+    if (h.accuracy <= 20 && age <= 6) return _GpsLevel.good;
+    return _GpsLevel.weak;
+  }
+
+  /// GPS 아이콘을 누르면 상태를 글로 한 번 알려 준다(좌표 숫자는 띄우지 않는다).
+  void _explainGps() {
+    final acc = _here?.accuracy.round();
+    switch (_gpsLevel) {
+      case _GpsLevel.good:
+        _showNotice(tr('GPS 양호 · ±$acc m — 촬영 지점이 기록됩니다',
+            'GPS good · ±$acc m — position will be recorded'));
+      case _GpsLevel.weak:
+        _showNotice(acc == null
+            ? tr('GPS 수신 중', 'Acquiring GPS')
+            : tr('GPS 약함 · ±$acc m — 20 m 이내가 되면 기록됩니다',
+                'GPS weak · ±$acc m — recorded once within 20 m'));
+      case _GpsLevel.none:
+        _showNotice(_gpsOk
+            ? tr('GPS 신호 없음 — 하늘이 트인 곳에서 잠시 기다려 주세요',
+                'No GPS fix — wait under open sky')
+            : tr('위치 권한 또는 위치 서비스가 꺼져 있습니다',
+                'Location permission or service is off'));
+        if (!_gpsOk) _startGps(); // 권한을 켜고 돌아왔을 수 있다
+    }
   }
 
   /// 나침반을 누르면 진북 ↔ 자북. 편각을 모르는 기기에서는 바꿔도 표시가
@@ -211,6 +261,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _noticeTimer?.cancel();
+    _gpsTick?.cancel();
     _posSub?.cancel();
     _compassSub?.cancel();
     _controller?.dispose();
@@ -293,8 +344,11 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         _initing = false;
         _zooms = zooms;
         _zoom = zooms.contains(1.0) ? 1.0 : zooms.first;
-        _evMin = evMin;
-        _evMax = evMax;
+        _hwEvMin = evMin;
+        _hwEvMax = evMax;
+        final range = Exposure.sliderRange(evMin, evMax);
+        _evMin = range.min;
+        _evMax = range.max;
         _ev = 0;
       });
       if (_zoom != 1.0) {
@@ -347,15 +401,29 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
 
   /// 원시 데이터 번들에 분석용 사진 사본과 촬영 메타를 남긴다.
   /// 실패해도 조사는 계속된다.
+  /// 셔터(또는 불러오기) 순간의 상태. 저장은 백그라운드로 돌기 때문에 기록할
+  /// 때 필드를 다시 읽으면 **다음 방위를 위해 바꾼 배율·노출**이 남는다.
+  _ShotMeta _snapshot({bool camera = true}) => (
+        here: _here,
+        heading: _heading,
+        zoom: camera ? _zoom : null,
+        ev: camera ? _ev : null,
+        hwEv: camera ? _hwEv : null,
+        swEv: camera ? _swEv : null,
+        gain: camera ? _swGain : 1.0,
+      );
+
   Future<void> _keepRaw(Azimuth az, String savedPath, DateTime at,
-      {required String source}) async {
+      {required String source,
+      required _ShotMeta meta,
+      bool gainApplied = false}) async {
     try {
       d.rawDir ??= await RawArchive.create(d.treeId);
       final dir = d.rawDir!;
       final copy = await RawArchive.keepPhoto(dir, savedPath, az.code);
-      final here = _here;
+      final here = meta.here;
       final sp = d.photoPos[az];
-      final rawHeading = _heading;
+      final rawHeading = meta.heading;
       await RawArchive.writeJson(dir, '${az.code}_capture.json', {
         'azimuth': az.code,
         'source': source,
@@ -385,12 +453,19 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           'northRef': Geomag.effective(northRef.value).name,
           'declinationDeg': Geomag.declinationDeg,
         },
-        'camera': {
-          'preset': 'max',
-          'normalizedLongSide': PhotoNormalizer.longSide,
-          'zoom': _zoom,
-          'exposureOffsetEv': _ev,
-        },
+        'camera': meta.zoom == null
+            ? null // 갤러리에서 불러온 사진
+            : {
+                'preset': 'max',
+                'normalizedLongSide': PhotoNormalizer.longSide,
+                'zoom': meta.zoom,
+                // 슬라이더 값 = 하드웨어 몫 + 소프트웨어 몫
+                'exposureOffsetEv': meta.ev,
+                'hardwareEv': meta.hwEv,
+                'softwareEv': meta.swEv,
+                'softwareGain': meta.gain,
+                'softwareGainApplied': gainApplied,
+              },
         'environment': RawArchive.environment(),
       });
     } catch (_) {}
@@ -398,13 +473,18 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
 
   /// 촬영 뒷정리(표준 형태 저장 + 연구용 원본 보관). 실패하면 원본 복사로
   /// 대체되고, 그마저 실패하면 사진 없는 방위로 돌아간다(알림 표시).
-  Future<void> _finishShot(
-      Azimuth az, String srcPath, String dest, DateTime shotAt) async {
+  Future<void> _finishShot(Azimuth az, String srcPath, String dest,
+      DateTime shotAt, _ShotMeta meta) async {
     try {
       // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
-      await PhotoNormalizer.save(srcPath, dest);
+      // 하드웨어 한계를 넘긴 노출은 여기서 미리보기와 같은 밝기로 굽는다.
+      final normalized =
+          await PhotoNormalizer.save(srcPath, dest, gain: meta.gain);
       // 연구용 원시 데이터: 분석용 표준 사진 + 촬영 당시 GPS·방위각·기기.
-      await _keepRaw(az, dest, shotAt, source: 'camera');
+      await _keepRaw(az, dest, shotAt,
+          source: 'camera',
+          meta: meta,
+          gainApplied: normalized && meta.gain != 1.0);
       if (d.isInProgress) saveDraftJson(d.toJsonString());
     } catch (e) {
       if (d.photos[az] == dest) d.photos.remove(az);
@@ -430,9 +510,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   Future<void> _setEv(double v) async {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
+    final prevHw = _hwEv;
     setState(() => _ev = v);
+    // 하드웨어 몫이 바뀔 때만 카메라에 보낸다(한계 밖에서는 소프트웨어만 변한다).
+    if (_hwEv == prevHw || _hwEvMax <= _hwEvMin) return;
     try {
-      await c.setExposureOffset(v);
+      await c.setExposureOffset(_hwEv);
     } catch (_) {}
   }
 
@@ -448,11 +531,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final dest = p.join(destDir.path,
           '${d.treeId}_${az.code}_${shotAt.millisecondsSinceEpoch}.jpg');
       d.photos[az] = dest;
+      final meta = _snapshot();
       final tagged = _tagPosition();
       // 정규화·원본 보관은 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
       // 그걸 기다리면 조사 흐름이 끊기므로 백그라운드로 돌리고 즉시 다음
       // 방위로 넘어간다. AI 분석 진입 시 [_goAnalyse]가 완료를 기다린다.
-      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt));
+      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta));
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (!tagged) {
@@ -485,10 +569,11 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final dest = p.join(destDir.path,
           '${d.treeId}_${az.code}_${at.millisecondsSinceEpoch}.jpg');
       d.photos[az] = dest;
+      final meta = _snapshot(camera: false);
       _pendingShots.add(() async {
         try {
           await PhotoNormalizer.save(picked.path, dest);
-          await _keepRaw(az, dest, at, source: 'gallery');
+          await _keepRaw(az, dest, at, source: 'gallery', meta: meta);
           if (d.isInProgress) saveDraftJson(d.toJsonString());
         } catch (e) {
           if (d.photos[az] == dest) d.photos.remove(az);
@@ -627,22 +712,6 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // 수고봉 정렬선 (설정에서 끔) — 프리뷰 이미지 영역 안에만 그린다.
-        if (showGuides.value)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: _previewAspect,
-                  child: Center(
-                    child:
-                        Container(width: 2, color: _pole.withValues(alpha: 0.85)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
         // top: back · 조사목 번호(탭 수정) — 각자 자기 배경만 가짐 (전면 그라데이션 없음)
         Positioned(
           top: 0,
@@ -698,42 +767,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
           ),
         ),
 
-        // 현재 좌표 — 조사자가 목표 좌표를 찾아가며 찍을 수 있게 항상 띄운다.
-        // 누르면 클립보드로 복사된다(지도 앱·야장에 그대로 옮겨 쓰기).
-        if (_here != null)
+        // GPS 상태 — 좌표 숫자 대신 색만 보여 준다(초록 = 찍으면 좌표 기록).
+        if (!_demo)
           Positioned(
             top: padTop + 50,
             left: 14,
             child: GestureDetector(
-              onTap: _copyCoords,
-              child: _Scrim(
-                radius: 10,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.my_location, size: 11, color: Colors.white70),
-                    const SizedBox(width: 4),
-                    Text('±${_here!.accuracy.round()} m',
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontFamily: 'monospace',
-                            fontSize: 9.5)),
-                  ]),
-                  const SizedBox(height: 3),
-                  Text(_here!.latitude.toStringAsFixed(6),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                  Text(_here!.longitude.toStringAsFixed(6),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                ]),
-              ),
+              onTap: _explainGps,
+              child: _GpsDot(level: _gpsLevel),
             ),
           ),
 
@@ -856,15 +897,16 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return Center(
       child: _Scrim(
         radius: 999,
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           for (final z in _zooms) ...[
             GestureDetector(
               onTap: () => _setZoom(z),
+              behavior: HitTestBehavior.opaque,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 1),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: z == _zoom ? _pole : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
@@ -874,7 +916,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                         color: z == _zoom
                             ? const Color(0xFF11151C)
                             : Colors.white,
-                        fontSize: 12.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700)),
               ),
             ),
@@ -1122,12 +1164,6 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
 
   /// 뷰파인더(=찍히는 사진)의 세로 화면 기준 종횡비. 정렬선 등 오버레이가
   /// 이미지 영역 밖(위아래 여백)으로 나가지 않도록 함께 쓴다.
-  double get _previewAspect {
-    if (_demo) return 3 / 4;
-    final ps = _controller?.value.previewSize;
-    return ps == null ? 3 / 4 : ps.height / ps.width;
-  }
-
   Widget _preview() {
     // 시연 모드: 선택된 방위의 예시 사진이 곧 뷰파인더다. 방위가 바뀌면
     // 조사자가 나무를 돌아간 것처럼 사진이 부드럽게 교체된다.
@@ -1174,7 +1210,21 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // 화면에 보이는 프레임이 곧 저장·분석되는 사진이다.
     final ps = c.value.previewSize;
     final ar = ps == null ? 3 / 4 : ps.height / ps.width; // 세로 화면 기준
-    return Center(child: AspectRatio(aspectRatio: ar, child: CameraPreview(c)));
+    Widget view = CameraPreview(c);
+    final g = _swGain;
+    if (g != 1.0) {
+      // 저장 사진(PhotoNormalizer.applyGain)과 같은 연산 — 보이는 것이 찍히는 것.
+      view = ColorFiltered(
+        colorFilter: ColorFilter.matrix(<double>[
+          g, 0, 0, 0, 0, //
+          0, g, 0, 0, 0, //
+          0, 0, g, 0, 0, //
+          0, 0, 0, 1, 0,
+        ]),
+        child: view,
+      );
+    }
+    return Center(child: AspectRatio(aspectRatio: ar, child: view));
   }
 }
 
@@ -1312,4 +1362,48 @@ class _RosePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_) => false;
+}
+
+
+/// 셔터 순간의 카메라·위치 상태(백그라운드 저장이 뒤늦게 읽지 않도록).
+typedef _ShotMeta = ({
+  Position? here,
+  double? heading,
+  double? zoom,
+  double? ev,
+  double? hwEv,
+  double? swEv,
+  double gain,
+});
+
+/// GPS 상태 세 단계 — 빨강(없음) · 주황(약함) · 초록(촬영 지점이 기록됨).
+enum _GpsLevel { none, weak, good }
+
+/// 촬영 화면 좌상단의 GPS 표시. 좌표 숫자 대신 색 하나로 상태만 알린다.
+class _GpsDot extends StatelessWidget {
+  final _GpsLevel level;
+  const _GpsDot({required this.level});
+
+  static const _red = Color(0xFFE5484D);
+  static const _amber = Color(0xFFF5A524);
+  static const _green = Color(0xFF30A46C);
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon) = switch (level) {
+      _GpsLevel.good => (_green, Icons.gps_fixed),
+      _GpsLevel.weak => (_amber, Icons.gps_not_fixed),
+      _GpsLevel.none => (_red, Icons.gps_off),
+    };
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0x8C080C12),
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Icon(icon, size: 19, color: color),
+    );
+  }
 }

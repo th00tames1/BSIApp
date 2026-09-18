@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image/image.dart' as img;
 
 /// 촬영·불러온 사진을 **기기와 무관한 표준 형태**로 저장한다.
@@ -24,8 +25,15 @@ class PhotoNormalizer {
   static const int jpegQuality = 90;
 
   /// [srcPath]의 사진을 정규화해 [destPath]에 JPEG로 쓴다.
-  /// 반환: 실제로 정규화됐으면 true, 원본 복사로 대체됐으면 false.
-  static Future<bool> save(String srcPath, String destPath) async {
+  ///
+  /// [gain]은 카메라 하드웨어 노출 보정 범위를 넘어선 만큼의 **소프트웨어 밝기**다.
+  /// 촬영 화면 미리보기가 같은 값을 `ColorFilter.matrix`로 걸기 때문에 여기서도
+  /// 똑같이 sRGB 값에 곱하고 255에서 자른다 — 보이는 것과 저장되는 것이 같다.
+  ///
+  /// 반환: 실제로 정규화됐으면 true, 원본 복사로 대체됐으면 false
+  /// (대체된 경우 [gain]은 적용되지 않는다).
+  static Future<bool> save(String srcPath, String destPath,
+      {double gain = 1.0}) async {
     try {
       final bytes = await File(srcPath).readAsBytes();
       final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
@@ -51,7 +59,7 @@ class PhotoNormalizer {
       final orient = _unappliedOrientation(bytes, w, h);
       final jpeg = await Isolate.run(() => _encode(
           rgba.buffer.asUint8List(rgba.offsetInBytes, rgba.lengthInBytes),
-          ow, oh, orient));
+          ow, oh, orient, gain));
       await File(destPath).writeAsBytes(jpeg, flush: true);
       return true;
     } catch (_) {
@@ -82,7 +90,26 @@ class PhotoNormalizer {
     }
   }
 
-  static Uint8List _encode(Uint8List rgba, int w, int h, int orient) {
+  /// RGB에 [gain]을 곱하고 255에서 자른다(알파는 그대로). 미리보기의
+  /// `ColorFilter.matrix` 대각 행렬과 같은 연산이다.
+  @visibleForTesting
+  static void applyGain(Uint8List rgba, double gain) {
+    if (gain == 1.0) return;
+    final lut = Uint8List(256);
+    for (var v = 0; v < 256; v++) {
+      final x = (v * gain).round();
+      lut[v] = x > 255 ? 255 : (x < 0 ? 0 : x);
+    }
+    for (var i = 0; i + 3 < rgba.length; i += 4) {
+      rgba[i] = lut[rgba[i]];
+      rgba[i + 1] = lut[rgba[i + 1]];
+      rgba[i + 2] = lut[rgba[i + 2]];
+    }
+  }
+
+  static Uint8List _encode(
+      Uint8List rgba, int w, int h, int orient, double gain) {
+    applyGain(rgba, gain);
     var im = img.Image.fromBytes(
         width: w, height: h, bytes: rgba.buffer, bytesOffset: rgba.offsetInBytes,
         numChannels: 4, order: img.ChannelOrder.rgba);
