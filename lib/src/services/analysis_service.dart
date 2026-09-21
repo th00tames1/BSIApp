@@ -13,6 +13,7 @@ import 'image_ops.dart';
 import 'mortality.dart';
 import 'onnx_service.dart';
 import 'pole_model.dart';
+import 'raw_archive.dart';
 import 'seg_decoder.dart';
 
 class BsiIntegration {
@@ -356,6 +357,7 @@ class AnalysisService {
       final json = <String, dynamic>{
         'azimuth': azimuth,
         'analysedAt': analysedAt.toIso8601String(),
+        'analysedTime': RawArchive.timeJson(analysedAt), // 시간대·UTC·epoch ms
         'image': imagePath,
         'models': {
           'seg': OnnxService.instance.loadedAsset,

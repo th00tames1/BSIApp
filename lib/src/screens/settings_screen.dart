@@ -1,7 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../app_prefs.dart';
 import '../l10n.dart';
+import '../services/backup_service.dart';
 import '../services/demo_sample.dart';
 import '../services/geomag.dart';
 import '../theme.dart';
@@ -69,6 +72,202 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     setState(() => setPoleGapM(v));
+  }
+
+  static String _size(int bytes) => bytes >= 1024 * 1024 * 1024
+      ? '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB'
+      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
+  /// 오래 걸리는 백업 작업을 진행률 창과 함께 돌린다. 실패하면 이유를 알린다.
+  Future<T?> _withProgress<T>(
+      String title, Future<T> Function(void Function(int, int)) job) async {
+    final prog = ValueNotifier<(int, int)>((0, 0));
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(title),
+          content: ValueListenableBuilder<(int, int)>(
+            valueListenable: prog,
+            builder: (_, v, __) => Column(mainAxisSize: MainAxisSize.min, children: [
+              LinearProgressIndicator(value: v.$2 == 0 ? null : v.$1 / v.$2),
+              const SizedBox(height: 12),
+              Text(v.$2 == 0
+                  ? tr('준비 중…', 'Preparing…')
+                  : tr('파일 ${v.$1} / ${v.$2}', 'File ${v.$1} / ${v.$2}')),
+              const SizedBox(height: 6),
+              Text(tr('앱을 닫지 마세요', 'Keep the app open'),
+                  style: TextStyle(fontSize: 12, color: context.palette.muted)),
+            ]),
+          ),
+        ),
+      ),
+    );
+    T? result;
+    Object? err;
+    try {
+      result = await job((d, t) => prog.value = (d, t));
+    } catch (e) {
+      err = e;
+    }
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (err != null && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(tr('실패', 'Failed')),
+          content: Text('$err'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(tr('확인', 'OK'))),
+          ],
+        ),
+      );
+    }
+    return err == null ? result : null;
+  }
+
+  Future<bool> _confirm(String title, String body, String action) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(title),
+          content: Text(body, style: const TextStyle(height: 1.45)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(tr('취소', 'Cancel'))),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true), child: Text(action)),
+          ],
+        ),
+      ) ==
+      true;
+
+  /// 이 폰의 전부(기록·사진·카메라 원본·원시 데이터·조사지·설정)를 파일로 만든다.
+  /// 안드로이드는 다운로드/BSI_backup에 바로 만들고(앱을 지워도 남는다), 원하면
+  /// 공유 창으로 드라이브·Quick Share 등에 보낸다.
+  Future<void> _exportBackup() async {
+    final ok = await _confirm(
+        tr('전체 백업 만들기', 'Create full backup'),
+        tr('조사 기록 전부와 사진(카메라 원본 포함)·원시 데이터·조사지·설정을 파일로 만듭니다.\n\n'
+            '파일은 내장 저장공간 → Download → BSI_backup 에 생기고, 공유로 드라이브·다른 폰에 보낼 수도 있습니다. '
+            '새 폰에서 설정 → 백업 불러오기를 누르면 그대로 이어서 조사할 수 있습니다.\n\n'
+            '사진이 많으면 수 GB가 될 수 있고, 3.5 GB를 넘으면 여러 파일로 나뉩니다(모두 옮기세요).',
+            'Packs every record, photo (including camera originals), raw data, site and setting into a file.\n\n'
+            'Save it to Drive/Files or send it to the new phone, then use Settings → Import backup there.\n\n'
+            'Large surveys can be several GB; above 3.5 GB the backup is split into parts — move all of them.'),
+        tr('만들기', 'Create'));
+    if (!ok || !mounted) return;
+    final files = await _withProgress(tr('백업 만드는 중', 'Creating backup'),
+        (cb) => BackupService.exportAll(onProgress: cb));
+    if (files == null || !mounted) return;
+    final size = files.fold<int>(0, (s, f) => s + f.lengthSync());
+    final inDownloads = files.first.path.contains('/Download/');
+    final share = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('백업 완료', 'Backup ready')),
+        content: Text(
+            [
+              for (final f in files) '• ${f.uri.pathSegments.last}',
+              tr('파일 ${files.length}개 · ${_size(size)}',
+                  '${files.length} file(s) · ${_size(size)}'),
+              '',
+              inDownloads
+                  ? tr('내장 저장공간 → Download → BSI_backup 에 저장했습니다. 앱을 지워도 남습니다(이전 백업도 그대로 둡니다).\n'
+                      '새 폰으로는 이 파일을 옮긴 뒤 설정 → 백업 불러오기를 누르세요.',
+                      'Saved to internal storage → Download → BSI_backup (kept even if the app is removed; older backups are left in place).\n'
+                          'Move it to the new phone and use Settings → Import backup.')
+                  : tr('앱 안에 만들었습니다. 공유로 드라이브·다른 폰에 꼭 옮겨 두세요 — 앱을 지우면 함께 지워집니다.',
+                      'Created inside the app. Share it to Drive or another phone — it is deleted with the app.'),
+            ].join('\n'),
+            style: const TextStyle(height: 1.45)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('확인', 'OK'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('공유하기', 'Share'))),
+        ],
+      ),
+    );
+    if (share != true || !mounted) return;
+    await SharePlus.instance.share(ShareParams(
+      text: tr('BSI 전체 백업 · 파일 ${files.length}개 · ${_size(size)}',
+          'BSI full backup · ${files.length} file(s) · ${_size(size)}'),
+      files: [for (final f in files) XFile(f.path)],
+    ));
+  }
+
+  /// 다른 폰에서 만든 백업을 이 폰에 합친다. 이미 있는 기록·파일은 건너뛴다.
+  Future<void> _importBackup() async {
+    final res = await FilePicker.pickFiles(
+        allowMultiple: true,
+        dialogTitle: tr('백업 파일 선택 — 내장 저장공간 › Download › BSI_backup (조각이면 모두)',
+            'Select backup file(s) (.zip — all parts)'));
+    if (res == null || !mounted) return;
+    final paths = [
+      for (final f in res.files)
+        if (f.path != null && f.path!.toLowerCase().endsWith('.zip')) f.path!
+    ];
+    if (paths.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+            content: Text(tr('BSI 백업 파일(.zip)을 고르세요', 'Pick a BSI backup (.zip)'))));
+      return;
+    }
+    final ok = await _confirm(
+        tr('백업 불러오기', 'Import backup'),
+        tr('고른 백업을 이 폰에 합칩니다. 이 폰의 기록은 지우지 않고, 이미 있는 기록·사진은 건너뜁니다.\n\n'
+            '설정(수고봉 간격·나침반 기준·언어 등)은 백업 값으로 바뀝니다.',
+            'Merges the backup into this phone. Nothing here is deleted; records and photos already present are skipped.\n\n'
+            'Settings (pole spacing, compass north, language…) take the backup values.'),
+        tr('불러오기', 'Import'));
+    if (!ok || !mounted) return;
+    final sum = await _withProgress(tr('백업 불러오는 중', 'Importing backup'),
+        (cb) => BackupService.importFiles(paths, onProgress: cb));
+    try {
+      await FilePicker.clearTemporaryFiles(); // 선택하며 캐시에 복사된 백업 파일
+    } catch (_) {}
+    if (sum == null || !mounted) return;
+    setState(() {}); // 바뀐 설정 값을 다시 그린다
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('불러오기 완료', 'Import complete')),
+        content: Text(
+            [
+              tr('기록 ${sum.recordsAdded}개 추가', '${sum.recordsAdded} record(s) added') +
+                  (sum.recordsSkipped > 0
+                      ? tr(' (이미 있던 ${sum.recordsSkipped}개 건너뜀)',
+                          ' (${sum.recordsSkipped} already here, skipped)')
+                      : ''),
+              tr('파일 ${sum.filesWritten}개 복원', '${sum.filesWritten} file(s) restored') +
+                  (sum.filesSkipped > 0
+                      ? tr(' (같은 파일 ${sum.filesSkipped}개 건너뜀)',
+                          ' (${sum.filesSkipped} identical, skipped)')
+                      : ''),
+              if (sum.projectsAdded > 0)
+                tr('조사지 ${sum.projectsAdded}개 추가', '${sum.projectsAdded} site(s) added'),
+              if (sum.draftRestored)
+                tr('진행 중이던 조사를 되살렸습니다 — 지도에서 이어서 하세요',
+                    'The in-progress survey was restored — resume it from the map'),
+              tr('백업: 앱 ${sum.sourceApp} · ${sum.sourceCreatedAt}',
+                  'Backup: app ${sum.sourceApp} · ${sum.sourceCreatedAt}'),
+            ].join('\n'),
+            style: const TextStyle(height: 1.5)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: Text(tr('확인', 'OK'))),
+        ],
+      ),
+    );
   }
 
   /// 내장 예시 사진 4장을 불러와 바로 AI 분석을 실행한다. 촬영 화면을 거치지
@@ -168,6 +367,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontFamily: 'monospace',
                             fontSize: 15,
                             fontWeight: FontWeight.w700))),
+              ),
+            ]),
+          ),
+          _section(p, tr('데이터', 'DATA')),
+          Card(
+            child: Column(children: [
+              InkWell(
+                onTap: _exportBackup,
+                child: _row(p, Icons.backup_outlined, tr('백업 내보내기', 'Export backup'),
+                    sub: tr('기록·사진(원본 포함)·조사지·설정 전부를 파일로 — 폰을 바꿀 때',
+                        'All records, photos (with originals), sites and settings — for a new phone'),
+                    trailing: Icon(Icons.chevron_right, color: p.muted)),
+              ),
+              Divider(height: 1, color: p.line),
+              InkWell(
+                onTap: _importBackup,
+                child: _row(p, Icons.settings_backup_restore,
+                    tr('백업 불러오기', 'Import backup'),
+                    sub: tr('내장 저장공간 › Download › BSI_backup 의 파일을 이 폰에 합침 — 이미 있는 기록은 건너뜀',
+                        'Merge a backup from another phone — existing records are kept'),
+                    trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
             ]),
           ),

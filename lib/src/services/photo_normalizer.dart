@@ -33,6 +33,12 @@ class PhotoNormalizer {
   /// 반환: 실제로 정규화됐으면 true, 원본 복사로 대체됐으면 false
   /// (대체된 경우 [gain]은 적용되지 않는다).
   static Future<bool> save(String srcPath, String destPath,
+      {double gain = 1.0}) async =>
+      (await saveWithInfo(srcPath, destPath, gain: gain)).normalized;
+
+  /// [save]와 같고, 무엇을 어떻게 바꿨는지(원본·표준 해상도)를 함께 돌려준다 —
+  /// 촬영 메타(capture.json)에 변환 이력을 남기기 위해.
+  static Future<NormalizeInfo> saveWithInfo(String srcPath, String destPath,
       {double gain = 1.0}) async {
     try {
       final bytes = await File(srcPath).readAsBytes();
@@ -52,7 +58,9 @@ class PhotoNormalizer {
       codec.dispose();
       desc.dispose();
       buffer.dispose();
-      if (rgba == null) return _fallback(srcPath, destPath);
+      if (rgba == null) {
+        return NormalizeInfo(await _fallback(srcPath, destPath), w, h, null, null);
+      }
 
       // 안전망: 엔진이 회전을 적용하지 않은 코덱 경로라면 여기서 직접 적용한다.
       // (원본 픽셀 크기와 EXIF 태그로 판정 — 90°/270° 회전은 가로세로가 바뀐다.)
@@ -61,9 +69,12 @@ class PhotoNormalizer {
           rgba.buffer.asUint8List(rgba.offsetInBytes, rgba.lengthInBytes),
           ow, oh, orient, gain));
       await File(destPath).writeAsBytes(jpeg, flush: true);
-      return true;
+      final swapped = orient >= 5;
+      // 엔진이 회전을 못 했으면(orient ≥ 5) 원본 크기도 돌려서 적는다
+      return NormalizeInfo(true, swapped ? h : w, swapped ? w : h,
+          swapped ? oh : ow, swapped ? ow : oh);
     } catch (_) {
-      return _fallback(srcPath, destPath);
+      return NormalizeInfo(await _fallback(srcPath, destPath), null, null, null, null);
     }
   }
 
@@ -121,4 +132,32 @@ class PhotoNormalizer {
     im.exif.imageIfd.orientation = null;
     return img.encodeJpg(im, quality: jpegQuality);
   }
+}
+
+/// 표준화 결과. [normalized]가 false면 원본을 그대로 복사한 것이다(밝기 미적용).
+/// 크기는 모두 **회전을 적용한 뒤**의 가로·세로다.
+class NormalizeInfo {
+  final bool normalized;
+  final int? sourceWidth, sourceHeight; // 카메라 원본(엔진 디코드 기준)
+  final int? width, height; // 저장한 표준 사진
+  const NormalizeInfo(this.normalized, this.sourceWidth, this.sourceHeight,
+      this.width, this.height);
+
+  Map<String, dynamic> toJson({required double gain}) => {
+        'normalized': normalized,
+        'sourceWidth': sourceWidth,
+        'sourceHeight': sourceHeight,
+        'width': width,
+        'height': height,
+        if (sourceWidth != null && width != null && sourceWidth! > 0)
+          'scale': (sourceWidth! >= sourceHeight! ? width! / sourceWidth! : height! / sourceHeight!),
+        'longSide': PhotoNormalizer.longSide,
+        'jpegQuality': PhotoNormalizer.jpegQuality,
+        'resample': 'platform codec area downscale (dart:ui targetWidth/Height)',
+        // 밝기: sRGB 값에 gain을 곱하고 0~255로 자른다(미리보기 ColorFilter와 같은 연산)
+        'softwareGain': gain,
+        'softwareGainApplied': normalized && gain != 1.0,
+        'gainFormula': 'out = clamp(round(v * gain), 0, 255) per R,G,B (sRGB)',
+        'exifStripped': normalized,
+      };
 }

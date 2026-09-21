@@ -52,6 +52,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   // 소프트웨어 밝기로 미리보기와 저장 사진에 똑같이 건다(Exposure 참고).
   double _ev = 0, _evMin = 0, _evMax = 0;
   double _hwEvMin = 0, _hwEvMax = 0;
+  double? _zoomMin, _zoomMax; // 기기가 알려 준 배율 범위(기록용)
   bool _evOpen = false;
 
   double get _hwEv => Exposure.hardware(_ev, _hwEvMin, _hwEvMax);
@@ -326,6 +327,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       try {
         final zMin = await controller.getMinZoomLevel();
         final zMax = await controller.getMaxZoomLevel();
+        _zoomMin = zMin;
+        _zoomMax = zMax;
         zooms = [
           for (final z in _zoomSteps)
             if (z >= zMin - 1e-6 && z <= zMax + 1e-6) z
@@ -455,14 +458,30 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         autoMetered: autoMetered,
       );
 
-  Future<void> _keepRaw(Azimuth az, String savedPath, DateTime at,
+  /// 원본을 번들에 보관했으면 true — 그때만 카메라 임시 파일을 지운다.
+  Future<bool> _keepRaw(Azimuth az, String savedPath, DateTime at,
       {required String source,
       required _ShotMeta meta,
-      bool gainApplied = false}) async {
+      bool gainApplied = false,
+      String? originalPath,
+      String? backlitFirstPath,
+      NormalizeInfo? normalized,
+      String? galleryName}) async {
+    var originalKept = false;
     try {
       d.rawDir ??= await RawArchive.create(d.treeId);
       final dir = d.rawDir!;
       final copy = await RawArchive.keepPhoto(dir, savedPath, az.code);
+      final orig = originalPath == null
+          ? null
+          : await RawArchive.keepOriginal(dir, originalPath, az.code);
+      originalKept = orig != null;
+      final origBytes = orig == null ? null : await File(orig).readAsBytes();
+      final backlitFirst = backlitFirstPath == null
+          ? null
+          : await RawArchive.keepOriginal(dir, backlitFirstPath, az.code,
+              suffix: '_backlit');
+      final lens = _controller?.description;
       final here = meta.here;
       final sp = d.photoPos[az];
       final rawHeading = meta.heading;
@@ -470,8 +489,32 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'azimuth': az.code,
         'source': source,
         'capturedAt': at.toIso8601String(),
+        // 셔터 시각(시간대·UTC·epoch ms)과 파일을 다 쓴 시각
+        'time': RawArchive.timeJson(at),
+        'savedAt': RawArchive.timeJson(DateTime.now()),
         'photo': savedPath,
         'bundledPhoto': copy,
+        // 카메라 원본 — 분석용 사진은 줄이고 밝기를 굽고 EXIF를 지운 것이라
+        // 다른 변환으로 다시 만들려면 이 파일에서 출발한다.
+        'original': source == 'gallery'
+            ? {
+                'kept': false,
+                'reason': 'gallery — 원본은 기기 갤러리에 그대로 남아 있다',
+                'pickedName': galleryName,
+              }
+            : {
+                'kept': originalKept,
+                'file': orig == null ? null : p.basename(orig),
+                'bytes': origBytes?.length,
+                'exif': origBytes == null ? null : RawArchive.exifSummary(origBytes),
+              },
+        // 원본 → 분석용 사진 변환(해상도·밝기·EXIF)
+        'normalized': normalized?.toJson(gain: meta.gain),
+        if (backlitFirst != null)
+          'backlitFirstShot': {
+            'file': p.basename(backlitFirst),
+            'note': '역광 실루엣이라 줄기에 노출을 맞춰 다시 찍기 전의 첫 사진',
+          },
         'treeId': d.treeId,
         'site': d.site,
         'species': d.species,
@@ -499,8 +542,19 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
             ? null // 갤러리에서 불러온 사진
             : {
                 'preset': 'max',
+                'lens': lens == null
+                    ? null
+                    : {
+                        'name': lens.name,
+                        'direction': lens.lensDirection.name,
+                        'sensorOrientation': lens.sensorOrientation,
+                      },
+                'flash': 'off',
                 'normalizedLongSide': PhotoNormalizer.longSide,
                 'zoom': meta.zoom,
+                'zoomRange': {'min': _zoomMin, 'max': _zoomMax},
+                'hardwareEvRange': {'min': _hwEvMin, 'max': _hwEvMax},
+                'meteringPoint': meta.autoMetered ? 'center(0.5,0.5)' : 'auto',
                 // 슬라이더 값 = 하드웨어 몫 + 소프트웨어 몫
                 'exposureOffsetEv': meta.ev,
                 'hardwareEv': meta.hwEv,
@@ -514,22 +568,34 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'environment': RawArchive.environment(),
       });
     } catch (_) {}
+    return originalKept;
   }
 
   /// 촬영 뒷정리(표준 형태 저장 + 연구용 원본 보관). 실패하면 원본 복사로
   /// 대체되고, 그마저 실패하면 사진 없는 방위로 돌아간다(알림 표시).
   Future<void> _finishShot(Azimuth az, String srcPath, String dest,
-      DateTime shotAt, _ShotMeta meta) async {
+      DateTime shotAt, _ShotMeta meta, {String? backlitFirstPath}) async {
     try {
       // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
       // 하드웨어 한계를 넘긴 노출은 여기서 미리보기와 같은 밝기로 굽는다.
-      final normalized =
-          await PhotoNormalizer.save(srcPath, dest, gain: meta.gain);
-      // 연구용 원시 데이터: 분석용 표준 사진 + 촬영 당시 GPS·방위각·기기.
-      await _keepRaw(az, dest, shotAt,
+      final info =
+          await PhotoNormalizer.saveWithInfo(srcPath, dest, gain: meta.gain);
+      // 연구용 원시 데이터: 카메라 원본 + 분석용 표준 사진 + 촬영 당시 상태.
+      final kept = await _keepRaw(az, dest, shotAt,
           source: 'camera',
           meta: meta,
-          gainApplied: normalized && meta.gain != 1.0);
+          gainApplied: info.normalized && meta.gain != 1.0,
+          originalPath: srcPath,
+          backlitFirstPath: backlitFirstPath,
+          normalized: info);
+      // 원본을 번들로 옮겼으면 카메라 임시 파일은 지운다(캐시가 불지 않게)
+      if (kept) {
+        for (final t in [srcPath, ?backlitFirstPath]) {
+          try {
+            await File(t).delete();
+          } catch (_) {}
+        }
+      }
       if (d.isInProgress) saveDraftJson(d.toJsonString());
     } catch (e) {
       if (d.photos[az] == dest) d.photos.remove(az);
@@ -576,12 +642,11 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       var backlight = await Backlight.scoreFile(
           shot.path, await File(shot.path).readAsBytes());
       var autoMetered = false;
+      String? backlitFirst; // 다시 찍었으면 첫 사진도 원시 번들에 남긴다
       if (backlight != null && backlight.silhouette && mounted) {
         final retake = await _retakeForBacklight(c, backlight);
         if (retake != null) {
-          try {
-            await File(shot.path).delete();
-          } catch (_) {}
+          backlitFirst = shot.path;
           shot = retake.file;
           backlight = retake.score;
           autoMetered = true;
@@ -598,7 +663,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       // 정규화·원본 보관은 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
       // 그걸 기다리면 조사 흐름이 끊기므로 백그라운드로 돌리고 즉시 다음
       // 방위로 넘어간다. AI 분석 진입 시 [_goAnalyse]가 완료를 기다린다.
-      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta));
+      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta,
+          backlitFirstPath: backlitFirst));
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (autoMetered) {
@@ -643,8 +709,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       final meta = _snapshot(camera: false);
       _pendingShots.add(() async {
         try {
-          await PhotoNormalizer.save(picked.path, dest);
-          await _keepRaw(az, dest, at, source: 'gallery', meta: meta);
+          final info = await PhotoNormalizer.saveWithInfo(picked.path, dest);
+          await _keepRaw(az, dest, at,
+              source: 'gallery',
+              meta: meta,
+              normalized: info,
+              galleryName: picked.name);
           if (d.isInProgress) saveDraftJson(d.toJsonString());
         } catch (e) {
           if (d.photos[az] == dest) d.photos.remove(az);

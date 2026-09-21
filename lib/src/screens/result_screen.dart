@@ -128,6 +128,7 @@ class _ResultScreenState extends State<ResultScreen> {
       if (raw != null) {
         await RawArchive.writeJson(raw, 'record.json', {
           'savedAt': DateTime.now().toIso8601String(),
+          'savedTime': RawArchive.timeJson(DateTime.now()), // 시간대·UTC·epoch ms
           'record': rec.toMap()..remove('faces'),
           'faces': [for (final f in rec.faces) f.toJson()],
           'integration': d.integ == null

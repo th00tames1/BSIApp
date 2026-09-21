@@ -234,8 +234,15 @@ class _MapScreenState extends State<MapScreen> {
     if (mounted) _load();
   }
 
+  /// 설정에서 백업을 불러오면 기록·조사지·작업 중 조사가 바뀌므로 돌아올 때 다시 읽는다.
   void _openSettings() => Navigator.push(
-      context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          context, MaterialPageRoute(builder: (_) => const SettingsScreen()))
+      .then((_) {
+        if (!mounted) return;
+        setState(_refreshResume);
+        _load();
+        _loadOverlays();
+      });
 
   // ---- basemap / boundary overlays ----
   void _openLayers() {

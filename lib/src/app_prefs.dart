@@ -276,3 +276,74 @@ void setNorthRef(NorthRef v) {
   northRef.value = v;
   _sp?.setString('northRef', v.name);
 }
+
+// ── 백업·복원 ───────────────────────────────────────────────────────
+/// 백업에 담을 조사지·설정·작업 중인 조사. 개발자·시연 모드는 기기별 상태라 뺀다.
+Map<String, dynamic> backupPrefsSnapshot() => {
+      'projects': [for (final p in projects.value) p.toJson()],
+      'activeSite': activeSite.value,
+      'settings': {
+        'poleGapM': poleGapM.value,
+        'northRef': northRef.value.name,
+        'lang': appLang.value.code,
+        'theme': themeMode.value == ThemeMode.dark ? 'dark' : 'light',
+        'lastSpecies': lastSpecies.value,
+        'satelliteBasemap': satelliteBasemap.value,
+      },
+      'activeDraft': loadDraftJson(),
+    };
+
+/// 백업의 조사지·설정·작업 중인 조사를 이 기기에 합친다.
+///
+/// 조사지는 이름으로 합치고 조사목 번호는 큰 쪽을 남긴다(번호가 되돌아가 겹치지
+/// 않게). 설정은 백업 값을 따른다(폰을 바꿨을 때 그대로 이어지도록). 작업 중인
+/// 조사는 이 기기에 진행 중인 조사가 없을 때만 되살린다.
+({int projectsAdded, bool draftRestored}) restorePrefsFromBackup(
+    Map<String, dynamic> m) {
+  var added = 0;
+  final list = List<Project>.from(projects.value);
+  for (final e in (m['projects'] as List? ?? const [])) {
+    final inc = Project.fromJson(Map<String, dynamic>.from(e as Map));
+    if (inc.site.trim().isEmpty) continue;
+    final i = list.indexWhere((p) => p.site == inc.site);
+    if (i < 0) {
+      list.add(inc);
+      added++;
+    } else {
+      final cur = list[i];
+      if (inc.treeSeq > cur.treeSeq) cur.treeSeq = inc.treeSeq;
+      if (cur.location.isEmpty && inc.location.isNotEmpty) cur.location = inc.location;
+    }
+  }
+  projects.value = list;
+  if (activeProject == null) {
+    final a = m['activeSite'] as String?;
+    activeSite.value = list.any((p) => p.site == a)
+        ? a
+        : (list.isNotEmpty ? list.first.site : null);
+  }
+  _syncActive();
+  _persistProjects();
+
+  final s = Map<String, dynamic>.from(m['settings'] as Map? ?? const {});
+  final gap = s['poleGapM'];
+  if (gap is num && gap > 0) setPoleGapM(gap.toDouble());
+  for (final r in NorthRef.values) {
+    if (r.name == s['northRef']) setNorthRef(r);
+  }
+  if (s['lang'] is String) setAppLang(langFromCode(s['lang'] as String));
+  if (s['theme'] is String) {
+    setThemeMode(s['theme'] == 'dark' ? ThemeMode.dark : ThemeMode.light);
+  }
+  if (s['lastSpecies'] is String) setLastSpecies(s['lastSpecies'] as String);
+  if (s['satelliteBasemap'] is bool) setSatelliteBasemap(s['satelliteBasemap'] as bool);
+
+  var draft = false;
+  final dj = m['activeDraft'];
+  final cur = loadDraftJson();
+  if (dj is String && dj.isNotEmpty && (cur == null || cur.isEmpty)) {
+    saveDraftJson(dj);
+    draft = true;
+  }
+  return (projectsAdded: added, draftRestored: draft);
+}
