@@ -234,6 +234,13 @@ void main() {
       expect(ex['dateTimeOriginal'], '2026:09:21 14:19:39');
     });
 
+    test('카메라 파일은 보관하지 않고 머리말만 읽어 크기·EXIF를 남긴다', () async {
+      final info = (await RawArchive.cameraFileInfo('test/fixtures/exif_no_nul_emulator.jpg'))!;
+      expect(info['bytes'], 50401);
+      expect((info['exif'] as Map)['model'], 'sdk_gphone64_x86_64');
+      expect(await RawArchive.cameraFileInfo(p.join(tmp.path, 'none.jpg')), isNull);
+    });
+
     test('표준화 기록에 해상도 배율과 밝기 변환식을 남긴다', () {
       const info = NormalizeInfo(true, 4000, 3000, 2560, 1920);
       final j = info.toJson(gain: 1.5);

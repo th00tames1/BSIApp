@@ -10,18 +10,19 @@ import 'package:path_provider/path_provider.dart';
 import '../models/survey.dart';
 
 /// 앱 버전(연구용 원시 데이터에 함께 남긴다 — 어떤 빌드가 만든 값인지 추적).
-const String kAppVersion = '0.3.3';
+const String kAppVersion = '0.3.4';
 
 /// 조사목별 **원시 데이터 번들**.
 ///
 /// 나중에 다른 모델·다른 파이프라인으로 같은 사진을 다시 돌려 검증할 수 있도록,
 /// 화면에 보이는 것과 무관하게 아래를 기록별 폴더에 모아 둔다.
 ///   documents/raw/{조사목}_{시각}/
-///     {방위}_original.jpg    **카메라 원본 그대로**(바이트 동일 — EXIF·해상도 보존)
-///     {방위}_original_backlit.jpg  역광이라 다시 찍기 전의 첫 사진(있을 때만)
-///     {방위}_photo.jpg       분석용 표준 사진(긴 변 2560, 소프트웨어 밝기 적용본)
-///     {방위}_capture.json    촬영 시각(시간대 포함)·GPS·방위각·배율·노출·밝기 변환·
-///                            원본/표준 해상도·원본 EXIF(기기·셔터·ISO·초점거리)·앱 버전
+///     {방위}_photo.jpg       분석용 표준 사진(긴 변 2560, 소프트웨어 밝기 적용본 — 이
+///                            사진을 그대로 모델에 다시 넣을 수 있다). 카메라 원본은 저장이
+///                            오래 걸려 보관하지 않는다
+///     {방위}_capture.json    촬영·저장 시각(시간대·UTC·epoch ms)·GPS·방위각·배율·노출
+///                            (하드웨어/소프트웨어 몫·밝기 배율과 변환식)·카메라/표준 해상도·
+///                            카메라 파일 EXIF(기기·셔터·ISO·초점거리)·앱 버전
 ///     {방위}_analysis.json   모델명·입력 기하·분할 통계·수고봉 경계점·계측치
 ///     {방위}_mask_tree.png   수간 마스크(모델 proto 해상도, 0/255)
 ///     {방위}_mask_soot.png   그을음 마스크
@@ -51,18 +52,19 @@ class RawArchive {
     return d.path;
   }
 
-  /// 카메라 원본을 **바이트 그대로** 번들에 복사한다. 표준 사진은 줄이고 밝기를
-  /// 굽고 EXIF를 지우므로, 다른 변환으로 다시 만들 수 있는 출발점은 이것뿐이다.
-  /// [suffix]로 역광 재촬영 전 사진 같은 보조 원본을 구분한다.
-  static Future<String?> keepOriginal(
-      String bundleDir, String srcPath, String azCode,
-      {String suffix = ''}) async {
+  /// 카메라 파일의 크기와 EXIF 요약. 파일은 보관하지 않으므로(저장이 오래 걸린다)
+  /// **머리말만** 읽는다 — EXIF(APP1)는 파일 앞 64 KB 안에 있다.
+  static Future<Map<String, dynamic>?> cameraFileInfo(String path) async {
     try {
-      var ext = p.extension(srcPath).toLowerCase();
-      if (ext.isEmpty) ext = '.jpg';
-      final dest = p.join(bundleDir, '${azCode}_original$suffix$ext');
-      await File(srcPath).copy(dest);
-      return dest;
+      final f = File(path);
+      final size = await f.length();
+      final raf = await f.open();
+      try {
+        final head = await raf.read(size < 256 * 1024 ? size : 256 * 1024);
+        return {'bytes': size, 'exif': exifSummary(head)};
+      } finally {
+        await raf.close();
+      }
     } catch (_) {
       return null;
     }
@@ -86,7 +88,7 @@ class RawArchive {
     };
   }
 
-  /// 원본 JPEG의 EXIF 중 재현·검증에 쓸 항목. 없거나 읽지 못하면 null.
+  /// 카메라 JPEG의 EXIF 중 재현·검증에 쓸 항목. 없거나 읽지 못하면 null.
   /// 카메라가 실제로 쓴 셔터·ISO·초점거리는 앱의 노출 슬라이더와 별개라
   /// 여기서만 알 수 있다.
   static Map<String, dynamic>? exifSummary(Uint8List bytes) {

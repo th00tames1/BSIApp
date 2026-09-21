@@ -147,17 +147,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ) ==
       true;
 
-  /// 이 폰의 전부(기록·사진·카메라 원본·원시 데이터·조사지·설정)를 파일로 만든다.
+  /// 이 폰의 전부(기록·사진·원시 데이터·조사지·설정)를 파일로 만든다.
   /// 안드로이드는 다운로드/BSI_backup에 바로 만들고(앱을 지워도 남는다), 원하면
   /// 공유 창으로 드라이브·Quick Share 등에 보낸다.
   Future<void> _exportBackup() async {
     final ok = await _confirm(
         tr('전체 백업 만들기', 'Create full backup'),
-        tr('조사 기록 전부와 사진(카메라 원본 포함)·원시 데이터·조사지·설정을 파일로 만듭니다.\n\n'
+        tr('조사 기록 전부와 사진·원시 데이터(분석용 사진·촬영/분석 메타)·조사지·설정을 파일로 만듭니다.\n\n'
             '파일은 내장 저장공간 → Download → BSI_backup 에 생기고, 공유로 드라이브·다른 폰에 보낼 수도 있습니다. '
             '새 폰에서 설정 → 백업 불러오기를 누르면 그대로 이어서 조사할 수 있습니다.\n\n'
             '사진이 많으면 수 GB가 될 수 있고, 3.5 GB를 넘으면 여러 파일로 나뉩니다(모두 옮기세요).',
-            'Packs every record, photo (including camera originals), raw data, site and setting into a file.\n\n'
+            'Packs every record, photo, raw data (analysis photos, capture/analysis metadata), site and setting into a file.\n\n'
             'Save it to Drive/Files or send it to the new phone, then use Settings → Import backup there.\n\n'
             'Large surveys can be several GB; above 3.5 GB the backup is split into parts — move all of them.'),
         tr('만들기', 'Create'));
@@ -376,8 +376,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               InkWell(
                 onTap: _exportBackup,
                 child: _row(p, Icons.backup_outlined, tr('백업 내보내기', 'Export backup'),
-                    sub: tr('기록·사진(원본 포함)·조사지·설정 전부를 파일로 — 폰을 바꿀 때',
-                        'All records, photos (with originals), sites and settings — for a new phone'),
+                    sub: tr('기록·사진·원시 데이터·조사지·설정 전부를 파일로 — 폰을 바꿀 때',
+                        'All records, photos, raw data, sites and settings — for a new phone'),
                     trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
               Divider(height: 1, color: p.line),

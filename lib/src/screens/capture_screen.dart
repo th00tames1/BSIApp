@@ -59,7 +59,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   double get _swEv => Exposure.software(_ev, _hwEvMin, _hwEvMax);
   double get _swGain => Exposure.gain(_swEv);
 
-  /// 촬영 후 백그라운드로 도는 저장 작업(정규화·원본 보관). 셔터는 즉시
+  /// 촬영 후 백그라운드로 도는 저장 작업(정규화·원시 번들). 셔터는 즉시
   /// 다음 방위로 넘어가고, AI 분석 진입 때만 완료를 기다린다.
   final List<Future<void>> _pendingShots = [];
 
@@ -458,29 +458,19 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         autoMetered: autoMetered,
       );
 
-  /// 원본을 번들에 보관했으면 true — 그때만 카메라 임시 파일을 지운다.
-  Future<bool> _keepRaw(Azimuth az, String savedPath, DateTime at,
+  /// 원시 데이터 = 분석용 표준 사진 사본 + 촬영 메타. 카메라 원본은 보관하지
+  /// 않는다(대형 센서에서 쓰기가 오래 걸린다) — 크기·EXIF만 [cameraFile]로 남긴다.
+  Future<void> _keepRaw(Azimuth az, String savedPath, DateTime at,
       {required String source,
       required _ShotMeta meta,
       bool gainApplied = false,
-      String? originalPath,
-      String? backlitFirstPath,
+      Map<String, dynamic>? cameraFile,
       NormalizeInfo? normalized,
       String? galleryName}) async {
-    var originalKept = false;
     try {
       d.rawDir ??= await RawArchive.create(d.treeId);
       final dir = d.rawDir!;
       final copy = await RawArchive.keepPhoto(dir, savedPath, az.code);
-      final orig = originalPath == null
-          ? null
-          : await RawArchive.keepOriginal(dir, originalPath, az.code);
-      originalKept = orig != null;
-      final origBytes = orig == null ? null : await File(orig).readAsBytes();
-      final backlitFirst = backlitFirstPath == null
-          ? null
-          : await RawArchive.keepOriginal(dir, backlitFirstPath, az.code,
-              suffix: '_backlit');
       final lens = _controller?.description;
       final here = meta.here;
       final sp = d.photoPos[az];
@@ -494,27 +484,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'savedAt': RawArchive.timeJson(DateTime.now()),
         'photo': savedPath,
         'bundledPhoto': copy,
-        // 카메라 원본 — 분석용 사진은 줄이고 밝기를 굽고 EXIF를 지운 것이라
-        // 다른 변환으로 다시 만들려면 이 파일에서 출발한다.
-        'original': source == 'gallery'
+        // 카메라가 준 파일 — 보관하지 않고 크기·EXIF(기기·셔터·ISO·초점거리)만 적는다
+        'cameraFile': source == 'gallery'
             ? {
-                'kept': false,
-                'reason': 'gallery — 원본은 기기 갤러리에 그대로 남아 있다',
                 'pickedName': galleryName,
+                'note': '갤러리 사진 — 원본은 기기 갤러리에 있다',
               }
-            : {
-                'kept': originalKept,
-                'file': orig == null ? null : p.basename(orig),
-                'bytes': origBytes?.length,
-                'exif': origBytes == null ? null : RawArchive.exifSummary(origBytes),
-              },
-        // 원본 → 분석용 사진 변환(해상도·밝기·EXIF)
+            : cameraFile,
+        // 카메라 파일 → 분석용 표준 사진 변환(해상도·밝기·EXIF 제거)
         'normalized': normalized?.toJson(gain: meta.gain),
-        if (backlitFirst != null)
-          'backlitFirstShot': {
-            'file': p.basename(backlitFirst),
-            'note': '역광 실루엣이라 줄기에 노출을 맞춰 다시 찍기 전의 첫 사진',
-          },
         'treeId': d.treeId,
         'site': d.site,
         'species': d.species,
@@ -568,34 +546,30 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'environment': RawArchive.environment(),
       });
     } catch (_) {}
-    return originalKept;
   }
 
-  /// 촬영 뒷정리(표준 형태 저장 + 연구용 원본 보관). 실패하면 원본 복사로
+  /// 촬영 뒷정리(표준 형태 저장 + 원시 데이터 번들). 실패하면 원본 복사로
   /// 대체되고, 그마저 실패하면 사진 없는 방위로 돌아간다(알림 표시).
   Future<void> _finishShot(Azimuth az, String srcPath, String dest,
-      DateTime shotAt, _ShotMeta meta, {String? backlitFirstPath}) async {
+      DateTime shotAt, _ShotMeta meta) async {
     try {
       // 기기별 해상도·EXIF 방향을 표준 형태로 맞춰 저장한다(분석 경로 통일).
       // 하드웨어 한계를 넘긴 노출은 여기서 미리보기와 같은 밝기로 굽는다.
       final info =
           await PhotoNormalizer.saveWithInfo(srcPath, dest, gain: meta.gain);
-      // 연구용 원시 데이터: 카메라 원본 + 분석용 표준 사진 + 촬영 당시 상태.
-      final kept = await _keepRaw(az, dest, shotAt,
+      // 카메라 파일은 머리말(EXIF)만 읽는다 — 전체를 다시 읽거나 복사하지 않는다
+      final cam = await RawArchive.cameraFileInfo(srcPath);
+      // 연구용 원시 데이터: 분석용 표준 사진 + 촬영 당시 상태·변환 이력.
+      await _keepRaw(az, dest, shotAt,
           source: 'camera',
           meta: meta,
           gainApplied: info.normalized && meta.gain != 1.0,
-          originalPath: srcPath,
-          backlitFirstPath: backlitFirstPath,
+          cameraFile: cam,
           normalized: info);
-      // 원본을 번들로 옮겼으면 카메라 임시 파일은 지운다(캐시가 불지 않게)
-      if (kept) {
-        for (final t in [srcPath, ?backlitFirstPath]) {
-          try {
-            await File(t).delete();
-          } catch (_) {}
-        }
-      }
+      // 카메라 임시 파일은 보관하지 않는다(캐시가 수 GB로 불지 않게)
+      try {
+        await File(srcPath).delete();
+      } catch (_) {}
       if (d.isInProgress) saveDraftJson(d.toJsonString());
     } catch (e) {
       if (d.photos[az] == dest) d.photos.remove(az);
@@ -642,11 +616,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       var backlight = await Backlight.scoreFile(
           shot.path, await File(shot.path).readAsBytes());
       var autoMetered = false;
-      String? backlitFirst; // 다시 찍었으면 첫 사진도 원시 번들에 남긴다
       if (backlight != null && backlight.silhouette && mounted) {
         final retake = await _retakeForBacklight(c, backlight);
         if (retake != null) {
-          backlitFirst = shot.path;
+          try {
+            await File(shot.path).delete();
+          } catch (_) {}
           shot = retake.file;
           backlight = retake.score;
           autoMetered = true;
@@ -660,11 +635,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       d.photos[az] = dest;
       final meta = _snapshot(backlight: backlight, autoMetered: autoMetered);
       final tagged = _tagPosition();
-      // 정규화·원본 보관은 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
+      // 정규화는 대형 센서(2억 화소)에서 몇 초씩 걸린다. 셔터가
       // 그걸 기다리면 조사 흐름이 끊기므로 백그라운드로 돌리고 즉시 다음
       // 방위로 넘어간다. AI 분석 진입 시 [_goAnalyse]가 완료를 기다린다.
-      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta,
-          backlitFirstPath: backlitFirst));
+      _pendingShots.add(_finishShot(az, shot.path, dest, shotAt, meta));
       saveDraftJson(d.toJsonString()); // persist so a mid-field close can resume
       if (!mounted) return; // screen may have been popped mid-capture
       if (autoMetered) {
