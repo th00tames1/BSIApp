@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,6 +9,8 @@ import '../l10n.dart';
 import '../services/backup_service.dart';
 import '../services/demo_sample.dart';
 import '../services/geomag.dart';
+import '../services/raw_archive.dart' show kAppVersion;
+import '../services/update_service.dart';
 import '../theme.dart';
 import 'about_screen.dart';
 import 'analysis_screen.dart';
@@ -20,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  bool _checkingUpdate = false;
 
   static String _fmtGap(double v) {
     var s = v.toStringAsFixed(2);
@@ -80,7 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 오래 걸리는 백업 작업을 진행률 창과 함께 돌린다. 실패하면 이유를 알린다.
   Future<T?> _withProgress<T>(
-      String title, Future<T> Function(void Function(int, int)) job) async {
+      String title, Future<T> Function(void Function(int, int)) job,
+      {String Function(int done, int total)? label}) async {
     final prog = ValueNotifier<(int, int)>((0, 0));
     showDialog<void>(
       context: context,
@@ -96,7 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 12),
               Text(v.$2 == 0
                   ? tr('준비 중…', 'Preparing…')
-                  : tr('파일 ${v.$1} / ${v.$2}', 'File ${v.$1} / ${v.$2}')),
+                  : label?.call(v.$1, v.$2) ??
+                      tr('파일 ${v.$1} / ${v.$2}', 'File ${v.$1} / ${v.$2}')),
               const SizedBox(height: 6),
               Text(tr('앱을 닫지 마세요', 'Keep the app open'),
                   style: TextStyle(fontSize: 12, color: context.palette.muted)),
@@ -270,6 +277,97 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// GitHub 릴리스의 새 버전을 확인하고, 있으면 받아서 설치 화면을 연다(안드로이드).
+  /// 같은 키로 서명된 배포본끼리는 덮어 설치되어 기록이 그대로 남는다.
+  Future<void> _checkUpdate() async {
+    setState(() => _checkingUpdate = true);
+    ReleaseInfo? r;
+    Object? err;
+    try {
+      r = await UpdateService.latest();
+    } catch (e) {
+      err = e;
+    }
+    if (!mounted) return;
+    setState(() => _checkingUpdate = false);
+    void snack(String m) => ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(m)));
+    if (err != null || r == null) {
+      snack(tr('업데이트를 확인하지 못했습니다: $err', 'Could not check for updates: $err'));
+      return;
+    }
+    if (!r.isNewer) {
+      snack(tr('최신 버전입니다 (v$kAppVersion)', 'You are up to date (v$kAppVersion)'));
+      return;
+    }
+    final rel = r;
+    final notes = rel.notes.length > 700 ? '${rel.notes.substring(0, 700)}…' : rel.notes;
+    final d = rel.publishedAt;
+    final date = d == null
+        ? ''
+        : '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('새 버전 v${rel.version}', 'New version v${rel.version}')),
+        content: SingleChildScrollView(
+          child: Text(
+              [
+                [
+                  if (date.isNotEmpty) tr('게시 $date', 'Released $date'),
+                  _size(rel.apkBytes),
+                  tr('지금 v$kAppVersion', 'installed v$kAppVersion'),
+                ].join(' · '),
+                if (notes.isNotEmpty) ...['', notes],
+                '',
+                tr('업데이트해도 기록은 그대로 남습니다. 먼저 백업 내보내기를 해 두면 더 안전합니다.',
+                    'Your records stay. Exporting a backup first is safer.'),
+              ].join('\n'),
+              style: const TextStyle(height: 1.45)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('나중에', 'Later'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('받아서 설치', 'Download & install'))),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    String mb(int b) => (b / (1024 * 1024)).toStringAsFixed(1);
+    final apk = await _withProgress(
+        tr('새 버전 내려받는 중', 'Downloading update'),
+        (cb) => UpdateService.download(rel, onProgress: cb),
+        label: (got, total) => '${mb(got)} / ${mb(total)} MB');
+    if (apk == null || !mounted) return;
+    bool started;
+    try {
+      started = await UpdateService.install(apk);
+    } catch (e) {
+      if (mounted) snack(tr('설치 화면을 열지 못했습니다: $e', 'Could not open the installer: $e'));
+      return;
+    }
+    if (!started && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(tr('설치 허용이 필요합니다', 'Allow installs')),
+          content: Text(
+              tr('방금 열린 설정에서 "이 출처 허용"을 켜고 돌아와 앱 업데이트를 다시 누르세요 (한 번만).',
+                  'Turn on "Allow from this source" in the screen that just opened, then tap App update again (once).'),
+              style: const TextStyle(height: 1.45)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context), child: Text(tr('확인', 'OK'))),
+          ],
+        ),
+      );
+    }
+  }
+
   /// 내장 예시 사진 4장을 불러와 바로 AI 분석을 실행한다. 촬영 화면을 거치지
   /// 않으므로 카메라 권한 없이도 전체 분석 파이프라인을 시험할 수 있다.
   Future<void> _runDemo() async {
@@ -419,6 +517,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: demoMode.value,
                     onChanged: (v) => setState(() => setDemoMode(v)),
                   )),
+            ),
+          ],
+          // 앱 안 업데이트는 안드로이드만(iOS는 스토어·TestFlight로 배포)
+          if (Platform.isAndroid) ...[
+            _section(p, tr('앱', 'APP')),
+            Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _checkingUpdate ? null : _checkUpdate,
+                child: _row(p, Icons.system_update_outlined, tr('앱 업데이트', 'App update'),
+                    sub: tr('지금 v$kAppVersion — 새 버전이 있으면 받아서 설치 (기록 유지)',
+                        'Installed v$kAppVersion — download and install a newer one (records kept)'),
+                    trailing: _checkingUpdate
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.chevron_right, color: p.muted)),
+              ),
             ),
           ],
           _section(p, tr('판정 기준', 'DECISION CRITERIA')),

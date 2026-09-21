@@ -484,7 +484,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'savedAt': RawArchive.timeJson(DateTime.now()),
         'photo': savedPath,
         'bundledPhoto': copy,
-        // 카메라가 준 파일 — 보관하지 않고 크기·EXIF(기기·셔터·ISO·초점거리)만 적는다
+        // 카메라가 준 파일 — 보관하지 않고 크기·EXIF(기기·셔터·ISO)만 적는다
         'cameraFile': source == 'gallery'
             ? {
                 'pickedName': galleryName,

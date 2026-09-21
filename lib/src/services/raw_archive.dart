@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/survey.dart';
 
 /// 앱 버전(연구용 원시 데이터에 함께 남긴다 — 어떤 빌드가 만든 값인지 추적).
-const String kAppVersion = '0.3.4';
+const String kAppVersion = '0.3.5';
 
 /// 조사목별 **원시 데이터 번들**.
 ///
@@ -22,7 +22,7 @@ const String kAppVersion = '0.3.4';
 ///                            오래 걸려 보관하지 않는다
 ///     {방위}_capture.json    촬영·저장 시각(시간대·UTC·epoch ms)·GPS·방위각·배율·노출
 ///                            (하드웨어/소프트웨어 몫·밝기 배율과 변환식)·카메라/표준 해상도·
-///                            카메라 파일 EXIF(기기·셔터·ISO·초점거리)·앱 버전
+///                            카메라 파일 EXIF(제조사·모델·셔터·ISO)·앱 버전
 ///     {방위}_analysis.json   모델명·입력 기하·분할 통계·수고봉 경계점·계측치
 ///     {방위}_mask_tree.png   수간 마스크(모델 proto 해상도, 0/255)
 ///     {방위}_mask_soot.png   그을음 마스크
@@ -88,9 +88,10 @@ class RawArchive {
     };
   }
 
-  /// 카메라 JPEG의 EXIF 중 재현·검증에 쓸 항목. 없거나 읽지 못하면 null.
-  /// 카메라가 실제로 쓴 셔터·ISO·초점거리는 앱의 노출 슬라이더와 별개라
-  /// 여기서만 알 수 있다.
+  /// 카메라 JPEG의 EXIF 중 남길 것 — 기기(제조사·모델)와 실제 노출(셔터·ISO).
+  /// 기기는 기기별 비교에, 셔터·ISO는 어둡거나 흔들린 사진을 가려내는 데 쓴다
+  /// (카메라 자동 노출이 실제로 한 일은 앱의 노출 슬라이더와 별개라 여기서만 안다).
+  /// 없거나 읽지 못하면 null.
   static Map<String, dynamic>? exifSummary(Uint8List bytes) {
     try {
       final ex = img.decodeJpgExif(bytes);
@@ -111,28 +112,13 @@ class RawArchive {
         return x.isFinite ? x : null;
       }
       int? whole(img.IfdDirectory d, int tag) => d[tag]?.toInt();
+      // 나머지(촬영 시각·해상도·회전·초점거리·줌·조리개·플래시…)는 앱이 따로 적거나
+      // 분석에 쓰이지 않아 남기지 않는다. 스케일은 사진 속 수고봉에서 나온다.
       final out = <String, dynamic>{
         'make': str(i0, 0x010F),
         'model': str(i0, 0x0110),
-        'software': str(i0, 0x0131),
-        'orientation': whole(i0, 0x0112),
-        'dateTimeOriginal': str(e, 0x9003),
-        'subSecTimeOriginal': str(e, 0x9291),
-        'offsetTimeOriginal': str(e, 0x9011),
         'exposureTimeS': real(e, 0x829A),
-        'fNumber': real(e, 0x829D),
         'iso': whole(e, 0x8827),
-        'exposureBiasEv': real(e, 0x9204),
-        'exposureProgram': whole(e, 0x8822),
-        'exposureMode': whole(e, 0xA402),
-        'meteringMode': whole(e, 0x9207),
-        'flash': whole(e, 0x9209),
-        'whiteBalance': whole(e, 0xA403),
-        'focalLengthMm': real(e, 0x920A),
-        'focalLength35mm': whole(e, 0xA405),
-        'digitalZoomRatio': real(e, 0xA404),
-        'pixelWidth': whole(e, 0xA002),
-        'pixelHeight': whole(e, 0xA003),
       }..removeWhere((_, v) => v == null);
       return out.isEmpty ? null : out;
     } catch (_) {

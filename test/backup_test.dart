@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
-/// 원래 폰의 문서 폴더를 흉내 낸다: 사진·원시 번들(원본 포함)·오버레이·경계.
+/// 원래 폰의 문서 폴더를 흉내 낸다: 사진·원시 번들(표준 사진·메타)·오버레이·경계.
 Directory _phoneA(Directory tmp) {
   final docs = Directory(p.join(tmp.path, 'phoneA', 'app_flutter'))..createSync(recursive: true);
   void put(String rel, List<int> bytes) {
@@ -21,7 +21,7 @@ Directory _phoneA(Directory tmp) {
   }
 
   put('photos/001_E_1787700000000.jpg', List.filled(1000, 1));
-  put('raw/001_20260826_085627/E_original.jpg', List.filled(1000, 2));
+  put('raw/001_20260826_085627/E_photo.jpg', List.filled(1000, 2));
   put('raw/001_20260826_085627/E_capture.json', utf8.encode('{"azimuth":"E"}'));
   put('overlays/001_E_overlay.png', List.filled(1000, 3));
   put('overlays/현장검증.json', utf8.encode('[]'));
@@ -87,7 +87,7 @@ void main() {
       expect(c.filesWritten, 5);
       for (final rel in [
         'photos/001_E_1787700000000.jpg',
-        'raw/001_20260826_085627/E_original.jpg',
+        'raw/001_20260826_085627/E_photo.jpg',
         'overlays/001_E_overlay.png',
         'overlays/현장검증.json',
       ]) {
@@ -231,7 +231,9 @@ void main() {
       expect(ex['make'], 'Google');
       expect(ex['model'], 'sdk_gphone64_x86_64');
       expect(ex['iso'], 100);
-      expect(ex['dateTimeOriginal'], '2026:09:21 14:19:39');
+      expect(ex['exposureTimeS'], closeTo(0.0334, 1e-4));
+      // 남기는 것은 기기와 실제 노출뿐이다
+      expect(ex.keys.toSet(), {'make', 'model', 'exposureTimeS', 'iso'});
     });
 
     test('카메라 파일은 보관하지 않고 머리말만 읽어 크기·EXIF를 남긴다', () async {

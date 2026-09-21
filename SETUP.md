@@ -68,7 +68,7 @@ flutter pub get
 flutter test
 ```
 
-**150건 전부 통과해야 한다**(현장 재현 1건은 환경변수가 없으면 건너뜀). 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
+**160건 전부 통과해야 한다**(현장 재현 1건은 환경변수가 없으면 건너뜀). 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
 기기 독립성, 입력 해상도 정규화, 흉고직경 기반 스케일, 대상목 선택(옆·뒤 나무),
 지표면 지정, 밝기·대비·역광 자동 보정, 촬영 노출 확장, 역광 실루엣 판정, 그을음 검출 임계값, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
 BSI 판정표, 경계 파일 임포트를 검증한다.
@@ -228,7 +228,79 @@ flutter build ipa
 
 ---
 
-## 7. 문제 해결
+## 7. 안드로이드 배포 — 설치 파일과 앱 안 업데이트
+
+앱의 **설정 → 앱 → 앱 업데이트**는 이 저장소의 GitHub 릴리스(최신)를 읽어, 지금보다 새 버전이면
+APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.yml`이 **버전 태그를 올리면**
+빌드·서명·게시한다.
+
+> **서명 키가 핵심이다.** 안드로이드는 **같은 키로 서명된 APK만 덮어 설치**한다(기록 유지).
+> 키가 다르면 설치 화면이 "앱이 설치되지 않음"으로 거절한다(기존 앱·기록은 안전).
+> 그래서 배포 APK는 늘 **저장소 Secrets에 등록한 키 하나**로만 서명한다. 그 키 없이 각
+> 컴퓨터에서 `flutter build apk --release`로 만든 APK는 그 컴퓨터의 디버그 키로 서명되므로
+> 시험용이다(키가 다른 폰에 덮어 설치되지 않는다).
+
+### 7.1 한 번만: 서명 키 등록 (사람이 직접)
+
+**권장: 현장 폰에 앱을 처음 설치한 컴퓨터의 키를 그대로 쓴다.** 폰 앱이 이미 그 키로
+서명돼 있으므로 지우고 다시 깔 필요 없이 바로 업데이트된다. 그 컴퓨터에서:
+
+1. 키가 맞는지 확인 — SHA-256이 폰 앱과 같아야 한다(`9F:FB:70:EA…`로 시작).
+   ```powershell
+   keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -storepass android | Select-String "SHA256"
+   ```
+2. 키 파일을 base64 텍스트로 클립보드에 복사한다.
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore")) | Set-Clipboard
+   ```
+3. GitHub 저장소 → **Settings → Secrets and variables → Actions → New repository secret**에 등록한다.
+
+   | 이름 | 값 |
+   |---|---|
+   | `ANDROID_KEYSTORE_BASE64` | 2에서 복사한 긴 텍스트 |
+   | `ANDROID_KEYSTORE_PASSWORD` | `android` |
+   | `ANDROID_KEY_ALIAS` | `androiddebugkey` |
+   | `ANDROID_KEY_PASSWORD` | `android` |
+   | `ANDROID_CERT_SHA256` | 1의 SHA-256 값(선택 — 넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
+
+키 파일은 **절대 저장소에 커밋하지 않는다**(`android/.gitignore`가 `key.properties`·`*.keystore`·`*.jks`를 막는다).
+그 컴퓨터의 `debug.keystore`를 잃으면 같은 키로 다시 만들 수 없으니 안전한 곳에 사본을 둔다.
+
+새 키를 따로 만들고 싶다면 `keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000`
+으로 만들어 같은 이름으로 등록하면 된다. 다만 **이미 다른 키로 설치된 폰은 한 번 옮겨야 한다**:
+설정 → 데이터 → 백업 내보내기 → 앱 삭제 → 새 APK 설치 → 백업 불러오기.
+
+다른 컴퓨터에서도 배포용과 같은 서명으로 직접 빌드하려면 키 파일을 `android/app/upload.keystore`에 두고
+`android/key.properties`를 만든다(둘 다 커밋하지 않는다).
+```properties
+storeFile=app/upload.keystore
+storePassword=android
+keyAlias=androiddebugkey
+keyPassword=android
+```
+
+### 7.2 새 버전을 낼 때마다
+
+1. 버전을 올린다 — `pubspec.yaml`의 `version: 0.3.6+12`(뒤 숫자는 매번 +1)와
+   `lib/src/services/raw_archive.dart`의 `kAppVersion = '0.3.6'`. 둘이 다르면 배포가 멈춘다.
+2. 커밋·푸시한 뒤 태그를 올린다.
+   ```bash
+   git tag v0.3.6
+   ```
+   ```bash
+   git push origin v0.3.6
+   ```
+3. GitHub → **Actions**에서 "Android release"가 끝나면(약 10분) **Releases**에
+   `bsi_app-v0.3.6-arm64.apk`가 생긴다. 릴리스 설명은 태그가 가리키는 커밋 메시지다
+   — 앱의 업데이트 창에 그대로 보이므로 조사자가 읽을 수 있게 쓴다.
+4. 폰에서 **설정 → 앱 업데이트**. 처음 한 번은 "이 출처 허용"을 켜라는 설정 화면이 뜬다.
+
+APK는 arm64 전용이다(현장 폰은 모두 arm64 — 크기를 줄이려고 한 ABI만 넣는다).
+Actions의 수동 실행(Run workflow)은 빌드·서명 확인만 하고 게시하지 않는다(결과 APK는 Artifacts).
+
+---
+
+## 8. 문제 해결
 
 | 증상 | 원인 및 조치 |
 |---|---|
@@ -242,9 +314,9 @@ flutter build ipa
 
 ---
 
-## 8. 참고 사항
+## 9. 참고 사항
 
 - 앱 ID는 `com.bsi.bsi_field`이다.
 - 지도 타일을 제외한 모든 연산은 **온디바이스**로 이뤄지며 서버·API 키가 필요 없다.
 - 이 저장소에는 **앱 소스만** 들어 있다. 학습 스크립트·데이터셋·보고서는 포함하지 않는다.
-- APK는 저장소에 커밋하지 않는다.
+- APK는 저장소에 커밋하지 않는다. 배포 APK는 GitHub 릴리스에만 올린다(7장).
