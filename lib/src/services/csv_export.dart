@@ -54,7 +54,7 @@ class CsvExport {
           f.issue, // 'backlit'(역광 실루엣 — BSI에서 빠짐) | ''
           _v(f.sootHeightM), _v(f.sootProportion), _v(f.sootProportionWhole),
           _v(f.sootWidthM), _v(f.visibleStemHeightM), _v(f.dbhEstM), _v(f.pxPerMetre),
-          f.scaleSource, // 'pole' | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''
+          f.scaleSource, // 'pole' | 'pole_rw'(빨강/흰 폴 0.2 m) | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''
           r.createdAt.toIso8601String(),
         ]);
       }

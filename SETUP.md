@@ -53,7 +53,7 @@ ls -lh assets/models assets/sample
 ```
 
 - `assets/models/bsi_seg_yolo26s_640.onnx` — 수간·그을음 분할 (41.8 MB)
-- `assets/models/pole_boundary_640.onnx` — 수고봉 1 m 경계 검출 (38.1 MB)
+- `assets/models/pole_boundary_640.onnx` — 수고봉 경계 검출, 노랑/흰·빨강/흰 2클래스 (38.1 MB)
 - `assets/sample/demo_N.jpg` · `demo_E.jpg` · `demo_S.jpg` · `demo_W.jpg` — 시험용 4방위 사진
 
 ---
@@ -68,7 +68,7 @@ flutter pub get
 flutter test
 ```
 
-**132건 전부 통과해야 한다**(현장 재현 1건은 환경변수가 없으면 건너뜀). 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
+**138건 전부 통과해야 한다**(현장 재현 1건은 환경변수가 없으면 건너뜀). 수고봉 스케일 환산·경계 간격, 검출 결과 디코딩,
 기기 독립성, 입력 해상도 정규화, 흉고직경 기반 스케일, 대상목 선택(옆·뒤 나무),
 지표면 지정, 밝기·대비·역광 자동 보정, 촬영 노출 확장, 역광 실루엣 판정, 그을음 검출 임계값, 통합 BSI 산출, 직접 입력 방위, CSV 열 정합,
 BSI 판정표, 경계 파일 임포트를 검증한다.
@@ -141,7 +141,7 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 | 방위별 그을음 비율 | 동 90 % · 서 92 % · 남 92 % · 북 94 % |
 
 결과 이미지의 계측선 색은 다음과 같다.
-흑색 = 나무 밑동 · 청색 = 흉고직경(가슴높이 1.3 m) · 적색 = 그을음 최고 높이 · 황색 원 = 수고봉 1 m 경계.
+흑색 = 나무 밑동 · 청색 = 흉고직경(가슴높이 1.3 m) · 적색 = 그을음 최고 높이 · 황색 원 = 수고봉 경계(노랑 봉 1 m · 빨강/흰 폴 20 cm).
 
 > 값이 크게 다르거나 BSI가 비어 있으면 수고봉 경계가 검출되지 않은 것이다.
 > `assets/models/pole_boundary_640.onnx`가 제대로 클론됐는지 먼저 확인한다.

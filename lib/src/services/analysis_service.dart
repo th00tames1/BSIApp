@@ -90,31 +90,19 @@ class AnalysisService {
     // 봉 길이"라는 깨진 가정을 쓰므로 그 자리를 메우면 몇 배 부풀린 높이가 조용히
     // 들어간다(에뮬레이터 검증에서 BSI 4.69 → 8.6). 스케일 없는 면은 높이를
     // 비워 두고, integrate()가 계측된 면으로 4방위를 환산한다.
+    //
+    // 빨강/흰 측량 폴은 모델이 직접 검출하고 종류(클래스)도 알려 준다. 그 봉의
+    // 간격은 설정과 무관한 0.2 m 고정이다([PoleDetector.redWhiteGapMetres]).
+    // (예전엔 빨강→노랑으로 바꿔 한 번 더 검출했는데, 지금 모델에 그렇게 넣으면
+    //  빨강/흰 폴이 노랑으로 판정돼 1 m 간격이 붙는다 — 5배 오차. 그래서 없앴다.)
     PoleScaleSolution? sol;
     var modelUsable = false;
-    var poleModelPass = 'direct';
     if (manualPxPerMetre == null && OnnxService.pole.isLoaded) {
       modelUsable = true;
       try {
         final o = await OnnxService.pole.inferDetect(lb.chw, lb.size);
         final pts = PoleDetector.decode(o.data, o.shape, lb.size);
         sol = PoleDetector.solve(pts, lb.size, gapMetres: poleGapMetres);
-        // 빨강/흰 봉 대응: 모델은 노랑/흰 봉으로 학습돼 빨간 띠에서 점을
-        // 놓친다. 점이 사영 보정 기준(4개)에 못 미치면 빨강→노랑으로 바꾼
-        // 입력으로 한 번 더 검출하고, 더 많은 점을 찾은 쪽을 쓴다.
-        if (sol == null ||
-            sol.boundaryCount < PoleDetector.minPointsForPerspective) {
-          final o2 = await OnnxService.pole
-              .inferDetect(ImageOps.chwRedToYellow(lb.square, lb.size), lb.size);
-          final pts2 = PoleDetector.decode(o2.data, o2.shape, lb.size);
-          final sol2 =
-              PoleDetector.solve(pts2, lb.size, gapMetres: poleGapMetres);
-          if (sol2 != null &&
-              (sol == null || sol2.boundaryCount > sol.boundaryCount)) {
-            sol = sol2;
-            poleModelPass = 'redRemap';
-          }
-        }
       } catch (_) {
         modelUsable = false; // 추론 자체가 실패하면 휴리스틱이라도 쓴다
         sol = null;
@@ -225,7 +213,7 @@ class AnalysisService {
     String scaleSource = manualPxPerMetre != null
         ? 'manual'
         : sol != null
-            ? 'pole'
+            ? (sol.redWhite ? 'pole_rw' : 'pole')
             : (!modelUsable && !pole.pxPerMetre.isNaN ? 'heuristic' : '');
 
     final protoToSize = lb.size / fa.mh; // proto rows/cols -> size px
@@ -337,7 +325,7 @@ class AnalysisService {
     if (rawOutDir != null) {
       _writeRawArtifacts(
         rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
-        result, dbhCmForScale, manualPxPerMetre, poleGapMetres, poleModelPass,
+        result, dbhCmForScale, manualPxPerMetre, poleGapMetres,
         tuning, treePass, sootPass, backlight,
       );
     }
@@ -357,7 +345,6 @@ class AnalysisService {
     double? dbhCmForScale,
     double? manualPxPerMetre,
     double poleGapMetres,
-    String poleModelPass,
     FaceTuning tuning,
     String treePass,
     String sootPass,
@@ -413,17 +400,19 @@ class AnalysisService {
         'scale': {
           'source': r.scaleSource,
           'pxPerMetre': n(r.pxPerMetre),
+          // 설정값. 빨강/흰 폴이면 실제로 쓴 간격은 poleModel.gapMetres다.
           'poleGapMetres': poleGapMetres,
-          'poleModelPass': poleModelPass,
           'manualPxPerMetre': manualPxPerMetre,
           'dbhCmForScale': dbhCmForScale,
           'poleModel': sol == null
               ? null
               : {
                   'pxPerMetre': n(sol.pxPerMetre),
+                  'kind': sol.redWhite ? 'redWhite' : 'yellow',
+                  'gapMetres': sol.gapMetres,
                   'points': [
                     for (final q in sol.staff.points)
-                      {'x': q.x, 'y': q.y, 'score': q.score}
+                      {'x': q.x, 'y': q.y, 'score': q.score, 'cls': q.cls}
                   ],
                 },
           'poleHeuristic': {

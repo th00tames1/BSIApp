@@ -33,7 +33,8 @@ class AzimuthResult {
   /// 이 면의 분석 조정값(지표면·대상목 지정·밝기/대비). 재분석 재현에 쓴다.
   final FaceTuning tuning;
 
-  /// 스케일(px/m)의 출처: 'pole'(수고봉 경계 모델) · 'manual' · 'heuristic'(노란픽셀)
+  /// 스케일(px/m)의 출처: 'pole'(수고봉 경계 모델, 노랑/흰 봉 — 간격은 설정값)
+  /// · 'pole_rw'(같은 모델, 빨강/흰 측량 폴 — 간격 0.2 m 고정) · 'manual' · 'heuristic'(노란픽셀)
   /// · 'dbh'(수고봉 없이 실측 흉고직경으로 추정 — 정밀도 낮음) · ''(스케일 없음).
   final String scaleSource;
 
@@ -343,7 +344,8 @@ class SurveyRecord {
 /// 이 면의 스케일이 수고봉 간격에서 나왔는가.
 ///
 /// px/m에 간격이 들어가는 경로는 **수고봉 경계 모델의 해(scaleSource 'pole')
-/// 하나뿐**이다. 'heuristic'은 봉 전장(spanPx/poleLengthM), 'dbh'는 실측
+/// 하나뿐**이다. 'pole_rw'(빨강/흰 폴)는 모델이 봉 종류를 알아 0.2 m 고정 간격을
+/// 쓰므로 설정과 무관하다. 'heuristic'은 봉 전장(spanPx/poleLengthM), 'dbh'는 실측
 /// 흉고직경, 'manual'은 조사자가 준 px/m에서 나오므로 간격을 고쳐도 값이
 /// 달라지면 안 된다 — 같은 사진을 새 간격으로 다시 분석해도 그 면은 그대로다.
 ///

@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// 수고봉 1 m 경계 검출 결과 → px/m 스케일.
+/// 수고봉 경계 검출 결과 → px/m 스케일.
 ///
-/// 모델은 노랑/흰 **경계점**을 검출한다(순서·인덱스 없음). 스케일은 다음 순서로
-/// 만든다. 파이썬 기준 구현(`4_code/pole/pole_scale.py`)과 규칙이 동일하다.
+/// 모델은 봉의 **경계점**을 검출한다(순서·인덱스 없음). 2클래스 모델은 점마다
+/// 봉 종류도 준다 — 0 = 노랑/흰 수고봉(간격은 설정값, 기본 1 m),
+/// 1 = 빨강/흰 측량 폴(20 cm 띠 → [PoleDetector.redWhiteGapMetres] 고정).
+/// 스케일은 다음 순서로 만든다. 파이썬 기준 구현(`4_code/pole/pole_scale.py`)과
+/// 규칙이 동일하다.
 ///
 ///   ① 사진에 봉이 둘 이상일 수 있으므로 **공선성으로 봉 단위 군집**
 ///   ② 봉 축(주성분)에 투영해 정렬 → 인접 간격
@@ -13,7 +16,10 @@ import 'dart:typed_data';
 ///      (원근 단축 보정 — 카메라 파라미터가 필요 없어 기기 무관)
 class PoleBoundary {
   final double x, y, score;
-  const PoleBoundary(this.x, this.y, this.score);
+
+  /// 봉 종류 클래스(0 = 노랑/흰, 1 = 빨강/흰). 1클래스 모델은 늘 0.
+  final int cls;
+  const PoleBoundary(this.x, this.y, this.score, [this.cls = 0]);
 }
 
 class PoleStaff {
@@ -70,8 +76,11 @@ class PoleScaleSolution {
   final List<double> gaps;
   final double curvature; // 봉 직선성 잔차(방사왜곡 지표)
 
-  /// 인접 경계 사이의 실제 거리(m). 기본 1 m 봉이 아니면 설정에서 바꾼다.
+  /// 인접 경계 사이의 실제 거리(m). 빨강/흰 폴이면 고정값, 아니면 설정값.
   final double gapMetres;
+
+  /// 고른 봉이 빨강/흰 측량 폴인가(봉 점들의 다수 클래스).
+  final bool redWhite;
 
   const PoleScaleSolution({
     required this.pxPerMetre,
@@ -80,6 +89,7 @@ class PoleScaleSolution {
     required this.gaps,
     required this.curvature,
     this.gapMetres = 1.0,
+    this.redWhite = false,
   }) : _params = params;
 
   bool get perspectiveCorrected => _params.length == 4;
@@ -105,6 +115,11 @@ class PoleDetector {
   /// 사영 적합 최소 점수. 3개면 미지수와 같아 노이즈가 그대로 증폭된다.
   static const int minPointsForPerspective = 4;
 
+  /// 빨강/흰 측량 폴의 띠 간격(m). 2 m 폴이 20 cm 띠 10개로 나뉜다(현장 폴 실측).
+  /// 조사자 설정(수고봉 간격)과 무관하다 — 봉 종류를 모델이 알려 주므로
+  /// 노랑 1 m 봉과 한 사진에 함께 찍혀도 각자 맞는 간격을 쓴다.
+  static const double redWhiteGapMetres = 0.2;
+
   /// YOLO 검출 출력 → 경계점(입력 size×size 좌표계).
   ///
   /// 학습을 점 하나당 작은 정사각 박스로 했으므로 **박스 중심이 곧 경계점**이다.
@@ -113,6 +128,7 @@ class PoleDetector {
   /// 두 가지 출력 형식을 모두 받는다.
   ///   · dense    [1, 4+nc, anchors]  — 채널 우선, 후처리 필요 (YOLO11 계열)
   ///   · end2end  [1, n, 6]           — [x1,y1,x2,y2,score,cls], NMS 내장 (YOLO26 계열)
+  /// 클래스가 여럿이면 점마다 [PoleBoundary.cls]에 담는다.
   static List<PoleBoundary> decode(
     Float32List out,
     List<int> shape,
@@ -128,8 +144,8 @@ class PoleDetector {
         final o = i * 6;
         final score = out[o + 4];
         if (score < conf) continue;
-        cands.add(PoleBoundary(
-            (out[o] + out[o + 2]) / 2, (out[o + 1] + out[o + 3]) / 2, score));
+        cands.add(PoleBoundary((out[o] + out[o + 2]) / 2,
+            (out[o + 1] + out[o + 3]) / 2, score, out[o + 5].round()));
       }
     } else {
       final ch = shape[1], n = shape[2];
@@ -137,12 +153,16 @@ class PoleDetector {
       for (var i = 0; i < n; i++) {
         // 채널 우선 배치: [cx, cy, w, h, score...]
         var best = out[4 * n + i];
+        var cls = 0;
         for (var c = 5; c < ch; c++) {
           final v = out[c * n + i];
-          if (v > best) best = v;
+          if (v > best) {
+            best = v;
+            cls = c - 4;
+          }
         }
         if (best < conf) continue;
-        cands.add(PoleBoundary(out[i], out[n + i], best));
+        cands.add(PoleBoundary(out[i], out[n + i], best, cls));
       }
     }
     cands.sort((a, b) => b.score.compareTo(a.score));
@@ -168,7 +188,7 @@ class PoleDetector {
       List<PoleBoundary> pts, double scale, int padX, int padY) {
     return [
       for (final p in pts)
-        PoleBoundary((p.x - padX) / scale, (p.y - padY) / scale, p.score)
+        PoleBoundary((p.x - padX) / scale, (p.y - padY) / scale, p.score, p.cls)
     ];
   }
 
@@ -176,7 +196,8 @@ class PoleDetector {
   ///
   /// 중복 병합을 여기서도 한 번 더 한다. [decode]가 이미 걸렀으면 멱등이고,
   /// 다른 경로로 들어온 점(테스트·외부 호출)에도 같은 규칙이 적용된다.
-  /// [gapMetres]: 인접 경계 사이 실제 거리(m). 1 m 봉이 아니면 설정값을 준다.
+  /// [gapMetres]: 노랑/흰 수고봉의 인접 경계 사이 실제 거리(m) — 설정값.
+  /// 고른 봉이 빨강/흰 폴이면(점들의 다수 클래스가 1) [redWhiteGapMetres]를 쓴다.
   static PoleScaleSolution? solve(List<PoleBoundary> dets, int imageWidth,
       {double gapMetres = 1.0}) {
     if (dets.length < 2) return null;
@@ -194,6 +215,9 @@ class PoleDetector {
       return s(b).compareTo(s(a));
     });
     final staff = staffs.first;
+    // 봉 종류는 점들의 다수결 — 점 하나의 오분류에 흔들리지 않게 한다
+    final redWhite = staff.points.where((q) => q.cls == 1).length * 2 > staff.n;
+    if (redWhite) gapMetres = redWhiteGapMetres;
     final gaps = staff.gaps();
     final base = _pxPerMetre(gaps);
     if (base == null) return null;
@@ -221,6 +245,7 @@ class PoleDetector {
       params: params,
       gaps: gaps,
       gapMetres: gapMetres,
+      redWhite: redWhite,
       curvature: _straightness(staff.points),
     );
   }

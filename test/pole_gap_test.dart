@@ -123,10 +123,11 @@ void main() {
 
   group('수고봉에서 나온 스케일만 환산한다', () {
     // px/m에 간격이 들어가는 경로는 수고봉 경계 모델의 해뿐이다. 봉 전장으로
-    // 잰 'heuristic', 실측 흉고직경으로 세운 'dbh', 조사자가 준 'manual'은
-    // 같은 사진을 새 간격으로 다시 분석해도 값이 그대로다 — 산술 환산도
-    // 그래야 미리보기와 재분석 결과가 갈리지 않는다.
-    for (final src in const ['heuristic', 'dbh', 'manual']) {
+    // 잰 'heuristic', 실측 흉고직경으로 세운 'dbh', 조사자가 준 'manual',
+    // 0.2 m 고정 간격을 쓰는 빨강/흰 폴 'pole_rw'는 같은 사진을 새 간격으로
+    // 다시 분석해도 값이 그대로다 — 산술 환산도 그래야 미리보기와 재분석
+    // 결과가 갈리지 않는다.
+    for (final src in const ['heuristic', 'dbh', 'manual', 'pole_rw']) {
       test("'$src' 면은 간격을 고쳐도 값이 그대로다", () {
         final r = rec([face('E', source: src)], gap: 1.0);
         final f = r.withPoleGap(0.25).faces.single;

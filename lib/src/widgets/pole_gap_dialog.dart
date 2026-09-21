@@ -134,9 +134,9 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                         tr('${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)}개 방위는 이 값에 영향받지 않습니다 '
-                            '(수고봉이 아닌 방법으로 스케일을 세웠거나 값을 직접 넣은 면).',
+                            '(빨강/흰 폴로 잰 면은 0.2 m 고정 · 수고봉이 아닌 방법으로 스케일을 세웠거나 값을 직접 넣은 면).',
                             '${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)} face(s) are unaffected '
-                                '(scaled without the pole, or entered by hand).'),
+                                '(red/white pole faces use a fixed 0.2 m; others were scaled without the pole or entered by hand).'),
                         style:
                             TextStyle(fontSize: 10.5, height: 1.35, color: p.muted)),
                   ),

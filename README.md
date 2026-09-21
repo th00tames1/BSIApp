@@ -56,7 +56,8 @@ flutter test
 두 모델을 함께 내장하며 저장소에 포함돼 있다(별도 내려받기 불필요).
 
 - **분할**: `assets/models/bsi_seg_yolo26s_640.onnx` (YOLO26s-seg @640, 수간=1 · 그을음=0)
-- **수고봉**: `assets/models/pole_boundary_640.onnx` (YOLO26s @640, 1 m 경계점 검출)
+- **수고봉**: `assets/models/pole_boundary_640.onnx` (YOLO26s @640, 경계점 검출 · 2클래스: 노랑/흰 수고봉(간격 = 설정값, 기본 1 m) /
+  빨강/흰 측량 폴(20 cm 띠 → 0.2 m 자동). 봉 종류는 모델이 판정하므로 두 봉이 함께 찍혀도 각자 맞는 간격을 쓴다)
 - 디코더는 **두 출력 형식 자동 감지**: YOLO11 dense `[1,4+nc+nm,anchors]` / YOLO26 end2end `[1,nDet,6+nm]`
 - 교체: `assets/models/`에 `.onnx`를 넣고 `SurveyDraft.modelAsset` 변경(파일명에 `1280`이 있으면 입력 1280)
 - 엔진: `flutter_onnxruntime`(iOS/Android CPU). 세션은 실행 중 1회 로드·재사용

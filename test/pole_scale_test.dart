@@ -72,6 +72,59 @@ void main() {
     });
   });
 
+  group('봉 종류(2클래스 모델)', () {
+    List<PoleBoundary> rw(double x, double y0, int n, double gap) => [
+          for (var i = 0; i < n; i++) PoleBoundary(x, y0 + gap * i, 0.9, 1)
+        ];
+
+    test('빨강/흰 폴은 설정 간격과 무관하게 0.2 m를 쓴다', () {
+      final s = PoleDetector.solve(rw(400, 100, 9, 44), 960, gapMetres: 1.0)!;
+      expect(s.redWhite, isTrue);
+      expect(s.gapMetres, PoleDetector.redWhiteGapMetres);
+      expect(s.pxPerMetre, closeTo(44 / 0.2, 1));
+    });
+
+    test('노랑 1 m 봉과 함께 찍혀도 두 봉이 같은 스케일을 준다', () {
+      // 같은 거리의 두 봉: 노랑 1 m = 220 px, 빨강/흰 20 cm = 44 px.
+      // 경계가 많은 빨강/흰이 뽑히지만 제 간격을 쓰므로 5배로 틀어지지 않는다.
+      final yellow = column(300, 100, [220, 220]);
+      final s = PoleDetector.solve([...yellow, ...rw(650, 120, 9, 44)], 960)!;
+      expect(s.redWhite, isTrue);
+      expect(s.pxPerMetre, closeTo(220, 2));
+    });
+
+    test('점 하나가 다른 클래스여도 다수결로 봉 종류를 정한다', () {
+      final pts = rw(400, 100, 6, 44);
+      pts[2] = PoleBoundary(pts[2].x, pts[2].y, 0.9, 0);
+      final s = PoleDetector.solve(pts, 960)!;
+      expect(s.redWhite, isTrue);
+      expect(s.boundaryCount, 6); // 오분류 점도 같은 봉으로 쓴다
+    });
+
+    test('노랑/흰 봉은 설정 간격을 그대로 쓴다', () {
+      final s =
+          PoleDetector.solve(column(400, 100, [110, 110, 110]), 960, gapMetres: 0.5)!;
+      expect(s.redWhite, isFalse);
+      expect(s.pxPerMetre, closeTo(220, 1));
+    });
+
+    test('end-to-end 출력의 클래스 칸을 읽는다', () {
+      final out = List<double>.filled(8 * 6, 0.0); // n>6이어야 end-to-end로 읽는다
+      for (var i = 0; i < 2; i++) {
+        out[i * 6 + 0] = 90;
+        out[i * 6 + 1] = 90 + 200.0 * i;
+        out[i * 6 + 2] = 110;
+        out[i * 6 + 3] = 110 + 200.0 * i;
+        out[i * 6 + 4] = 0.8;
+        out[i * 6 + 5] = i.toDouble();
+      }
+      final pts = PoleDetector.decode(_f32(out), [1, 8, 6], 640);
+      expect(pts.map((p) => p.cls), [0, 1]);
+      final back = PoleDetector.unletterbox(pts, 0.5, 0, 0);
+      expect(back.map((p) => p.cls), [0, 1]);
+    });
+  });
+
   group('원근 보정', () {
     test('간격이 일정하면 국소 배율도 거의 일정', () {
       final s = PoleDetector.solve(column(400, 100, [220, 220, 220]), 960)!;
