@@ -2,8 +2,8 @@
 # 앱의 설정 → 앱 업데이트가 이 릴리스를 읽어 새 버전을 받아 설치한다.
 #
 # 서명: 앱 안 업데이트는 같은 키로 서명된 APK만 덮어 설치할 수 있다. 그래서 저장소
-# Secrets의 키 하나로만 서명한다(SETUP.md "배포"). Secrets가 없으면 게시하지 않고 멈춘다
-# — 디버그 키로 서명한 APK는 현장 폰에 업데이트로 설치되지 않는다.
+# Secrets의 키 하나로만 서명한다(SETUP.md "배포"). Secrets가 없으면 **빌드를 건너뛴다**
+# (실패로 표시하지 않는다) — 그때는 로컬에서 같은 키로 빌드한 APK를 릴리스에 직접 올린다.
 name: Android release
 
 on:
@@ -15,7 +15,29 @@ permissions:
   contents: write
 
 jobs:
+  # Secrets는 job 조건에 바로 못 쓰므로 먼저 있는지만 본다
+  key:
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - id: check
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$STORE_PW" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PW" ]; then
+            echo "::notice::서명 키 Secrets가 없어 자동 빌드를 건너뜁니다 — 릴리스에 APK를 직접 올리세요(SETUP.md 7장)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
   apk:
+    needs: key
+    if: needs.key.outputs.ok == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,10 +60,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$STORE_PW" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PW" ]; then
-            echo "::error::서명 키 Secrets(ANDROID_KEYSTORE_BASE64·ANDROID_KEYSTORE_PASSWORD·ANDROID_KEY_ALIAS·ANDROID_KEY_PASSWORD)가 없습니다 — SETUP.md '배포' 참고"
-            exit 1
-          fi
           echo "$KEYSTORE_B64" | base64 -d > android/app/upload.keystore
           printf 'storeFile=app/upload.keystore\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$STORE_PW" "$KEY_ALIAS" "$KEY_PW" > android/key.properties

@@ -242,10 +242,13 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
 
 ### 7.1 한 번만: 서명 키 등록 (사람이 직접)
 
-**권장: 현장 폰에 앱을 처음 설치한 컴퓨터의 키를 그대로 쓴다.** 폰 앱이 이미 그 키로
-서명돼 있으므로 지우고 다시 깔 필요 없이 바로 업데이트된다. 그 컴퓨터에서:
+**배포 키 = v0.3.5를 작업자에게 처음 배포할 때 쓴 컴퓨터의 디버그 키**(인증서 SHA-256 `b3d670e9…`,
+2026-09-23). 작업자 폰에 이 키로 서명된 앱이 깔리므로 **이후 모든 배포본은 이 키로 서명해야 한다** —
+다른 키로 서명하면 앱 업데이트가 "앱이 설치되지 않음"으로 거절된다. 그 컴퓨터의
+`%USERPROFILE%\.android\debug.keystore`를 잃으면 같은 키를 다시 만들 수 없으니 **안전한 곳에 사본을 둔다.**
+등록은 그 컴퓨터에서:
 
-1. 키가 맞는지 확인 — SHA-256이 폰 앱과 같아야 한다(`9F:FB:70:EA…`로 시작).
+1. 키가 맞는지 확인 — SHA256이 `B3:D6:70:E9…`로 시작해야 한다.
    ```powershell
    keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -storepass android | Select-String "SHA256"
    ```
@@ -261,10 +264,13 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
    | `ANDROID_KEYSTORE_PASSWORD` | `android` |
    | `ANDROID_KEY_ALIAS` | `androiddebugkey` |
    | `ANDROID_KEY_PASSWORD` | `android` |
-   | `ANDROID_CERT_SHA256` | 1의 SHA-256 값(선택 — 넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
+   | `ANDROID_CERT_SHA256` | `b3d670e91f63a2afa3d388d21292f14b0e571d6d9cb5d7ba2887389446ecbcd9` (넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
 
 키 파일은 **절대 저장소에 커밋하지 않는다**(`android/.gitignore`가 `key.properties`·`*.keystore`·`*.jks`를 막는다).
-그 컴퓨터의 `debug.keystore`를 잃으면 같은 키로 다시 만들 수 없으니 안전한 곳에 사본을 둔다.
+
+> 첫 현장 폰(Galaxy S24, 2026-08-26 기록)은 **다른 컴퓨터의 키**(`9F:FB:70:EA…`)로 설치돼 있어 배포본으로 바로
+> 업데이트되지 않는다. 한 번만 옮긴다: 그 컴퓨터에서 v0.3.5를 빌드해 덮어 설치(기록 유지) → 설정 → 백업 내보내기 →
+> 앱 삭제 → 배포 APK 설치 → 백업 불러오기.
 
 새 키를 따로 만들고 싶다면 `keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000`
 으로 만들어 같은 이름으로 등록하면 된다. 다만 **이미 다른 키로 설치된 폰은 한 번 옮겨야 한다**:
@@ -297,6 +303,16 @@ keyPassword=android
 
 APK는 arm64 전용이다(현장 폰은 모두 arm64 — 크기를 줄이려고 한 ABI만 넣는다).
 Actions의 수동 실행(Run workflow)은 빌드·서명 확인만 하고 게시하지 않는다(결과 APK는 Artifacts).
+
+### 7.3 Secrets 없이 직접 올리기
+
+Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌드를 **건너뛴다**(실패 아님). 그때는 배포 키가 있는
+컴퓨터에서 빌드해 릴리스에 직접 첨부한다.
+
+1. 빌드 — `flutter build apk --release --target-platform android-arm64` → `build/app/outputs/flutter-apk/app-release.apk`를
+   `bsi_app-v{버전}-arm64.apk`로 이름을 바꾼다(앱 업데이트가 이름의 `arm64`로 기기에 맞는 파일을 고른다).
+2. GitHub 저장소 → **Releases → Draft a new release** → 태그 `v{버전}` 선택(없으면 새로 만든다) → 제목·설명 입력
+   → 파일을 끌어다 첨부 → **Publish release**. 설명은 앱 업데이트 창에 그대로 보인다.
 
 ---
 
