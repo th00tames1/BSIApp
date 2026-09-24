@@ -242,13 +242,18 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
 
 ### 7.1 한 번만: 서명 키 등록 (사람이 직접)
 
-**배포 키 = v0.3.5를 작업자에게 처음 배포할 때 쓴 컴퓨터의 디버그 키**(인증서 SHA-256 `b3d670e9…`,
-2026-09-23). 작업자 폰에 이 키로 서명된 앱이 깔리므로 **이후 모든 배포본은 이 키로 서명해야 한다** —
-다른 키로 서명하면 앱 업데이트가 "앱이 설치되지 않음"으로 거절된다. 그 컴퓨터의
-`%USERPROFILE%\.android\debug.keystore`를 잃으면 같은 키를 다시 만들 수 없으니 **안전한 곳에 사본을 둔다.**
+**배포 키 = 현장 폰(Galaxy S24)에 앱을 처음 설치한 컴퓨터의 디버그 키**(인증서 SHA-256 `9ffb70ea…`).
+현장 폰과 작업자 폰이 모두 이 키로 서명된 앱을 쓰므로 **모든 배포본은 이 키로 서명해야 한다** —
+다른 키로 서명하면 덮어 설치가 "앱이 설치되지 않음"으로 거절되고, 설치하려고 앱을 지우면 기록이 사라진다.
+그 컴퓨터의 `%USERPROFILE%\.android\debug.keystore`를 잃으면 같은 키를 다시 만들 수 없으니 **안전한 곳에 사본을 둔다.**
+다른 컴퓨터에서 배포본을 만들려면 이 파일을 그 컴퓨터의 같은 위치에 복사한다(그 컴퓨터 원래 파일은 백업해 둔다).
+
+> **설치는 `adb install -r <apk>`로만.** `flutter install`은 기존 앱을 먼저 지우고, `flutter run`도 설치가 실패하면
+> 지우고 다시 깔아 **기록이 사라진다.**
+
 등록은 그 컴퓨터에서:
 
-1. 키가 맞는지 확인 — SHA256이 `B3:D6:70:E9…`로 시작해야 한다.
+1. 키가 맞는지 확인 — SHA256이 `9F:FB:70:EA…`로 시작해야 한다.
    ```powershell
    keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -storepass android | Select-String "SHA256"
    ```
@@ -264,14 +269,9 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
    | `ANDROID_KEYSTORE_PASSWORD` | `android` |
    | `ANDROID_KEY_ALIAS` | `androiddebugkey` |
    | `ANDROID_KEY_PASSWORD` | `android` |
-   | `ANDROID_CERT_SHA256` | `b3d670e91f63a2afa3d388d21292f14b0e571d6d9cb5d7ba2887389446ecbcd9` (넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
+   | `ANDROID_CERT_SHA256` | `9ffb70ea0b80db291a0ba5145b6235f47de35f0399c438da5bd449dd60ae5c26` (넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
 
 키 파일은 **절대 저장소에 커밋하지 않는다**(`android/.gitignore`가 `key.properties`·`*.keystore`·`*.jks`를 막는다).
-
-> 첫 현장 폰(Galaxy S24, 2026-08-26 기록)은 **다른 컴퓨터의 키**(`9F:FB:70:EA…`)로 설치돼 있어 배포본으로 바로
-> 업데이트되지 않는다. 한 번만 옮긴다: 그 컴퓨터에서 v0.3.5를 빌드해 덮어 설치(기록 유지) → 설정 → 백업 내보내기 →
-> 앱 삭제 → 배포 APK 설치 → 백업 불러오기.
-
 새 키를 따로 만들고 싶다면 `keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000`
 으로 만들어 같은 이름으로 등록하면 된다. 다만 **이미 다른 키로 설치된 폰은 한 번 옮겨야 한다**:
 설정 → 데이터 → 백업 내보내기 → 앱 삭제 → 새 APK 설치 → 백업 불러오기.
@@ -313,6 +313,9 @@ Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌�
    `bsi_app-v{버전}-arm64.apk`로 이름을 바꾼다(앱 업데이트가 이름의 `arm64`로 기기에 맞는 파일을 고른다).
 2. GitHub 저장소 → **Releases → Draft a new release** → 태그 `v{버전}` 선택(없으면 새로 만든다) → 제목·설명 입력
    → 파일을 끌어다 첨부 → **Publish release**. 설명은 앱 업데이트 창에 그대로 보인다.
+
+릴리스 없이 카톡 등으로 APK를 직접 줄 때도 **배포 키로 빌드한 파일**이어야 한다. 릴리스가 없으면 앱의
+"앱 업데이트"는 "아직 게시된 새 버전이 없습니다"로 나온다(정상).
 
 ---
 
