@@ -190,10 +190,10 @@ class _ResultScreenState extends State<ResultScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr('결과', 'Results')),
+        title: Text(tr('분석 결과', 'Analysis results')),
         actions: [
           IconButton(
-            tooltip: tr('전체 다시 분석', 'Re-analyse all'),
+            tooltip: tr('전체 재분석', 'Re-analyse all'),
             onPressed: _rescaling ? null : () => _reanalyse(),
             icon: _rescaling
                 ? const SizedBox(
@@ -203,7 +203,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 : const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: tr('판정표에서 확인', 'View in table'),
+            tooltip: tr('판정표에서 확인', 'View in decision table'),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -362,14 +362,14 @@ class _ResultScreenState extends State<ResultScreen> {
                         prob.isNaN
                             ? (bsi.isNaN
                                 ? (_hasUnscaledFace
-                                    ? tr('높이를 잰 방위가 없어 BSI를 낼 수 없습니다. 실측 흉고직경을 넣고 "흉고직경으로 높이 추정"을 누르세요',
-                                        'No face has a scale, so BSI cannot be computed. Enter the measured DBH and tap "Estimate heights from DBH"')
-                                    : tr('계측된 방위가 없어 BSI를 낼 수 없습니다',
-                                        'No measured face - BSI cannot be computed'))
+                                    ? tr('높이가 계측된 방위가 없어 BSI를 산출할 수 없습니다. 실측 흉고직경을 입력한 후 "흉고직경으로 높이 추정"을 실행하세요',
+                                        'No aspect has a height scale, so BSI cannot be calculated. Enter the measured DBH and run "Estimate heights from DBH"')
+                                    : tr('계측된 방위가 없어 BSI를 산출할 수 없습니다',
+                                        'No measured aspect; BSI cannot be calculated'))
                                 : d.dbhCm > 0
                                     ? tr('판정표 범위를 벗어났습니다',
                                         'Outside the table range')
-                                    : tr('흉고직경을 입력하면 판정됩니다',
+                                    : tr('흉고직경 입력 후 판정됩니다',
                                         'Enter DBH to evaluate'))
                             : tr('30 % 이상이면 벌채 권고',
                                 'Fell recommended at 30 % or above'),
@@ -429,14 +429,14 @@ class _ResultScreenState extends State<ResultScreen> {
             Icon(Icons.edit_note, size: 20, color: p.navy),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(tr('미촬영 방위 직접 입력', 'Un-photographed aspects'),
+              child: Text(tr('미촬영 방위 입력', 'Aspects without photos'),
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
             ),
           ]),
           const SizedBox(height: 6),
           Text(
-              tr('사진이 없는 방위는 야장 값을 넣어 BSI 합에 포함할 수 있습니다.',
-                  'Aspects without a photo can be filled from field notes to join the BSI sum.'),
+              tr('미촬영 방위는 야장 값을 입력하여 BSI 산출에 포함할 수 있습니다.',
+                  'Aspects without photos can be included in the BSI using field-note values.'),
               style: TextStyle(fontSize: 12, height: 1.45, color: p.muted)),
           const SizedBox(height: 12),
           Row(children: [
@@ -528,9 +528,9 @@ class _ResultScreenState extends State<ResultScreen> {
                   Text(
                     _dbhFromAuto
                         ? tr('자동 추정 ${_dbhAuto.toStringAsFixed(0)} cm',
-                            'auto ${_dbhAuto.toStringAsFixed(0)} cm')
-                        : tr('자동 추정 ${_dbhAuto.toStringAsFixed(0)} cm · 실측값 사용 중',
-                            'auto ${_dbhAuto.toStringAsFixed(0)} cm · using entry'),
+                            'Estimated ${_dbhAuto.toStringAsFixed(0)} cm')
+                        : tr('자동 추정 ${_dbhAuto.toStringAsFixed(0)} cm · 실측값 적용',
+                            'Estimated ${_dbhAuto.toStringAsFixed(0)} cm · measured value applied'),
                     style: TextStyle(fontSize: 11, color: p.green),
                   ),
               ],
@@ -584,7 +584,7 @@ class _ResultScreenState extends State<ResultScreen> {
           _metric(p, Icons.swap_horiz, tr('그을음 폭', 'Char width'),
               _m(f.sootWidthM)),
           Divider(height: 1, color: p.line),
-          _metric(p, Icons.park_outlined, tr('줄기 높이', 'Stem height'),
+          _metric(p, Icons.park_outlined, tr('수간 높이', 'Stem height'),
               _m(f.visibleStemHeightM)),
           Divider(height: 1, color: p.line),
           _metric(p, Icons.local_fire_department_outlined,
@@ -619,19 +619,19 @@ class _ResultScreenState extends State<ResultScreen> {
   String? _faceIssue(AzimuthResult? f) {
     if (f == null || !f.analysed || f.manual) return null;
     if (f.issue == 'backlit' && !f.manualEdited) {
-      return tr('역광으로 줄기가 새까맣게 찍혀 그을음을 판단할 수 없어 이 방위는 BSI에서 뺐습니다. 해를 등지지 않는 쪽에서 다시 찍거나 값을 직접 입력하세요.',
-          'Backlit silhouette: bark is black so char cannot be judged - this face is left out of the BSI. Retake from a side not facing the sun, or enter values manually.');
+      return tr('역광으로 수간이 검게 촬영되어 그을음을 판별할 수 없으므로 이 방위는 BSI 산출에서 제외했습니다. 순광 방향에서 재촬영하거나 값을 직접 입력하세요.',
+          'The stem is silhouetted by backlight, so char cannot be assessed and this aspect is excluded from the BSI. Retake with the sun behind you, or enter values manually.');
     }
     if (f.treePx == 0) {
-      return tr('이 방위에서 수간을 찾지 못했습니다. 나무 전체가 화면에 들어오게 다시 촬영하세요.',
-          'No stem detected on this face. Retake with the whole trunk in frame.');
+      return tr('이 방위에서 수간을 검출하지 못했습니다. 수간 전체가 화면에 들어오도록 재촬영하세요.',
+          'No stem detected on this aspect. Retake with the whole stem in frame.');
     }
     if (f.pxPerMetre.isNaN) {
       return d.dbhCm > 0
-          ? tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 보이게 다시 촬영하거나, 입력한 흉고직경으로 높이를 추정할 수 있습니다(정밀도 낮음).',
-              'No 1 m pole marks found, so heights cannot be measured. Retake with the pole visible, or estimate heights from the entered DBH (lower precision).')
-          : tr('수고봉 1 m 경계를 찾지 못해 높이(m)를 잴 수 없습니다. 수고봉이 보이게 다시 촬영하거나, 실측 흉고직경을 입력하면 그것으로 높이를 추정할 수 있습니다.',
-              'No 1 m pole marks found, so heights cannot be measured. Retake with the pole visible, or enter the measured DBH to estimate heights from it.');
+          ? tr('수고봉 눈금을 검출하지 못해 높이를 계측할 수 없습니다. 수고봉이 보이도록 재촬영하거나, 입력한 흉고직경으로 높이를 추정할 수 있습니다(정밀도 낮음).',
+              'No pole graduations detected, so heights cannot be measured. Retake with the pole visible, or estimate heights from the entered DBH (lower precision).')
+          : tr('수고봉 눈금을 검출하지 못해 높이를 계측할 수 없습니다. 수고봉이 보이도록 재촬영하거나, 실측 흉고직경을 입력하여 높이를 추정할 수 있습니다.',
+              'No pole graduations detected, so heights cannot be measured. Retake with the pole visible, or enter the measured DBH to estimate heights.');
     }
     return null;
   }
@@ -639,8 +639,8 @@ class _ResultScreenState extends State<ResultScreen> {
   /// 수고봉 없이 흉고직경으로 스케일을 세운 방위에는 그 사실을 남긴다.
   String? _faceInfo(AzimuthResult? f) {
     if (f == null || f.scaleSource != 'dbh') return null;
-    return tr('이 방위는 수고봉이 없어 입력한 흉고직경(${d.dbhCm.toStringAsFixed(0)} cm)으로 스케일을 추정했습니다. 수고봉 계측보다 정밀도가 낮습니다.',
-        'Scale on this face was estimated from the entered DBH (${d.dbhCm.toStringAsFixed(0)} cm) because no pole was found - lower precision than a pole measurement.');
+    return tr('이 방위는 수고봉이 검출되지 않아 입력한 흉고직경(${d.dbhCm.toStringAsFixed(0)} cm)으로 스케일을 추정했습니다. 수고봉 기준보다 정밀도가 낮습니다.',
+        'No pole detected on this aspect; the scale was estimated from the entered DBH (${d.dbhCm.toStringAsFixed(0)} cm), with lower precision than a pole-based scale.');
   }
 
   Widget _faceNotice(AppPalette p, String msg,
@@ -719,7 +719,7 @@ class _ResultScreenState extends State<ResultScreen> {
             Icon(Icons.tune, size: 20, color: p.navy),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(tr('${az.label} 면 손보기', 'Fix ${az.label}'),
+              child: Text(tr('${az.label} 방위 수정', 'Edit ${az.label} aspect'),
                   style:
                       const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
             ),
@@ -729,7 +729,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 decoration: BoxDecoration(
                     color: p.ember.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999)),
-                child: Text(tr('직접 입력됨', 'edited'),
+                child: Text(tr('직접 입력값', 'manual entry'),
                     style: TextStyle(
                         color: p.ember,
                         fontSize: 11,
@@ -738,8 +738,8 @@ class _ResultScreenState extends State<ResultScreen> {
           ]),
           const SizedBox(height: 4),
           Text(
-              tr('자동 분석이 어긋나면 값을 직접 넣거나, 지표면·대상목을 지정해 다시 분석하세요.',
-                  'Enter values directly, or set the ground line / target trunk and re-analyse.'),
+              tr('자동 분석 결과가 부정확하면 값을 직접 입력하거나 지표면·대상목을 지정해 재분석하세요.',
+                  'If the automatic result is inaccurate, enter values manually or set the ground line and target tree, then re-analyse.'),
               style: TextStyle(fontSize: 11.5, height: 1.4, color: p.muted)),
           const SizedBox(height: 10),
           Row(children: [
@@ -747,7 +747,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: OutlinedButton.icon(
                 onPressed: _rescaling ? null : () => _editFaceValues(az, f),
                 icon: const Icon(Icons.edit_note, size: 18),
-                label: Text(tr('값 직접 입력', 'Enter values'),
+                label: Text(tr('계측값 직접 입력', 'Enter values manually'),
                     style: const TextStyle(fontSize: 12.5)),
               ),
             ),
@@ -756,7 +756,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: FilledButton.tonalIcon(
                 onPressed: _rescaling ? null : () => _adjustFace(az, f),
                 icon: const Icon(Icons.crop_free, size: 18),
-                label: Text(tr('지표면·대상목', 'Ground / target'),
+                label: Text(tr('지표면·대상목 지정', 'Set ground line and target'),
                     style: const TextStyle(fontSize: 12.5)),
               ),
             ),
@@ -835,9 +835,9 @@ class _ResultScreenState extends State<ResultScreen> {
           ..showSnackBar(SnackBar(
             duration: const Duration(milliseconds: 1400),
             content: Text(only == null
-                ? tr('다시 분석했습니다', 'Re-analysed')
-                : tr('${only.label} 면을 다시 분석했습니다',
-                    '${only.label} re-analysed')),
+                ? tr('재분석을 완료했습니다', 'Re-analysis complete')
+                : tr('${only.label} 방위를 재분석했습니다',
+                    '${only.label} aspect re-analysed')),
           ));
       }
     } catch (e) {
@@ -845,7 +845,7 @@ class _ResultScreenState extends State<ResultScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(SnackBar(
-              content: Text(tr('다시 분석 실패: $e', 'Re-analysis failed: $e'))));
+              content: Text(tr('재분석 실패: $e', 'Re-analysis failed: $e'))));
       }
     } finally {
       if (mounted) setState(() => _rescaling = false);
@@ -923,14 +923,14 @@ class _ResultScreenState extends State<ResultScreen> {
           Expanded(
             child: Text(
                 suspect
-                    ? tr('계측값이 실제와 달라 보입니다. 수고봉 간격이 맞는지 확인하세요.',
-                        'Measurements look off. Check the pole spacing.')
+                    ? tr('계측값이 비정상적입니다. 수고봉 눈금 간격을 확인하세요.',
+                        'Measurements appear abnormal. Check the pole graduation interval.')
                     : kinds.redWhiteOnly
-                        ? tr('수고봉 간격 · 빨강/흰 폴 자동', 'Pole spacing · red/white auto')
+                        ? tr('수고봉 눈금 간격 · 적백 폴 자동 적용', 'Pole graduation interval · range pole (auto)')
                         : kinds.mixed
-                            ? tr('수고봉 간격 (빨강/흰 폴 면은 ${rwGap.toStringAsFixed(2)} m 자동)',
-                                'Pole spacing (red/white faces: ${rwGap.toStringAsFixed(2)} m auto)')
-                            : tr('수고봉 간격', 'Pole spacing'),
+                            ? tr('수고봉 눈금 간격 (적백 폴 방위는 ${rwGap.toStringAsFixed(2)} m 자동 적용)',
+                                'Pole graduation interval (range-pole aspects: ${rwGap.toStringAsFixed(2)} m auto)')
+                            : tr('수고봉 눈금 간격', 'Pole graduation interval'),
                 style: TextStyle(
                     fontSize: suspect ? 11.5 : 12.5,
                     height: 1.4,
@@ -964,10 +964,10 @@ class _ResultScreenState extends State<ResultScreen> {
           Expanded(
             child: Text(
                 d.dbhCm > 0
-                    ? tr('$n개 방위에서 수고봉 스케일이 없습니다. 입력한 흉고직경(${d.dbhCm.toStringAsFixed(0)} cm)으로 높이를 추정할 수 있습니다.',
-                        '$n face(s) have no pole scale. Heights can be estimated from the entered DBH (${d.dbhCm.toStringAsFixed(0)} cm).')
-                    : tr('$n개 방위에서 수고봉 스케일이 없습니다. 위에 실측 흉고직경을 넣으면 높이를 추정할 수 있습니다.',
-                        '$n face(s) have no pole scale. Enter the measured DBH above to estimate heights.'),
+                    ? tr('$n개 방위에서 수고봉이 검출되지 않았습니다. 입력한 흉고직경(${d.dbhCm.toStringAsFixed(0)} cm)으로 높이를 추정할 수 있습니다.',
+                        'No pole detected on $n aspect(s). Heights can be estimated from the entered DBH (${d.dbhCm.toStringAsFixed(0)} cm).')
+                    : tr('$n개 방위에서 수고봉이 검출되지 않았습니다. 상단에 실측 흉고직경을 입력하면 높이를 추정할 수 있습니다.',
+                        'No pole detected on $n aspect(s). Enter the measured DBH above to estimate heights.'),
                 style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4)),
           ),
         ]),
@@ -1006,10 +1006,10 @@ class _ResultScreenState extends State<ResultScreen> {
         Expanded(
           child: Text(
             tr(
-              '$facesUsed개 방위만 계측돼 4방위 기준으로 환산했습니다. '
-                  '수고봉 1 m 경계가 2개 이상 보이게 찍으면 정확해집니다.',
-              'Only $facesUsed of 4 faces could be measured; BSI is scaled to a '
-                  '4-face basis. Frame at least two 1 m pole marks for full accuracy.',
+              '$facesUsed개 방위만 계측되어 4방위 기준으로 환산했습니다. '
+                  '수고봉 눈금 경계가 2개 이상 보이도록 촬영하면 정확도가 높아집니다.',
+              'Only $facesUsed of 4 aspects were measured; BSI is scaled to a '
+                  '4-aspect basis. Keep at least two pole graduations in frame for full accuracy.',
             ),
             style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.4),
           ),

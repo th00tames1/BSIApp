@@ -46,7 +46,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(SnackBar(
-              content: Text(tr('이미 있는 조사지명입니다', 'Site name already exists'))));
+              content: Text(tr('이미 등록된 조사지명입니다', 'Site name already exists'))));
       }
       return;
     }
@@ -64,16 +64,16 @@ class _ProjectScreenState extends State<ProjectScreen> {
     return Scaffold(
       appBar: AppBar(
           title: Text(editing
-              ? tr('프로젝트 수정', 'Edit Project')
-              : tr('새 프로젝트', 'New Project'))),
+              ? tr('프로젝트 수정', 'Edit project')
+              : tr('새 프로젝트', 'New project'))),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
           children: [
             Text(
-                tr('조사지 정보는 한 번만 입력합니다. 이후 조사목은 지도의 나무 버튼으로 자동 번호와 함께 바로 촬영합니다.',
-                    'Enter the site details once. After that, tap the tree button on the map to capture each tree with an auto-assigned number.'),
+                tr('조사지 정보는 최초 1회만 입력합니다. 이후 조사목은 지도 화면의 조사목 추가 버튼으로 번호가 자동 부여됩니다.',
+                    'Site details are entered once. Trees are then added from the map with automatic numbering.'),
                 style: TextStyle(fontSize: 12.5, color: p.muted, height: 1.5)),
             _label(p, tr('조사지명', 'Site name'), required: true),
             TextFormField(
@@ -97,15 +97,15 @@ class _ProjectScreenState extends State<ProjectScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                   hintText: '0',
-                  helperText: tr('이 번호부터 +1씩 자동 부여됩니다',
-                      'Numbering starts here and increases by 1')),
+                  helperText: tr('이 번호부터 순차적으로 자동 부여됩니다',
+                      'Assigned sequentially from this number')),
             ),
             const SizedBox(height: 26),
             ElevatedButton(
               onPressed: _save,
               child: Text(editing
-                  ? tr('수정 저장', 'Save Changes')
-                  : tr('프로젝트 시작', 'Start Project')),
+                  ? tr('저장', 'Save')
+                  : tr('프로젝트 생성', 'Create project')),
             ),
           ],
         ),

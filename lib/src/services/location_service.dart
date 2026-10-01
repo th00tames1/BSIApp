@@ -58,7 +58,7 @@ class LocationService {
           tr('기기 위치 서비스가 꺼져 있습니다', 'Device location service is off'),
         GpsStatus.denied =>
           tr('위치 권한이 거부되었습니다', 'Location permission denied'),
-        GpsStatus.deniedForever => tr('위치 권한이 영구 거부됨 · 설정에서 허용하세요',
-            'Location permission permanently denied · Allow it in Settings'),
+        GpsStatus.deniedForever => tr('위치 권한이 거부되었습니다. 설정에서 허용하세요',
+            'Location permission denied. Allow it in Settings'),
       };
 }

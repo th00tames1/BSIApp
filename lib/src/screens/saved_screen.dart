@@ -114,8 +114,8 @@ class _SavedScreenState extends State<SavedScreen> {
     // 간격 변경은 이미 확정됐다. 이어지는 재분석이 실패하더라도 조사자가
     // "취소된 줄" 알면 안 되므로, 그 사실을 재분석 결과와 **한 문장으로 묶어**
     // 알린다(_snack은 앞선 스낵바를 지우므로 따로 띄우면 덮인다).
-    final gapMsg = tr('수고봉 간격을 ${v.toStringAsFixed(2)} m로 바꿨습니다.',
-        'Pole spacing set to ${v.toStringAsFixed(2)} m.');
+    final gapMsg = tr('수고봉 눈금 간격을 ${v.toStringAsFixed(2)} m로 변경했습니다.',
+        'Pole graduation interval set to ${v.toStringAsFixed(2)} m.');
     // 조사자는 간격만 고쳤다. 야장에 직접 넣은 수고·그을음 높이는 실측값이라
     // 여기서 지우면 안 된다(보통의 '다시 분석'은 그것을 알리고 지운다).
     if (hasShots) {
@@ -134,15 +134,15 @@ class _SavedScreenState extends State<SavedScreen> {
         .where((f) => !f.manual && !f.manualEdited && f.imagePath != null)
         .toList(growable: false);
     if (shots.isEmpty) {
-      _snack(prefix + tr('저장된 촬영 사진이 없어 다시 분석할 수 없습니다',
+      _snack(prefix + tr('저장된 사진이 없어 재분석할 수 없습니다',
           'No stored photos to re-analyse'));
       return;
     }
     final missing =
         shots.where((f) => !File(f.imagePath!).existsSync()).toList();
     if (missing.isNotEmpty) {
-      _snack(prefix + tr('사진 파일 ${missing.length}장을 찾을 수 없어 다시 분석할 수 없습니다',
-          '${missing.length} photo file(s) missing, cannot re-analyse'));
+      _snack(prefix + tr('사진 파일 ${missing.length}장을 찾을 수 없어 재분석할 수 없습니다',
+          '${missing.length} photo file(s) missing; cannot re-analyse'));
       return;
     }
 
@@ -151,23 +151,21 @@ class _SavedScreenState extends State<SavedScreen> {
         : await showDialog<bool>(
             context: context,
             builder: (_) => AlertDialog(
-              title: Text(tr('이미지 다시 분석', 'Re-analyse images')),
+              title: Text(tr('이미지 재분석', 'Re-analyse images')),
         content: Text(tr(
-            '저장된 ${shots.length}장을 같은 모델로 다시 분석해 방위별 계측값과 통합 BSI를 '
-                '새로 계산합니다. 흉고직경이 입력돼 있으면 수고봉이 없던 면도 그 값으로 스케일을 세웁니다.\n\n조사자가 값을 직접 넣은 면은 그대로 둡니다. '
-                '흉고직경은 그대로 두고 고사 확률만 다시 판정합니다.',
-            'Re-runs the same model on the ${shots.length} stored photos and '
-                'recomputes the per-azimuth measurements and the integrated BSI.\n\n'
-                'Faces without a pole scale fall back to the entered DBH; faces you '
-                'filled in by hand are kept. '
-                'DBH is kept; only the mortality verdict is recomputed.')),
+            '저장된 사진 ${shots.length}장을 재분석하여 방위별 계측값과 통합 BSI를 다시 산출합니다.\n\n'
+                '직접 입력한 방위와 흉고직경은 유지되며, 수고봉이 검출되지 않은 방위는 흉고직경으로 스케일을 추정합니다.',
+            'Re-analyses the ${shots.length} stored photos and recalculates the '
+                'per-aspect measurements and the integrated BSI.\n\n'
+                'Manually entered aspects and the DBH are retained; aspects without a '
+                'pole are scaled from the DBH.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('취소', 'Cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(tr('다시 분석', 'Re-analyse'))),
+              child: Text(tr('재분석', 'Re-analyse'))),
         ],
       ),
     );
@@ -247,7 +245,7 @@ class _SavedScreenState extends State<SavedScreen> {
     Navigator.pop(context); // 진행 다이얼로그
     progress.dispose();
     if (err != null) {
-      _snack(prefix + tr('다시 분석 실패: $err', 'Re-analysis failed: $err'));
+      _snack(prefix + tr('재분석 실패: $err', 'Re-analysis failed: $err'));
       return;
     }
     await _apply(next!);
@@ -256,7 +254,7 @@ class _SavedScreenState extends State<SavedScreen> {
       _page = 0;
       if (_pager.hasClients) _pager.jumpToPage(0);
     });
-    _snack(prefix + tr('다시 분석했습니다', 'Re-analysed'));
+    _snack(prefix + tr('재분석을 완료했습니다', 'Re-analysis complete'));
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -264,7 +262,7 @@ class _SavedScreenState extends State<SavedScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(tr('조사목 삭제', 'Delete tree')),
-        content: Text(tr('조사목 ${record.treeId}을(를) 삭제합니다. 되돌릴 수 없습니다.',
+        content: Text(tr('조사목 ${record.treeId}을(를) 삭제합니다. 삭제한 기록은 복구할 수 없습니다.',
             'Tree ${record.treeId} will be deleted. This cannot be undone.')),
         actions: [
           TextButton(
@@ -349,13 +347,13 @@ class _SavedScreenState extends State<SavedScreen> {
     final lat = double.tryParse(res.lat);
     final lon = double.tryParse(res.lon);
     if (lat == null || lon == null) {
-      _snack(tr('위도·경도를 모두 숫자로 입력하세요 (두 칸을 비우면 좌표 삭제)',
-          'Enter both latitude and longitude as numbers (clear both to remove)'));
+      _snack(tr('위도와 경도를 숫자로 입력하세요 (모두 비우면 좌표 삭제)',
+          'Enter latitude and longitude as numbers (leave both empty to remove)'));
       return;
     }
     if (lat.abs() > 90 || lon.abs() > 180) {
       _snack(tr('좌표 범위가 올바르지 않습니다 (위도 ±90, 경도 ±180)',
-          'Out of range (lat ±90, lon ±180)'));
+          'Coordinates out of range (lat ±90, lon ±180)'));
       return;
     }
     await _apply(record.copyWith(lat: lat, lon: lon));
@@ -382,7 +380,7 @@ class _SavedScreenState extends State<SavedScreen> {
         actions: [
           // 흉고직경을 고친 뒤 스케일을 다시 세우려면 현장에서도 필요하다.
           IconButton(
-            tooltip: tr('이미지 다시 분석', 'Re-analyse images'),
+            tooltip: tr('이미지 재분석', 'Re-analyse images'),
             onPressed: _reanalyse,
             icon: const Icon(Icons.refresh),
           ),
@@ -479,10 +477,10 @@ class _SavedScreenState extends State<SavedScreen> {
                   _editNumber(tr('수고', 'Tree height'), _heightM, 'm',
                       (v) => record.copyWith(heightM: v),
                       decimals: 2,
-                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다. '
-                          'BSI까지 새로 계산하려면 상단의 다시 분석을 쓰세요.',
-                          'Stored for the record and CSV; does not change the BSI. '
-                              'Use Re-analyse above to recompute the BSI.'));
+                      note: tr('기록·CSV 전용 값이며 통합 BSI에는 반영되지 않습니다. '
+                          'BSI를 다시 산출하려면 상단의 재분석을 실행하세요.',
+                          'Used for records and CSV only; the integrated BSI is not affected. '
+                              'Run Re-analyse above to recalculate the BSI.'));
                 }),
                 Divider(height: 1, color: p.line),
                 _row(p, Icons.local_fire_department_outlined,
@@ -492,10 +490,10 @@ class _SavedScreenState extends State<SavedScreen> {
                   _editNumber(tr('그을음 높이', 'Char height'), _sootM, 'm',
                       (v) => record.copyWith(sootMaxM: v),
                       decimals: 2,
-                      note: tr('기록·CSV용 값으로, 통합 BSI에는 반영되지 않습니다. '
-                          'BSI까지 새로 계산하려면 상단의 다시 분석을 쓰세요.',
-                          'Stored for the record and CSV; does not change the BSI. '
-                              'Use Re-analyse above to recompute the BSI.'));
+                      note: tr('기록·CSV 전용 값이며 통합 BSI에는 반영되지 않습니다. '
+                          'BSI를 다시 산출하려면 상단의 재분석을 실행하세요.',
+                          'Used for records and CSV only; the integrated BSI is not affected. '
+                              'Run Re-analyse above to recalculate the BSI.'));
                 }),
                 Divider(height: 1, color: p.line),
                 Builder(builder: (_) {
@@ -505,11 +503,11 @@ class _SavedScreenState extends State<SavedScreen> {
                       p,
                       Icons.straighten_outlined,
                       kinds.redWhiteOnly
-                          ? tr('수고봉 간격 · 빨강/흰 폴 자동', 'Pole spacing · red/white auto')
+                          ? tr('수고봉 눈금 간격 · 적백 폴 자동 적용', 'Pole graduation interval · range pole (auto)')
                           : kinds.mixed
-                              ? tr('수고봉 간격 (빨강/흰 폴 면은 ${rwGap.toStringAsFixed(2)} m 자동)',
-                                  'Pole spacing (red/white faces: ${rwGap.toStringAsFixed(2)} m auto)')
-                              : tr('수고봉 간격', 'Pole spacing'),
+                              ? tr('수고봉 눈금 간격 (적백 폴 방위는 ${rwGap.toStringAsFixed(2)} m 자동 적용)',
+                                  'Pole graduation interval (range-pole aspects: ${rwGap.toStringAsFixed(2)} m auto)')
+                              : tr('수고봉 눈금 간격', 'Pole graduation interval'),
                       '${(kinds.redWhiteOnly ? rwGap : record.poleGapM).toStringAsFixed(2)} m',
                       onTap: _editPoleGap);
                 }),
@@ -784,8 +782,8 @@ class _GpsDialogState extends State<_GpsDialog> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-                tr('두 칸을 모두 비우면 좌표를 지웁니다 (지도 핀 제거)',
-                    'Clear both fields to remove the coordinates (map pin)'),
+                tr('두 값을 모두 비우면 좌표와 지도 표시가 삭제됩니다',
+                    'Leave both empty to remove the coordinates and map marker'),
                 style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
           ),
         ]),

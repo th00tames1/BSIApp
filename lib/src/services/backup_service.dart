@@ -171,24 +171,24 @@ class BackupService {
       }
       if (meta == null || surveys == null) {
         throw const BackupException(
-            '백업 정보(backup.json)가 없습니다. 조각이 여럿이면 모두 함께 고르세요.');
+            '백업 정보(backup.json)가 없습니다. 분할 백업은 모든 파일을 함께 선택하세요.');
       }
       if (meta['format'] != format) {
         throw const BackupException('BSI 앱 백업 파일이 아닙니다.');
       }
       if (((meta['formatVersion'] as num?)?.toInt() ?? 0) > formatVersion) {
-        throw const BackupException('더 새 버전 앱이 만든 백업입니다. 앱을 업데이트하세요.');
+        throw const BackupException('상위 버전 앱에서 생성된 백업입니다. 앱을 업데이트하세요.');
       }
       final parts = (meta['parts'] as num?)?.toInt() ?? 1;
       if (ids.length > 1 || (ids.isNotEmpty && !ids.contains(meta['backupId']))) {
-        throw const BackupException('서로 다른 백업의 조각이 섞였습니다.');
+        throw const BackupException('서로 다른 백업의 분할 파일이 섞여 있습니다.');
       }
       final missing = [
         for (var i = 1; i <= parts; i++)
           if (!indices.contains(i)) i
       ];
       if (missing.isNotEmpty) {
-        throw BackupException('백업 조각이 빠졌습니다: ${missing.join(', ')}번 (전체 $parts개)');
+        throw BackupException('분할 파일이 누락되었습니다: ${missing.join(', ')}번 (총 $parts개)');
       }
 
       final root = p.normalize(docs.path);

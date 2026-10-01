@@ -70,11 +70,11 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
       return;
     }
     if (h <= 0) {
-      setState(() => _err = tr('그을음 높이는 0보다 커야 합니다', 'Char height must be > 0'));
+      setState(() => _err = tr('그을음 높이는 0보다 커야 합니다', 'Char height must be greater than 0'));
       return;
     }
     if (rPct < 0 || rPct > 100) {
-      setState(() => _err = tr('그을음 면적비는 0 ~ 100 % 입니다', 'Char ratio must be 0-100%'));
+      setState(() => _err = tr('그을음 면적비는 0 ~ 100 % 범위로 입력하세요', 'Char area ratio must be between 0 and 100 %'));
       return;
     }
     final base = widget.existing;
@@ -118,7 +118,7 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
           Expanded(
             child: Text(
                 _hasPhoto
-                    ? tr('${widget.az.label} 값 수정', 'Edit ${widget.az.label}')
+                    ? tr('${widget.az.label} 계측값 수정', 'Edit ${widget.az.label} values')
                     : tr('${widget.az.label} 직접 입력',
                         'Enter ${widget.az.label} manually'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
@@ -129,11 +129,12 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
           alignment: Alignment.centerLeft,
           child: Text(
               _hasPhoto
-                  ? tr('분석값 대신 조사자 값이 BSI 합에 들어갑니다. 사진과 오버레이는 그대로 남습니다.',
-                      'Your values replace the analysed ones in the BSI sum; the photo and overlay are kept.')
-                  : tr('사진을 찍지 못한 방위를 야장 값으로 채웁니다. 두 값이 그대로 BSI 합에 들어갑니다.',
-                      'Fill an un-photographed aspect from your field notes. '
-                          'Both values feed the BSI sum directly.'),
+                  ? tr('자동 분석값 대신 입력값을 BSI 산출에 사용합니다. 사진과 분석 표시는 유지됩니다.',
+                      'Entered values replace the automatic results in the BSI calculation. '
+                          'The photo and overlay are retained.')
+                  : tr('미촬영 방위를 야장 값으로 입력합니다. 입력값은 BSI 산출에 그대로 사용됩니다.',
+                      'Enter field-note values for an aspect without a photo. '
+                          'They are used directly in the BSI calculation.'),
               style: TextStyle(fontSize: 12, height: 1.45, color: p.muted)),
         ),
         const SizedBox(height: 16),
@@ -167,7 +168,7 @@ class _ManualFaceSheetState extends State<_ManualFaceSheet> {
           if (widget.existing != null && !_hasPhoto)
             TextButton(
               onPressed: () => Navigator.pop(context, removedManualFace),
-              child: Text(tr('입력 지우기', 'Clear'),
+              child: Text(tr('입력 초기화', 'Clear entries'),
                   style: TextStyle(color: p.danger)),
             ),
           const Spacer(),

@@ -67,13 +67,14 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
         ? null
         : AnalysisService.instance.integrate(scaled, widget.dbhCm);
     return AlertDialog(
-      title: Text(tr('수고봉 간격', 'Pole spacing')),
+      title: Text(tr('수고봉 눈금 간격', 'Pole graduation interval')),
       content: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(
-              tr('수고봉의 색 띠 하나의 길이입니다. 이 값이 어긋나면 모든 높이가 '
-                  '같은 배율로 틀어집니다.',
-                  'Length of one colour band. A wrong value scales every height.'),
+              tr('수고봉 색 구간 하나의 실제 길이입니다. 값이 틀리면 모든 높이 계측값이 '
+                  '같은 비율로 달라집니다.',
+                  'Actual length of one colour band on the pole. An incorrect value '
+                      'scales every height proportionally.'),
               style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
           const SizedBox(height: 12),
           // 흔한 봉은 눌러서 고른다. 자판을 띄우지 않으므로 미리보기가 가리지
@@ -100,7 +101,7 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
               suffixText: 'm',
               border: const OutlineInputBorder(),
               errorText:
-                  v == null ? tr('0보다 큰 값을 넣으세요', 'Enter a value above 0') : null,
+                  v == null ? tr('0보다 큰 값을 입력하세요', 'Enter a value greater than 0') : null,
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -117,14 +118,14 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
               ),
               child:
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr('이 값이면', 'With this value'),
+                Text(tr('적용 시 예상값', 'Preview with this value'),
                     style: TextStyle(fontSize: 11, color: p.muted)),
                 const SizedBox(height: 4),
-                _pv(p, tr('수고', 'Height'),
+                _pv(p, tr('수고', 'Tree height'),
                     _maxOf(scaled, (f) => f.visibleStemHeightM), 'm'),
                 _pv(p, tr('그을음 높이', 'Char height'),
                     _maxOf(scaled, (f) => f.sootHeightM), 'm'),
-                _pv(p, tr('통합 BSI', 'Total BSI'), integ.bsi, ''),
+                _pv(p, tr('통합 BSI', 'Integrated BSI'), integ.bsi, ''),
                 // 수고봉이 아닌 방법으로 스케일을 세운 면은 간격과 무관하다.
                 // 알리지 않으면 "왜 기대만큼 안 움직이지?"로 읽힌다.
                 if (gapIndependentFaceCount(widget.faces,
@@ -133,10 +134,10 @@ class _PoleGapDialogState extends State<PoleGapDialog> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                        tr('${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)}개 방위는 이 값에 영향받지 않습니다 '
-                            '(빨강/흰 폴로 잰 면은 0.2 m 고정 · 수고봉이 아닌 방법으로 스케일을 세웠거나 값을 직접 넣은 면).',
-                            '${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)} face(s) are unaffected '
-                                '(red/white pole faces use a fixed 0.2 m; others were scaled without the pole or entered by hand).'),
+                        tr('${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)}개 방위는 이 값의 영향을 받지 않습니다 '
+                            '(적백 폴 방위는 0.2 m 고정, 그 밖에 다른 방법으로 스케일을 산출했거나 직접 입력한 방위).',
+                            '${gapIndependentFaceCount(widget.faces, dbhFollowsGap: widget.dbhFollowsGap)} aspect(s) are unaffected '
+                                '(range-pole aspects are fixed at 0.2 m; others were scaled by another method or entered manually).'),
                         style:
                             TextStyle(fontSize: 10.5, height: 1.35, color: p.muted)),
                   ),

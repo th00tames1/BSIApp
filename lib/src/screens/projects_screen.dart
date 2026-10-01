@@ -37,8 +37,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       builder: (_) => AlertDialog(
         title: Text(tr('프로젝트 삭제', 'Delete project')),
         content: Text(tr(
-          '"${p.site}" 프로젝트를 목록에서 지웁니다.\n(저장된 조사목 기록은 그대로 남습니다.)',
-          'Removes "${p.site}" from the project list.\n(Saved tree records are kept.)',
+          '"${p.site}" 프로젝트를 목록에서 삭제합니다.\n저장된 조사목 기록은 유지됩니다.',
+          'Removes "${p.site}" from the project list.\nSaved tree records are retained.',
         )),
         actions: [
           TextButton(
@@ -89,7 +89,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.folder_open_outlined, size: 56, color: p.muted),
           const SizedBox(height: 12),
-          Text(tr('프로젝트가 없습니다', 'No projects yet'),
+          Text(tr('프로젝트가 없습니다', 'No projects'),
               style: TextStyle(color: p.muted)),
           const SizedBox(height: 18),
           SizedBox(

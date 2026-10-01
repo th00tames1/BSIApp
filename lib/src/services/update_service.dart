@@ -35,10 +35,10 @@ class UpdateService {
       final res = await req.close().timeout(const Duration(seconds: 20));
       final body = await res.transform(utf8.decoder).join();
       if (res.statusCode == 404) {
-        throw const UpdateException('아직 게시된 새 버전이 없습니다.', noRelease: true);
+        throw const UpdateException('배포된 버전이 없습니다.', noRelease: true);
       }
       if (res.statusCode != 200) {
-        throw UpdateException('GitHub 응답 오류(${res.statusCode}). 잠시 뒤 다시 시도하세요.');
+        throw UpdateException('GitHub 응답 오류(${res.statusCode}). 잠시 후 다시 시도하세요.');
       }
       final r = parseRelease(jsonDecode(body) as Map<String, dynamic>, await _abis());
       if (r == null) {
@@ -48,7 +48,7 @@ class UpdateService {
     } on SocketException {
       throw const UpdateException('인터넷에 연결되어 있지 않습니다.');
     } on HandshakeException {
-      throw const UpdateException('GitHub에 안전하게 연결하지 못했습니다.');
+      throw const UpdateException('GitHub 보안 연결에 실패했습니다.');
     } finally {
       client.close(force: true);
     }
@@ -150,7 +150,7 @@ class UpdateService {
       }
       if (i < attempts - 1) await Future.delayed(retryDelay * (i + 1));
     }
-    throw const UpdateException('내려받는 중 연결이 끊겼습니다. 다시 누르면 받은 데서부터 이어 받습니다.');
+    throw const UpdateException('다운로드 중 연결이 끊어졌습니다. 다시 시도하면 중단된 지점부터 이어서 받습니다.');
   }
 
   static Future<void> _fetch(ReleaseInfo r, File out,
@@ -171,7 +171,7 @@ class UpdateService {
       final resume = res.statusCode == 206;
       if (res.statusCode != 200 && !resume) {
         await res.drain<void>();
-        throw UpdateException('내려받기 실패(${res.statusCode})');
+        throw UpdateException('다운로드 실패(${res.statusCode})');
       }
       final startAt = resume ? have : 0; // 200이면 서버가 이어 받기를 안 해 준 것 — 처음부터
       final total = r.apkBytes > 0

@@ -219,7 +219,7 @@ class _MapScreenState extends State<MapScreen> {
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
             content: Text(
-                tr('현재 위치를 가져올 수 없습니다', 'Cannot get current location'))));
+                tr('현재 위치를 확인할 수 없습니다', 'Current location unavailable'))));
       return;
     }
     final here = LatLng(pos.latitude, pos.longitude);
@@ -309,8 +309,8 @@ class _MapScreenState extends State<MapScreen> {
                     child: Text(
                       _overlays.isEmpty
                           ? tr('불러온 경계 없음', 'No boundary loaded')
-                          : tr('${_overlays.length}개 도형',
-                              '${_overlays.length} shapes'),
+                          : tr('도형 ${_overlays.length}개',
+                              '${_overlays.length} shape(s)'),
                       style: TextStyle(fontSize: 13.5, color: p.muted),
                     ),
                   ),
@@ -323,7 +323,7 @@ class _MapScreenState extends State<MapScreen> {
                         setSheet(() {});
                       },
                       child:
-                          Text(tr('지우기', 'Clear'), style: TextStyle(color: p.danger)),
+                          Text(tr('삭제', 'Remove'), style: TextStyle(color: p.danger)),
                     ),
                 ]),
               ),
@@ -378,7 +378,7 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     if (shapes.isEmpty) {
-      _toast(tr('도형을 찾지 못했습니다', 'No shapes found'));
+      _toast(tr('파일에서 도형을 찾을 수 없습니다', 'No shapes found in the file'));
       return;
     }
     final merged = [..._overlays, ...shapes];
@@ -386,7 +386,7 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted) return;
     setState(() => _overlays = merged);
     _toast(tr('경계 ${shapes.length}개를 불러왔습니다',
-        'Imported ${shapes.length} boundaries'));
+        'Imported ${shapes.length} boundary shape(s)'));
 
     final pts = [for (final s in shapes) ...s.points];
     if (pts.length >= 2) {
@@ -477,7 +477,7 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(children: [
                 _sheetRow(
                     Icons.local_fire_department_outlined,
-                    tr('통합 BSI', 'Overall BSI'),
+                    tr('통합 BSI', 'Integrated BSI'),
                     r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2),
                     p),
                 Divider(height: 1, color: p.line),
@@ -853,7 +853,7 @@ class _ResumeBanner extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(tr('이어서 조사', 'Resume survey'),
+            Text(tr('작성 중인 조사', 'Survey in progress'),
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
             const SizedBox(height: 1),
             Text(
@@ -870,7 +870,7 @@ class _ResumeBanner extends StatelessWidget {
               foregroundColor: p.onNavy,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               minimumSize: const Size(0, 38)),
-          child: Text(tr('이어하기', 'Resume')),
+          child: Text(tr('계속', 'Resume')),
         ),
       ]),
     );

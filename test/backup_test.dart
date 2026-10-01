@@ -162,7 +162,7 @@ void main() {
               zipPaths: [parts.last.path],
               docs: Directory(p.join(tmp.path, 'd'))..createSync()),
           throwsA(isA<BackupException>()
-              .having((e) => e.message, 'message', contains('빠졌습니다'))));
+              .having((e) => e.message, 'message', contains('누락되었습니다'))));
     });
   });
 

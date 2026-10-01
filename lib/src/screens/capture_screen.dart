@@ -118,8 +118,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // 상시 배지 대신 진입 시 한 번만 안내하고 사라진다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showNotice(
-          tr('수고봉이 화면에 보이게 촬영해 주세요',
-              'Keep the measuring pole in frame when shooting'),
+          tr('수고봉이 화면에 들어오도록 촬영하세요',
+              'Keep the measuring pole in frame'),
           ms: 3200);
     });
   }
@@ -223,7 +223,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       case _GpsLevel.weak:
         _showNotice(acc == null
             ? tr('GPS 수신 중', 'Acquiring GPS')
-            : tr('GPS 약함 · ±$acc m', 'GPS weak · ±$acc m'));
+            : tr('GPS 정확도 낮음 · ±$acc m', 'Low GPS accuracy · ±$acc m'));
       case _GpsLevel.none:
         _showNotice(_gpsOk
             ? tr('GPS 신호 없음', 'No GPS fix')
@@ -242,8 +242,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     setNorthRef(want);
     final shown = Geomag.effective(want);
     if (shown != want) {
-      _showNotice(tr('이 기기에서는 편각을 알 수 없어 ${_refName(shown)} 기준으로 표시합니다',
-          'Declination unavailable, showing ${_refName(shown)}'));
+      _showNotice(tr('이 기기는 편각을 지원하지 않아 ${_refName(shown)} 기준으로 표시합니다',
+          'Declination not supported on this device; showing ${_refName(shown)}'));
       return;
     }
     final dec = Geomag.declinationDeg;
@@ -408,7 +408,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       CameraController c, ShotScore first) async {
     final byPoint = c.value.exposurePointSupported;
     if (!byPoint && _hwEvMax <= _hwEvMin) return null;
-    _showNotice(tr('역광. 줄기에 맞춰 다시 찍는 중', 'Backlit. Re-shooting on the trunk'),
+    _showNotice(tr('역광 감지: 수간 기준 노출로 재촬영 중', 'Backlight detected: re-shooting metered on the stem'),
         ms: 2400);
     try {
       if (byPoint) {
@@ -485,7 +485,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'cameraFile': source == 'gallery'
             ? {
                 'pickedName': galleryName,
-                'note': '갤러리 사진. 원본은 기기 갤러리에 있다',
+                'note': '갤러리에서 불러온 사진(원본은 기기 갤러리에 보관)',
               }
             : cameraFile,
         // 카메라 파일 → 분석용 표준 사진 변환(해상도·밝기·EXIF 제거)
@@ -585,7 +585,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       await c.setZoomLevel(z);
       if (mounted) setState(() => _zoom = z);
     } catch (e) {
-      if (mounted) _showNotice(tr('배율을 바꾸지 못했습니다', 'Could not change zoom'));
+      if (mounted) _showNotice(tr('줌 배율을 변경할 수 없습니다', 'Could not change the zoom level'));
     }
   }
 
@@ -640,15 +640,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       if (!mounted) return; // screen may have been popped mid-capture
       if (autoMetered) {
         _showNotice(
-            tr('역광이라 줄기에 맞춰 다시 찍었습니다', 'Backlit, re-shot on the trunk'),
+            tr('역광 감지: 수간 기준 노출로 재촬영했습니다', 'Backlight detected: re-shot metered on the stem'),
             ms: 2600);
       } else if (backlight != null && backlight.silhouette) {
         _showNotice(
-            tr('역광으로 줄기가 까맣게 찍혔습니다. 다른 쪽에서 다시 찍어 주세요',
-                'Backlit silhouette. Retake from another side'),
+            tr('역광으로 수간이 검게 촬영되었습니다. 다른 위치에서 재촬영하세요',
+                'The stem is silhouetted by backlight. Retake from another position'),
             ms: 3600);
       } else if (!tagged) {
-        _showNotice(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS'));
+        _showNotice(tr('이 방위는 위치 정보 없이 기록되었습니다', 'This aspect was recorded without a GPS position'));
       }
       _advance();
     } catch (e) {
@@ -712,7 +712,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     return showDialog<Azimuth>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(tr('어느 방위인가요?', 'Which azimuth?')),
+        title: Text(tr('방위 선택', 'Select aspect')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           for (final a in Azimuth.values)
             ListTile(
@@ -722,7 +722,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
                   color: d.photos.containsKey(a)
                       ? _soot
                       : Theme.of(context).colorScheme.outline),
-              title: Text(tr('${a.label} 방위', '${a.label} azimuth')),
+              title: Text(tr('${a.label} 방위', '${a.label} aspect')),
               subtitle: d.photos.containsKey(a)
                   ? Text(tr('덮어쓰기', 'Overwrite'))
                   : null,
@@ -773,7 +773,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // 백그라운드 저장이 남아 있으면 끝날 때까지 잠깐 기다린다 — 분석은
     // 파일이 완전히 쓰인 뒤에 읽어야 한다.
     if (_pendingShots.isNotEmpty) {
-      _showNotice(tr('사진 저장을 마무리하는 중…', 'Finishing photo save…'));
+      _showNotice(tr('사진 저장 중…', 'Saving photos…'));
       final waiting = List.of(_pendingShots);
       await Future.wait(waiting);
       _pendingShots.removeWhere(waiting.contains);
@@ -1394,7 +1394,7 @@ class _DeviceCompass extends StatelessWidget {
   Widget build(BuildContext context) {
     final h = heading;
     final label = h == null
-        ? tr('나침반 없음', 'No compass')
+        ? tr('나침반 미지원', 'Compass unavailable')
         : '${h.round()}° ${_dirs[((h % 360) / 45).round() % 8]}';
     final refLabel =
         ref == NorthRef.trueNorth ? tr('진북', 'True N') : tr('자북', 'Mag N');

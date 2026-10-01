@@ -38,7 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final t = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(tr('수고봉 경계 간격', 'Pole band spacing')),
+        title: Text(tr('수고봉 눈금 간격', 'Pole graduation interval')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
             controller: ctl,
@@ -50,8 +50,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-                tr('수고봉의 인접 경계(색 띠) 사이 실제 거리입니다. 잘못 넣으면 모든 높이가 그 배율로 틀어집니다.',
-                    'Real distance between adjacent bands on the pole. A wrong value scales every height by that factor.'),
+                tr('수고봉 색 구간 하나의 실제 길이입니다. 값이 틀리면 모든 높이 계측값이 같은 비율로 달라집니다.',
+                    'Actual length of one colour band on the pole. An incorrect value scales every height proportionally.'),
                 style: TextStyle(
                     fontSize: 12, height: 1.4, color: context.palette.muted)),
           ),
@@ -72,8 +72,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
-            content: Text(tr('0.05 ~ 5 m 사이로 입력하세요',
-                'Enter a value between 0.05 and 5 m'))));
+            content: Text(tr('0.05 ~ 5 m 범위로 입력하세요',
+                'Enter a value from 0.05 to 5 m'))));
       return;
     }
     setState(() => setPoleGapM(v));
@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : label?.call(v.$1, v.$2) ??
                       tr('파일 ${v.$1} / ${v.$2}', 'File ${v.$1} / ${v.$2}')),
               const SizedBox(height: 6),
-              Text(tr('앱을 닫지 마세요', 'Keep the app open'),
+              Text(tr('완료될 때까지 앱을 종료하지 마세요', 'Do not close the app until finished'),
                   style: TextStyle(fontSize: 12, color: context.palette.muted)),
             ]),
           ),
@@ -159,12 +159,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 공유 창으로 드라이브·Quick Share 등에 보낸다.
   Future<void> _exportBackup() async {
     final ok = await _confirm(
-        tr('전체 백업 만들기', 'Create full backup'),
-        tr('기록·사진·설정 전부를 파일로 만듭니다.\n저장 위치: Download › BSI_backup',
-            'Saves all records, photos and settings to a file.\nLocation: Download › BSI_backup'),
-        tr('만들기', 'Create'));
+        tr('백업 생성', 'Create backup'),
+        tr('조사 기록·사진·설정 전체를 백업 파일로 저장합니다.\n저장 위치: Download/BSI_backup',
+            'Saves all survey records, photos and settings to a backup file.\nLocation: Download/BSI_backup'),
+        tr('생성', 'Create'));
     if (!ok || !mounted) return;
-    final files = await _withProgress(tr('백업 만드는 중', 'Creating backup'),
+    final files = await _withProgress(tr('백업 생성 중', 'Creating backup'),
         (cb) => BackupService.exportAll(onProgress: cb));
     if (files == null || !mounted) return;
     final size = files.fold<int>(0, (s, f) => s + f.lengthSync());
@@ -172,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final share = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(tr('백업 완료', 'Backup ready')),
+        title: Text(tr('백업 완료', 'Backup complete')),
         content: Text(
             [
               for (final f in files) '• ${f.uri.pathSegments.last}',
@@ -180,9 +180,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   '${files.length} file(s) · ${_size(size)}'),
               '',
               inDownloads
-                  ? tr('Download › BSI_backup 에 저장했습니다.', 'Saved to Download › BSI_backup.')
-                  : tr('앱 안에 저장했습니다. 공유로 옮겨 두세요.',
-                      'Saved inside the app. Share it to keep a copy.'),
+                  ? tr('저장 위치: Download/BSI_backup', 'Location: Download/BSI_backup')
+                  : tr('앱 내부 저장소에 저장되었습니다. 공유 기능으로 외부에 보관하세요.',
+                      'Saved to app storage. Use Share to keep an external copy.'),
             ].join('\n'),
             style: const TextStyle(height: 1.45)),
         actions: [
@@ -191,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(tr('확인', 'OK'))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(tr('공유하기', 'Share'))),
+              child: Text(tr('공유', 'Share'))),
         ],
       ),
     );
@@ -217,13 +217,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
-            content: Text(tr('BSI 백업 파일(.zip)을 고르세요', 'Pick a BSI backup (.zip)'))));
+            content: Text(tr('BSI 백업 파일(.zip)을 선택하세요', 'Select a BSI backup file (.zip)'))));
       return;
     }
     final ok = await _confirm(
         tr('백업 불러오기', 'Import backup'),
-        tr('이 폰에 합칩니다. 이미 있는 기록은 건너뛰고, 설정은 백업 값으로 바뀝니다.',
-            'Merges into this phone. Existing records are skipped; settings take the backup values.'),
+        tr('백업 데이터를 이 기기에 병합합니다. 중복 기록은 제외되며 설정은 백업 값으로 대체됩니다.',
+            'Merges the backup into this device. Duplicate records are skipped and settings are replaced by the backup values.'),
         tr('불러오기', 'Import'));
     if (!ok || !mounted) return;
     final sum = await _withProgress(tr('백업 불러오는 중', 'Importing backup'),
@@ -239,22 +239,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(tr('불러오기 완료', 'Import complete')),
         content: Text(
             [
-              tr('기록 ${sum.recordsAdded}개 추가', '${sum.recordsAdded} record(s) added') +
+              tr('기록 ${sum.recordsAdded}건 추가', '${sum.recordsAdded} record(s) added') +
                   (sum.recordsSkipped > 0
-                      ? tr(' (이미 있던 ${sum.recordsSkipped}개 건너뜀)',
-                          ' (${sum.recordsSkipped} already here, skipped)')
+                      ? tr(' (중복 ${sum.recordsSkipped}건 제외)',
+                          ' (${sum.recordsSkipped} duplicate(s) skipped)')
                       : ''),
               tr('파일 ${sum.filesWritten}개 복원', '${sum.filesWritten} file(s) restored') +
                   (sum.filesSkipped > 0
-                      ? tr(' (같은 파일 ${sum.filesSkipped}개 건너뜀)',
-                          ' (${sum.filesSkipped} identical, skipped)')
+                      ? tr(' (동일 파일 ${sum.filesSkipped}개 제외)',
+                          ' (${sum.filesSkipped} identical file(s) skipped)')
                       : ''),
               if (sum.projectsAdded > 0)
                 tr('조사지 ${sum.projectsAdded}개 추가', '${sum.projectsAdded} site(s) added'),
               if (sum.draftRestored)
-                tr('진행 중이던 조사를 되살렸습니다', 'In-progress survey restored'),
-              tr('백업: 앱 ${sum.sourceApp} · ${sum.sourceCreatedAt}',
-                  'Backup: app ${sum.sourceApp} · ${sum.sourceCreatedAt}'),
+                tr('작성 중이던 조사를 복원했습니다', 'In-progress survey restored'),
+              tr('백업 출처: 앱 ${sum.sourceApp} · ${sum.sourceCreatedAt}',
+                  'Source: app ${sum.sourceApp} · ${sum.sourceCreatedAt}'),
             ].join('\n'),
             style: const TextStyle(height: 1.5)),
         actions: [
@@ -282,15 +282,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(m)));
     if (err is UpdateException && err.noRelease) {
-      snack(tr('최신 버전입니다 (v$kAppVersion)', 'You are up to date (v$kAppVersion)'));
+      snack(tr('이미 최신 버전입니다 ($kAppVersion)', 'Already up to date ($kAppVersion)'));
       return;
     }
     if (err != null || r == null) {
-      snack(tr('업데이트를 확인하지 못했습니다: $err', 'Could not check for updates: $err'));
+      snack(tr('업데이트 확인 실패: $err', 'Update check failed: $err'));
       return;
     }
     if (!r.isNewer) {
-      snack(tr('최신 버전입니다 (v$kAppVersion)', 'You are up to date (v$kAppVersion)'));
+      snack(tr('이미 최신 버전입니다 ($kAppVersion)', 'Already up to date ($kAppVersion)'));
       return;
     }
     final rel = r;
@@ -302,18 +302,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final go = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(tr('새 버전 v${rel.version}', 'New version v${rel.version}')),
+        title: Text(tr('새 버전 ${rel.version}', 'New version ${rel.version}')),
         content: SingleChildScrollView(
           child: Text(
               [
                 [
-                  if (date.isNotEmpty) tr('게시 $date', 'Released $date'),
+                  if (date.isNotEmpty) tr('배포일 $date', 'Released $date'),
                   _size(rel.apkBytes),
-                  tr('지금 v$kAppVersion', 'installed v$kAppVersion'),
+                  tr('현재 버전 $kAppVersion', 'current version $kAppVersion'),
                 ].join(' · '),
                 if (notes.isNotEmpty) ...['', notes],
                 '',
-                tr('기록은 그대로 남습니다.', 'Your records stay.'),
+                tr('업데이트 후에도 조사 기록은 유지됩니다.', 'Survey records are retained after the update.'),
               ].join('\n'),
               style: const TextStyle(height: 1.45)),
         ),
@@ -323,14 +323,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(tr('나중에', 'Later'))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(tr('받아서 설치', 'Download & install'))),
+              child: Text(tr('설치', 'Install'))),
         ],
       ),
     );
     if (go != true || !mounted) return;
     String mb(int b) => (b / (1024 * 1024)).toStringAsFixed(1);
     final apk = await _withProgress(
-        tr('새 버전 내려받는 중', 'Downloading update'),
+        tr('업데이트 다운로드 중', 'Downloading update'),
         (cb) => UpdateService.download(rel, onProgress: cb),
         label: (got, total) => '${mb(got)} / ${mb(total)} MB');
     if (apk == null || !mounted) return;
@@ -338,17 +338,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       started = await UpdateService.install(apk);
     } catch (e) {
-      if (mounted) snack(tr('설치 화면을 열지 못했습니다: $e', 'Could not open the installer: $e'));
+      if (mounted) snack(tr('설치 화면을 열 수 없습니다: $e', 'Could not open the installer: $e'));
       return;
     }
     if (!started && mounted) {
       await showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
-          title: Text(tr('설치 허용이 필요합니다', 'Allow installs')),
+          title: Text(tr('설치 권한 필요', 'Install permission required')),
           content: Text(
-              tr('"이 출처 허용"을 켠 뒤 다시 누르세요.',
-                  'Turn on "Allow from this source", then tap again.'),
+              tr('설정에서 "이 출처 허용"을 켠 후 다시 시도하세요.',
+                  'Enable "Allow from this source" in Settings, then try again.'),
               style: const TextStyle(height: 1.45)),
           actions: [
             TextButton(
@@ -373,8 +373,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
-            content: Text(tr('예시 데이터를 불러오지 못했습니다: $e',
-                'Could not load the sample data: $e'))));
+            content: Text(tr('예제 데이터를 불러올 수 없습니다: $e',
+                'Could not load sample data: $e'))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -421,10 +421,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 builder: (_, want, __) => _row(
                     p, Icons.explore_outlined, tr('나침반 기준', 'Compass north'),
                     sub: !Geomag.canResolveDeclination
-                        ? tr('이 기기에서는 진북만 제공됩니다',
-                            'This device provides true north only')
+                        ? tr('이 기기는 진북만 지원합니다',
+                            'This device supports true north only')
                         : Geomag.effective(want) != want
-                            ? tr('위치를 잡기 전까지 자북으로 표시', 'Magnetic until a position fix')
+                            ? tr('위치 수신 전까지 자북 기준으로 표시', 'Magnetic north until a position fix')
                             : null,
                     trailing: SegmentedButton<NorthRef>(
                       showSelectedIcon: false,
@@ -446,8 +446,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               InkWell(
                 onTap: _editPoleGap,
                 child: _row(p, Icons.linear_scale,
-                    tr('수고봉 경계 간격', 'Pole band spacing'),
-                    sub: tr('띠 사이 거리', 'Distance between bands'),
+                    tr('수고봉 눈금 간격', 'Pole graduation interval'),
+                    sub: tr('높이 환산 기준값', 'Reference for height conversion'),
                     trailing: Text('${_fmtGap(poleGapM.value)} m',
                         style: const TextStyle(
                             fontFamily: 'monospace',
@@ -462,7 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               InkWell(
                 onTap: _exportBackup,
                 child: _row(p, Icons.backup_outlined, tr('백업 내보내기', 'Export backup'),
-                    sub: tr('기록·사진·설정 전부', 'All records, photos and settings'),
+                    sub: tr('조사 기록·사진·설정 전체', 'All survey records, photos and settings'),
                     trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
               Divider(height: 1, color: p.line),
@@ -470,21 +470,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: _importBackup,
                 child: _row(p, Icons.settings_backup_restore,
                     tr('백업 불러오기', 'Import backup'),
-                    sub: tr('Download › BSI_backup', 'Download › BSI_backup'),
+                    sub: tr('백업 파일(.zip)에서 복원', 'Restore from a backup file (.zip)'),
                     trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
             ]),
           ),
           // 시험 섹션은 개발자 모드(지도의 현재 위치 버튼 7번 탭)에서만 보인다.
           if (devMode.value) ...[
-            _section(p, tr('시험 (개발자)', 'TRY IT (DEVELOPER)')),
+            _section(p, tr('개발자 도구', 'DEVELOPER TOOLS')),
             Card(
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _busy ? null : _runDemo,
                 child: _row(p, Icons.science_outlined,
-                    tr('예시 사진으로 시험', 'Try with sample photos'),
-                    sub: tr('내장 사진 4장으로 분석', 'Analyse the four bundled photos'),
+                    tr('예제 데이터 분석', 'Analyse sample data'),
+                    sub: tr('내장 4방위 사진으로 분석 실행', 'Run analysis on the bundled four-aspect photos'),
                     trailing: _busy
                         ? const SizedBox(
                             width: 18,
@@ -496,7 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 14),
             Card(
               child: _row(p, Icons.smart_display_outlined, tr('시연 모드', 'Demo mode'),
-                  sub: tr('예시 사진으로 자동 진행', 'Auto-run with sample photos'),
+                  sub: tr('예제 사진으로 전 과정 자동 실행', 'Runs the full workflow with sample photos'),
                   trailing: Switch(
                     value: demoMode.value,
                     onChanged: (v) => setState(() => setDemoMode(v)),
@@ -511,7 +511,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 onTap: _checkingUpdate ? null : _checkUpdate,
                 child: _row(p, Icons.system_update_outlined, tr('앱 업데이트', 'App update'),
-                    sub: tr('지금 v$kAppVersion', 'Installed v$kAppVersion'),
+                    sub: tr('현재 버전 $kAppVersion', 'Current version $kAppVersion'),
                     trailing: _checkingUpdate
                         ? const SizedBox(
                             width: 18,

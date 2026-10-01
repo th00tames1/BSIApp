@@ -30,8 +30,8 @@ class AboutScreen extends StatelessWidget {
                       fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
               const SizedBox(height: 8),
               Text(
-                  tr('산불피해목 진단·복원 지원 · v$kAppVersion',
-                      'Fire-damaged tree assessment & restoration · v$kAppVersion'),
+                  tr('산불피해목 진단·복원 지원 · 버전 $kAppVersion',
+                      'Fire-damaged tree assessment and restoration · version $kAppVersion'),
                   style: TextStyle(
                       fontFamily: 'monospace', fontSize: 12, color: p.muted)),
             ]),

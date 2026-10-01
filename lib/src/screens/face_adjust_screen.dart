@@ -60,7 +60,7 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
     final p = context.palette;
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr('${widget.label} 면 조정', 'Adjust ${widget.label}')),
+        title: Text(tr('${widget.label} 방위 보정', '${widget.label} aspect adjustment')),
         actions: [
           TextButton(
             onPressed: () => setState(() => _t = FaceTuning.none),
@@ -127,7 +127,7 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
                 ButtonSegment(
                     value: _Tool.target,
                     icon: const Icon(Icons.my_location, size: 18),
-                    label: Text(tr('대상목', 'Target'))),
+                    label: Text(tr('대상목', 'Target tree'))),
               ],
               selected: {_tool},
               onSelectionChanged: (s) => setState(() => _tool = s.first),
@@ -137,10 +137,10 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
                 _tool == _Tool.ground
-                    ? tr('밑동 높이에 선을 맞추세요. 선 아래는 줄기로 세지 않습니다.',
-                        'Drag the line to the stem base. Anything below is ignored.')
-                    : tr('조사 대상 줄기를 한 번 누르세요. 옆·뒤 나무가 잡힐 때 씁니다.',
-                        'Tap the target trunk if a neighbouring tree was picked.'),
+                    ? tr('기준선을 근원부 지표면에 맞추세요. 기준선 아래는 수간에서 제외됩니다.',
+                        'Align the line with the ground at the stem base. Anything below is excluded from the stem.')
+                    : tr('대상목 수간을 탭하세요. 인접목이 잘못 검출된 경우에 사용합니다.',
+                        'Tap the target stem. Use when a neighbouring tree was detected instead.'),
                 style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
           ),
           // 역광 자동 보정 — 기본은 앱이 사진 밝기를 보고 판단한다.
@@ -148,7 +148,7 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: Row(children: [
               Expanded(
-                child: Text(tr('역광 보정', 'Backlight fix'),
+                child: Text(tr('역광 보정', 'Backlight correction'),
                     style: TextStyle(fontSize: 12.5, color: p.muted)),
               ),
               SegmentedButton<int>(
@@ -192,7 +192,7 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context, _t),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(tr('적용하고 다시 분석', 'Apply & re-analyse')),
+                  label: Text(tr('적용 후 재분석', 'Apply and re-analyse')),
                 ),
               ),
             ]),
