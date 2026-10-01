@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>BSI_app</string>
+	<string>BSI_app2</string>
 	<key>NSCameraUsageDescription</key>
 	<string>피해목 4방위 사진 촬영에 사용됩니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

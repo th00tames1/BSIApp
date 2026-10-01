@@ -32,7 +32,9 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.bsi.bsi_field"
+        // BSI_app2 — 연구원 폰에 이미 기록이 든 BSI_app(com.bsi.bsi_field)과 **다른 앱**으로
+        // 설치된다(덮어쓰지 않고 나란히). 코드 패키지(namespace)는 그대로 둔다.
+        applicationId = "com.bsi.bsi_field2"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24

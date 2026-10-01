@@ -14,6 +14,7 @@ import '../services/csv_export.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
 import '../services/onnx_service.dart';
+import '../services/pole_model.dart';
 import '../theme.dart';
 import '../widgets/pole_gap_dialog.dart';
 
@@ -497,12 +498,21 @@ class _SavedScreenState extends State<SavedScreen> {
                               'Use Re-analyse above to recompute the BSI.'));
                 }),
                 Divider(height: 1, color: p.line),
-                _row(
-                    p,
-                    Icons.straighten_outlined,
-                    tr('수고봉 간격', 'Pole spacing'),
-                    '${record.poleGapM.toStringAsFixed(2)} m',
-                    onTap: _editPoleGap),
+                Builder(builder: (_) {
+                  final kinds = poleKinds(record.faces);
+                  const rwGap = PoleDetector.redWhiteGapMetres;
+                  return _row(
+                      p,
+                      Icons.straighten_outlined,
+                      kinds.redWhiteOnly
+                          ? tr('수고봉 간격 · 빨강/흰 폴 자동', 'Pole spacing · red/white auto')
+                          : kinds.mixed
+                              ? tr('수고봉 간격 (빨강/흰 폴 면은 ${rwGap.toStringAsFixed(2)} m 자동)',
+                                  'Pole spacing (red/white faces: ${rwGap.toStringAsFixed(2)} m auto)')
+                              : tr('수고봉 간격', 'Pole spacing'),
+                      '${(kinds.redWhiteOnly ? rwGap : record.poleGapM).toStringAsFixed(2)} m',
+                      onTap: _editPoleGap);
+                }),
                 Divider(height: 1, color: p.line),
                 _row(
                     p,

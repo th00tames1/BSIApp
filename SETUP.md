@@ -1,6 +1,6 @@
 # 설치 및 실행 가이드
 
-다른 컴퓨터에서 GitHub 클론만으로 BSI_app 앱을 빌드·실행하기 위한 문서다.
+다른 컴퓨터에서 GitHub 클론만으로 BSI_app2 앱을 빌드·실행하기 위한 문서다.
 **AI 모델과 예시 사진이 저장소에 함께 들어 있으므로 별도 내려받기 없이 전체 분석이 동작한다.**
 
 - 저장소 : `https://github.com/th00tames1/BSIApp`
@@ -212,7 +212,7 @@ flutter run -d <기기이름>
 flutter build ipa
 ```
 
-- Bundle ID는 `com.bsi.bsiField`다 (Android의 `com.bsi.bsi_field`와 달리 언더스코어가 없다).
+- Bundle ID는 `com.bsi.bsiField2`다 (Android의 `com.bsi.bsi_field2`와 달리 언더스코어가 없다).
   이미 쓰이는 ID면 Xcode에서 바꿔야 한다.
 - 무료 Apple ID로도 실기기 설치는 되지만 **7일마다 재설치**해야 하고 TestFlight는 안 된다.
   배포하려면 유료 Apple Developer Program.
@@ -242,8 +242,9 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
 
 ### 7.1 한 번만: 서명 키 등록 (사람이 직접)
 
-**배포 키 = 현장 폰(Galaxy S24)에 앱을 처음 설치한 컴퓨터의 디버그 키**(인증서 SHA-256 `9ffb70ea…`).
-현장 폰과 작업자 폰이 모두 이 키로 서명된 앱을 쓰므로 **모든 배포본은 이 키로 서명해야 한다** —
+**BSI_app2 배포 키 = 첫 배포본(v0.4.0, 2026-10-01)을 빌드한 컴퓨터의 디버그 키**(인증서 SHA-256 `b3d670e9…`).
+BSI_app2는 새 앱이라 옛 BSI_app(`9ffb70ea…` 키, 연구원 폰)과 키가 달라도 상관없다. 다만 BSI_app2가 깔린
+폰은 이후 **모든 BSI_app2 배포본을 이 키로 서명해야 한다** —
 다른 키로 서명하면 덮어 설치가 "앱이 설치되지 않음"으로 거절되고, 설치하려고 앱을 지우면 기록이 사라진다.
 그 컴퓨터의 `%USERPROFILE%\.android\debug.keystore`를 잃으면 같은 키를 다시 만들 수 없으니 **안전한 곳에 사본을 둔다.**
 다른 컴퓨터에서 배포본을 만들려면 이 파일을 그 컴퓨터의 같은 위치에 복사한다(그 컴퓨터 원래 파일은 백업해 둔다).
@@ -253,7 +254,7 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
 
 등록은 그 컴퓨터에서:
 
-1. 키가 맞는지 확인 — SHA256이 `9F:FB:70:EA…`로 시작해야 한다.
+1. 키가 맞는지 확인 — SHA256이 `B3:D6:70:E9…`로 시작해야 한다.
    ```powershell
    keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -storepass android | Select-String "SHA256"
    ```
@@ -269,7 +270,7 @@ APK를 받아 설치 화면을 연다. 릴리스는 `.github/workflows/release.y
    | `ANDROID_KEYSTORE_PASSWORD` | `android` |
    | `ANDROID_KEY_ALIAS` | `androiddebugkey` |
    | `ANDROID_KEY_PASSWORD` | `android` |
-   | `ANDROID_CERT_SHA256` | `9ffb70ea0b80db291a0ba5145b6235f47de35f0399c438da5bd449dd60ae5c26` (넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
+   | `ANDROID_CERT_SHA256` | `b3d670e91f63a2afa3d388d21292f14b0e571d6d9cb5d7ba2887389446ecbcd9` (넣어 두면 다른 키로 서명된 빌드는 게시 전에 멈춘다) |
 
 키 파일은 **절대 저장소에 커밋하지 않는다**(`android/.gitignore`가 `key.properties`·`*.keystore`·`*.jks`를 막는다).
 새 키를 따로 만들고 싶다면 `keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000`
@@ -297,7 +298,7 @@ keyPassword=android
    git push origin v0.3.6
    ```
 3. GitHub → **Actions**에서 "Android release"가 끝나면(약 10분) **Releases**에
-   `bsi_app-v0.3.6-arm64.apk`가 생긴다. 릴리스 설명은 태그가 가리키는 커밋 메시지다
+   `bsi_app2-v0.4.1-arm64.apk`가 생긴다. 릴리스 설명은 태그가 가리키는 커밋 메시지다
    — 앱의 업데이트 창에 그대로 보이므로 조사자가 읽을 수 있게 쓴다.
 4. 폰에서 **설정 → 앱 업데이트**. 처음 한 번은 "이 출처 허용"을 켜라는 설정 화면이 뜬다.
 
@@ -310,7 +311,7 @@ Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌�
 컴퓨터에서 빌드해 릴리스에 직접 첨부한다.
 
 1. 빌드 — `flutter build apk --release --target-platform android-arm64` → `build/app/outputs/flutter-apk/app-release.apk`를
-   `bsi_app-v{버전}-arm64.apk`로 이름을 바꾼다(앱 업데이트가 이름의 `arm64`로 기기에 맞는 파일을 고른다).
+   `bsi_app2-v{버전}-arm64.apk`로 이름을 바꾼다(앱 업데이트가 이름의 `arm64`로 기기에 맞는 파일을 고른다).
 2. GitHub 저장소 → **Releases → Draft a new release** → 태그 `v{버전}` 선택(없으면 새로 만든다) → 제목·설명 입력
    → 파일을 끌어다 첨부 → **Publish release**. 설명은 앱 업데이트 창에 그대로 보인다.
 
@@ -325,7 +326,7 @@ Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌�
 |---|---|
 | `Your project path contains non-ASCII characters` | 경로에 한글이 있다. ASCII 경로로 옮겨 다시 클론한다 |
 | `cmdline-tools component is missing` | SDK Manager에서 Command-line Tools 설치 후 `flutter doctor --android-licenses` |
-| `Failed to install ... INSTALL_FAILED_INSUFFICIENT_STORAGE` | 에뮬레이터 저장 공간 부족. `adb shell pm uninstall com.bsi.bsi_field` 후 `adb shell pm trim-caches 2G` |
+| `Failed to install ... INSTALL_FAILED_INSUFFICIENT_STORAGE` | 에뮬레이터 저장 공간 부족. `adb shell pm uninstall com.bsi.bsi_field2` 후 `adb shell pm trim-caches 2G` |
 | 분할 결과가 비거나 앱이 분석 중 종료 | `assets/models/*.onnx`가 0 바이트이거나 없는 경우다. `git lfs`가 아닌 일반 파일이므로 재클론으로 해결된다 |
 | BSI가 산출되지 않음 | 해당 방위에서 수고봉 1 m 경계가 검출되지 않으면 높이(m)를 구할 수 없어 합에서 빠진다. 수고봉이 사진에 온전히 보이도록 재촬영한다 |
 | 지도가 회색으로만 보임 | 타일은 온라인에서 받는다. 최초 1회는 네트워크가 필요하며 이후 디스크 캐시로 동작한다 |
@@ -335,7 +336,7 @@ Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌�
 
 ## 9. 참고 사항
 
-- 앱 ID는 `com.bsi.bsi_field`이다.
+- 앱 ID는 `com.bsi.bsi_field2`(BSI_app2)이다. 옛 BSI_app은 `com.bsi.bsi_field`로, 연구원 폰에 기록과 함께 남아 있다 — 건드리지 않는다.
 - 지도 타일을 제외한 모든 연산은 **온디바이스**로 이뤄지며 서버·API 키가 필요 없다.
 - 이 저장소에는 **앱 소스만** 들어 있다. 학습 스크립트·데이터셋·보고서는 포함하지 않는다.
 - APK는 저장소에 커밋하지 않는다. 배포 APK는 GitHub 릴리스에만 올린다(7장).

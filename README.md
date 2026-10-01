@@ -1,4 +1,8 @@
-# BSI_app — 산불피해목 진단·복원 지원 앱 (bsi_field)
+# BSI_app2 — 산불피해목 진단·복원 지원 앱 (bsi_field)
+
+> **BSI_app2(v0.4.0~)는 BSI_app과 다른 앱이다**(안드로이드 `com.bsi.bsi_field2`, iOS `com.bsi.bsiField2`).
+> 연구원 폰에 이미 기록이 든 BSI_app(`com.bsi.bsi_field`, v0.3.0 이하)을 덮어쓰지 않고 나란히 설치된다.
+> 두 앱의 기록은 서로 섞이지 않는다.
 
 산불 피해 소나무의 **수피 그을음 비율(BSI)** 을 현장에서 측정하고 존치/벌채를 판정하는
 Flutter 앱(iOS/Android 단일 코드베이스). 분할 모델을 앱에 내장해 **네트워크 없이 온디바이스로 추론**한다

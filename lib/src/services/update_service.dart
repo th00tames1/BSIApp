@@ -31,11 +31,11 @@ class UpdateService {
           .getUrl(Uri.parse(apiUrl));
       req.headers
         ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json')
-        ..set(HttpHeaders.userAgentHeader, 'BSI_app/$kAppVersion');
+        ..set(HttpHeaders.userAgentHeader, 'BSI_app2/$kAppVersion');
       final res = await req.close().timeout(const Duration(seconds: 20));
       final body = await res.transform(utf8.decoder).join();
       if (res.statusCode == 404) {
-        throw const UpdateException('아직 게시된 새 버전이 없습니다.');
+        throw const UpdateException('아직 게시된 새 버전이 없습니다.', noRelease: true);
       }
       if (res.statusCode != 200) {
         throw UpdateException('GitHub 응답 오류(${res.statusCode}). 잠시 뒤 다시 시도하세요.');
@@ -159,7 +159,7 @@ class UpdateService {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
     try {
       final req = await client.getUrl(Uri.parse(r.apkUrl)); // GitHub이 저장소로 넘겨 준다
-      req.headers.set(HttpHeaders.userAgentHeader, 'BSI_app/$kAppVersion');
+      req.headers.set(HttpHeaders.userAgentHeader, 'BSI_app2/$kAppVersion');
       if (have > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$have-');
       final res = await req.close();
       if (res.statusCode == 416) {
@@ -219,7 +219,10 @@ class _Retry implements Exception {
 
 class UpdateException implements Exception {
   final String message;
-  const UpdateException(this.message);
+
+  /// 릴리스가 하나도 없다(오류가 아니다 — 지금 버전이 최신이다).
+  final bool noRelease;
+  const UpdateException(this.message, {this.noRelease = false});
   @override
   String toString() => message;
 }

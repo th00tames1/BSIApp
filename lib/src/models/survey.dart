@@ -359,6 +359,16 @@ bool _gapScaled(AzimuthResult f, bool dbhFollowsGap) =>
     f.scaleSource.isEmpty ||
     (dbhFollowsGap && f.scaleSource == 'dbh');
 
+/// 면들이 어떤 봉으로 스케일을 세웠는지 — 화면의 "수고봉 간격" 표시용.
+///
+/// 빨강/흰 폴('pole_rw')로 잰 면은 설정 간격과 무관하게 0.2 m를 쓴다. 설정값(대개 1 m)만
+/// 보여 주면 조사자가 "간격이 틀렸다"고 오해하므로 화면이 이를 구분해 보인다.
+({bool redWhiteOnly, bool mixed}) poleKinds(List<AzimuthResult> faces) {
+  final rw = faces.any((f) => f.scaleSource == 'pole_rw');
+  final yellow = faces.any((f) => f.scaleSource == 'pole');
+  return (redWhiteOnly: rw && !yellow, mixed: rw && yellow);
+}
+
 /// 간격을 고쳐도 값이 움직이지 않는 면의 수 — 미리보기에서 그 사실을 알린다.
 ///
 /// 조사자가 값을 직접 넣은 면도 움직이지 않으므로 함께 센다. 그러지 않으면

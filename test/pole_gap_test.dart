@@ -245,4 +245,15 @@ void main() {
     final r = rec([face('E')], gap: 0.25);
     expect(SurveyRecord.fromMap(r.toMap()).poleGapM, 0.25);
   });
+
+  test('화면 표시용: 빨강/흰 폴로만 잰 기록과 섞인 기록을 구분한다', () {
+    final rw = poleKinds([face('E', source: 'pole_rw'), face('N', source: 'manual')]);
+    expect(rw.redWhiteOnly, isTrue);
+    expect(rw.mixed, isFalse);
+    final mixed = poleKinds([face('E', source: 'pole_rw'), face('W')]);
+    expect(mixed.redWhiteOnly, isFalse);
+    expect(mixed.mixed, isTrue);
+    final yellow = poleKinds([face('E'), face('W')]);
+    expect(yellow.redWhiteOnly || yellow.mixed, isFalse);
+  });
 }

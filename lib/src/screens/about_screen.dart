@@ -25,7 +25,7 @@ class AboutScreen extends StatelessWidget {
                     width: 76, height: 76, fit: BoxFit.cover),
               ),
               const SizedBox(height: 12),
-              const Text('BSI_app',
+              const Text('BSI_app2',
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
               const SizedBox(height: 8),

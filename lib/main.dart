@@ -21,7 +21,7 @@ class BsiApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeMode,
       builder: (_, mode, __) => MaterialApp(
-        title: 'BSI_app',
+        title: 'BSI_app2',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

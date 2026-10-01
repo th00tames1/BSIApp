@@ -12,6 +12,7 @@ import '../services/analysis_service.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
 import '../services/onnx_service.dart';
+import '../services/pole_model.dart';
 import '../services/raw_archive.dart';
 import '../theme.dart';
 import '../widgets/pole_gap_dialog.dart';
@@ -900,6 +901,8 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Widget _poleGapRow(AppPalette p) {
     final suspect = _scaleSuspect;
+    final kinds = poleKinds(d.faces);
+    const rwGap = PoleDetector.redWhiteGapMetres;
     return InkWell(
       onTap: _rescaling ? null : _editPoleGap,
       borderRadius: BorderRadius.circular(12),
@@ -922,14 +925,19 @@ class _ResultScreenState extends State<ResultScreen> {
                 suspect
                     ? tr('계측값이 실제와 달라 보입니다. 수고봉 간격이 맞는지 확인하세요.',
                         'Measurements look off — check the pole spacing.')
-                    : tr('수고봉 간격', 'Pole spacing'),
+                    : kinds.redWhiteOnly
+                        ? tr('수고봉 간격 · 빨강/흰 폴 자동', 'Pole spacing · red/white auto')
+                        : kinds.mixed
+                            ? tr('수고봉 간격 (빨강/흰 폴 면은 ${rwGap.toStringAsFixed(2)} m 자동)',
+                                'Pole spacing (red/white faces: ${rwGap.toStringAsFixed(2)} m auto)')
+                            : tr('수고봉 간격', 'Pole spacing'),
                 style: TextStyle(
                     fontSize: suspect ? 11.5 : 12.5,
                     height: 1.4,
                     color: suspect ? p.ember : p.muted)),
           ),
           const SizedBox(width: 8),
-          Text('${d.poleGapM.toStringAsFixed(2)} m',
+          Text('${(kinds.redWhiteOnly ? rwGap : d.poleGapM).toStringAsFixed(2)} m',
               style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 14,

@@ -293,6 +293,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     void snack(String m) => ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(m)));
+    if (err is UpdateException && err.noRelease) {
+      snack(tr('최신 버전입니다 (v$kAppVersion)', 'You are up to date (v$kAppVersion)'));
+      return;
+    }
     if (err != null || r == null) {
       snack(tr('업데이트를 확인하지 못했습니다: $err', 'Could not check for updates: $err'));
       return;
