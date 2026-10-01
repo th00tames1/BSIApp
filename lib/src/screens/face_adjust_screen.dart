@@ -140,7 +140,7 @@ class _FaceAdjustScreenState extends State<FaceAdjustScreen> {
                     ? tr('밑동 높이에 선을 맞추세요. 선 아래는 줄기로 세지 않습니다.',
                         'Drag the line to the stem base. Anything below is ignored.')
                     : tr('조사 대상 줄기를 한 번 누르세요. 옆·뒤 나무가 잡힐 때 씁니다.',
-                        'Tap the target trunk — use when a neighbouring tree is picked.'),
+                        'Tap the target trunk if a neighbouring tree was picked.'),
                 style: TextStyle(fontSize: 12, height: 1.4, color: p.muted)),
           ),
           // 역광 자동 보정 — 기본은 앱이 사진 밝기를 보고 판단한다.

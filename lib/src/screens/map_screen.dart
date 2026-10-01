@@ -464,7 +464,7 @@ class _MapScreenState extends State<MapScreen> {
                 Text(tr('조사목 ${r.treeId}', 'Tree ${r.treeId}'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(r.site.isEmpty ? '—' : r.site,
+                Text(r.site.isEmpty ? '–' : r.site,
                     style: TextStyle(fontSize: 12.5, color: p.muted)),
               ]),
             ),

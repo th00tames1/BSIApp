@@ -924,7 +924,7 @@ class _ResultScreenState extends State<ResultScreen> {
             child: Text(
                 suspect
                     ? tr('계측값이 실제와 달라 보입니다. 수고봉 간격이 맞는지 확인하세요.',
-                        'Measurements look off — check the pole spacing.')
+                        'Measurements look off. Check the pole spacing.')
                     : kinds.redWhiteOnly
                         ? tr('수고봉 간격 · 빨강/흰 폴 자동', 'Pole spacing · red/white auto')
                         : kinds.mixed

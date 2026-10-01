@@ -160,13 +160,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportBackup() async {
     final ok = await _confirm(
         tr('전체 백업 만들기', 'Create full backup'),
-        tr('조사 기록 전부와 사진·원시 데이터(분석용 사진·촬영/분석 메타)·조사지·설정을 파일로 만듭니다.\n\n'
-            '파일은 내장 저장공간 → Download → BSI_backup 에 생기고, 공유로 드라이브·다른 폰에 보낼 수도 있습니다. '
-            '새 폰에서 설정 → 백업 불러오기를 누르면 그대로 이어서 조사할 수 있습니다.\n\n'
-            '사진이 많으면 수 GB가 될 수 있고, 3.5 GB를 넘으면 여러 파일로 나뉩니다(모두 옮기세요).',
-            'Packs every record, photo, raw data (analysis photos, capture/analysis metadata), site and setting into a file.\n\n'
-            'Save it to Drive/Files or send it to the new phone, then use Settings → Import backup there.\n\n'
-            'Large surveys can be several GB; above 3.5 GB the backup is split into parts — move all of them.'),
+        tr('기록·사진·설정 전부를 파일로 만듭니다.\n저장 위치: Download › BSI_backup',
+            'Saves all records, photos and settings to a file.\nLocation: Download › BSI_backup'),
         tr('만들기', 'Create'));
     if (!ok || !mounted) return;
     final files = await _withProgress(tr('백업 만드는 중', 'Creating backup'),
@@ -185,12 +180,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   '${files.length} file(s) · ${_size(size)}'),
               '',
               inDownloads
-                  ? tr('내장 저장공간 → Download → BSI_backup 에 저장했습니다. 앱을 지워도 남습니다(이전 백업도 그대로 둡니다).\n'
-                      '새 폰으로는 이 파일을 옮긴 뒤 설정 → 백업 불러오기를 누르세요.',
-                      'Saved to internal storage → Download → BSI_backup (kept even if the app is removed; older backups are left in place).\n'
-                          'Move it to the new phone and use Settings → Import backup.')
-                  : tr('앱 안에 만들었습니다. 공유로 드라이브·다른 폰에 꼭 옮겨 두세요 — 앱을 지우면 함께 지워집니다.',
-                      'Created inside the app. Share it to Drive or another phone — it is deleted with the app.'),
+                  ? tr('Download › BSI_backup 에 저장했습니다.', 'Saved to Download › BSI_backup.')
+                  : tr('앱 안에 저장했습니다. 공유로 옮겨 두세요.',
+                      'Saved inside the app. Share it to keep a copy.'),
             ].join('\n'),
             style: const TextStyle(height: 1.45)),
         actions: [
@@ -215,8 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _importBackup() async {
     final res = await FilePicker.pickFiles(
         allowMultiple: true,
-        dialogTitle: tr('백업 파일 선택 — 내장 저장공간 › Download › BSI_backup (조각이면 모두)',
-            'Select backup file(s) (.zip — all parts)'));
+        dialogTitle: tr('백업 파일 선택', 'Select backup file(s)'));
     if (res == null || !mounted) return;
     final paths = [
       for (final f in res.files)
@@ -231,10 +222,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     final ok = await _confirm(
         tr('백업 불러오기', 'Import backup'),
-        tr('고른 백업을 이 폰에 합칩니다. 이 폰의 기록은 지우지 않고, 이미 있는 기록·사진은 건너뜁니다.\n\n'
-            '설정(수고봉 간격·나침반 기준·언어 등)은 백업 값으로 바뀝니다.',
-            'Merges the backup into this phone. Nothing here is deleted; records and photos already present are skipped.\n\n'
-            'Settings (pole spacing, compass north, language…) take the backup values.'),
+        tr('이 폰에 합칩니다. 이미 있는 기록은 건너뛰고, 설정은 백업 값으로 바뀝니다.',
+            'Merges into this phone. Existing records are skipped; settings take the backup values.'),
         tr('불러오기', 'Import'));
     if (!ok || !mounted) return;
     final sum = await _withProgress(tr('백업 불러오는 중', 'Importing backup'),
@@ -263,8 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (sum.projectsAdded > 0)
                 tr('조사지 ${sum.projectsAdded}개 추가', '${sum.projectsAdded} site(s) added'),
               if (sum.draftRestored)
-                tr('진행 중이던 조사를 되살렸습니다 — 지도에서 이어서 하세요',
-                    'The in-progress survey was restored — resume it from the map'),
+                tr('진행 중이던 조사를 되살렸습니다', 'In-progress survey restored'),
               tr('백업: 앱 ${sum.sourceApp} · ${sum.sourceCreatedAt}',
                   'Backup: app ${sum.sourceApp} · ${sum.sourceCreatedAt}'),
             ].join('\n'),
@@ -325,8 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ].join(' · '),
                 if (notes.isNotEmpty) ...['', notes],
                 '',
-                tr('업데이트해도 기록은 그대로 남습니다. 먼저 백업 내보내기를 해 두면 더 안전합니다.',
-                    'Your records stay. Exporting a backup first is safer.'),
+                tr('기록은 그대로 남습니다.', 'Your records stay.'),
               ].join('\n'),
               style: const TextStyle(height: 1.45)),
         ),
@@ -360,8 +347,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (_) => AlertDialog(
           title: Text(tr('설치 허용이 필요합니다', 'Allow installs')),
           content: Text(
-              tr('방금 열린 설정에서 "이 출처 허용"을 켜고 돌아와 앱 업데이트를 다시 누르세요 (한 번만).',
-                  'Turn on "Allow from this source" in the screen that just opened, then tap App update again (once).'),
+              tr('"이 출처 허용"을 켠 뒤 다시 누르세요.',
+                  'Turn on "Allow from this source", then tap again.'),
               style: const TextStyle(height: 1.45)),
           actions: [
             TextButton(
@@ -437,10 +424,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? tr('이 기기에서는 진북만 제공됩니다',
                             'This device provides true north only')
                         : Geomag.effective(want) != want
-                            ? tr('편각을 아직 몰라 지금은 자북으로 표시됩니다 (촬영 화면에서 위치를 잡으면 적용)',
-                                'Declination unknown yet — showing magnetic for now; applies once a position is fixed')
-                            : tr('진북은 지도·좌표 기준, 자북은 자기 나침반 기준',
-                                'True north matches maps; magnetic matches a needle compass'),
+                            ? tr('위치를 잡기 전까지 자북으로 표시', 'Magnetic until a position fix')
+                            : null,
                     trailing: SegmentedButton<NorthRef>(
                       showSelectedIcon: false,
                       segments: [
@@ -462,8 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: _editPoleGap,
                 child: _row(p, Icons.linear_scale,
                     tr('수고봉 경계 간격', 'Pole band spacing'),
-                    sub: tr('인접 경계(띠) 사이 실제 거리 — 새 조사부터 적용',
-                        'Distance between adjacent bands — applies to new surveys'),
+                    sub: tr('띠 사이 거리', 'Distance between bands'),
                     trailing: Text('${_fmtGap(poleGapM.value)} m',
                         style: const TextStyle(
                             fontFamily: 'monospace',
@@ -478,8 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               InkWell(
                 onTap: _exportBackup,
                 child: _row(p, Icons.backup_outlined, tr('백업 내보내기', 'Export backup'),
-                    sub: tr('기록·사진·원시 데이터·조사지·설정 전부를 파일로 — 폰을 바꿀 때',
-                        'All records, photos, raw data, sites and settings — for a new phone'),
+                    sub: tr('기록·사진·설정 전부', 'All records, photos and settings'),
                     trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
               Divider(height: 1, color: p.line),
@@ -487,8 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: _importBackup,
                 child: _row(p, Icons.settings_backup_restore,
                     tr('백업 불러오기', 'Import backup'),
-                    sub: tr('내장 저장공간 › Download › BSI_backup 의 파일을 이 폰에 합침 — 이미 있는 기록은 건너뜀',
-                        'Merge a backup from another phone — existing records are kept'),
+                    sub: tr('Download › BSI_backup', 'Download › BSI_backup'),
                     trailing: Icon(Icons.chevron_right, color: p.muted)),
               ),
             ]),
@@ -502,8 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: _busy ? null : _runDemo,
                 child: _row(p, Icons.science_outlined,
                     tr('예시 사진으로 시험', 'Try with sample photos'),
-                    sub: tr('내장된 4방위 사진으로 분석 전체를 실행',
-                        'Run the full analysis on the four bundled photos'),
+                    sub: tr('내장 사진 4장으로 분석', 'Analyse the four bundled photos'),
                     trailing: _busy
                         ? const SizedBox(
                             width: 18,
@@ -515,8 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 14),
             Card(
               child: _row(p, Icons.smart_display_outlined, tr('시연 모드', 'Demo mode'),
-                  sub: tr('조사목 추가 시 예시 사진으로 촬영→분석→판정표→기록까지 자동 진행',
-                      'New tree auto-runs capture→analysis→table→records with sample photos'),
+                  sub: tr('예시 사진으로 자동 진행', 'Auto-run with sample photos'),
                   trailing: Switch(
                     value: demoMode.value,
                     onChanged: (v) => setState(() => setDemoMode(v)),
@@ -531,8 +511,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 onTap: _checkingUpdate ? null : _checkUpdate,
                 child: _row(p, Icons.system_update_outlined, tr('앱 업데이트', 'App update'),
-                    sub: tr('지금 v$kAppVersion — 새 버전이 있으면 받아서 설치 (기록 유지)',
-                        'Installed v$kAppVersion — download and install a newer one (records kept)'),
+                    sub: tr('지금 v$kAppVersion', 'Installed v$kAppVersion'),
                     trailing: _checkingUpdate
                         ? const SizedBox(
                             width: 18,

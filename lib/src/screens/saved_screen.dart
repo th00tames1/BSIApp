@@ -142,7 +142,7 @@ class _SavedScreenState extends State<SavedScreen> {
         shots.where((f) => !File(f.imagePath!).existsSync()).toList();
     if (missing.isNotEmpty) {
       _snack(prefix + tr('사진 파일 ${missing.length}장을 찾을 수 없어 다시 분석할 수 없습니다',
-          '${missing.length} photo file(s) missing — cannot re-analyse'));
+          '${missing.length} photo file(s) missing, cannot re-analyse'));
       return;
     }
 

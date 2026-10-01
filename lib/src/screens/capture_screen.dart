@@ -219,17 +219,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     final acc = _here?.accuracy.round();
     switch (_gpsLevel) {
       case _GpsLevel.good:
-        _showNotice(tr('GPS 양호 · ±$acc m — 촬영 지점이 기록됩니다',
-            'GPS good · ±$acc m — position will be recorded'));
+        _showNotice(tr('GPS 양호 · ±$acc m', 'GPS good · ±$acc m'));
       case _GpsLevel.weak:
         _showNotice(acc == null
             ? tr('GPS 수신 중', 'Acquiring GPS')
-            : tr('GPS 약함 · ±$acc m — 20 m 이내가 되면 기록됩니다',
-                'GPS weak · ±$acc m — recorded once within 20 m'));
+            : tr('GPS 약함 · ±$acc m', 'GPS weak · ±$acc m'));
       case _GpsLevel.none:
         _showNotice(_gpsOk
-            ? tr('GPS 신호 없음 — 하늘이 트인 곳에서 잠시 기다려 주세요',
-                'No GPS fix — wait under open sky')
+            ? tr('GPS 신호 없음', 'No GPS fix')
             : tr('위치 권한 또는 위치 서비스가 꺼져 있습니다',
                 'Location permission or service is off'));
         if (!_gpsOk) _startGps(); // 권한을 켜고 돌아왔을 수 있다
@@ -246,7 +243,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     final shown = Geomag.effective(want);
     if (shown != want) {
       _showNotice(tr('이 기기에서는 편각을 알 수 없어 ${_refName(shown)} 기준으로 표시합니다',
-          'Declination unavailable on this device — showing ${_refName(shown)}'));
+          'Declination unavailable, showing ${_refName(shown)}'));
       return;
     }
     final dec = Geomag.declinationDeg;
@@ -411,8 +408,8 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       CameraController c, ShotScore first) async {
     final byPoint = c.value.exposurePointSupported;
     if (!byPoint && _hwEvMax <= _hwEvMin) return null;
-    _showNotice(tr('역광 — 줄기에 노출을 맞추는 중, 그대로 들고 계세요',
-        'Backlit — metering on the trunk, hold still'), ms: 2400);
+    _showNotice(tr('역광. 줄기에 맞춰 다시 찍는 중', 'Backlit. Re-shooting on the trunk'),
+        ms: 2400);
     try {
       if (byPoint) {
         await c.setExposurePoint(const Offset(0.5, 0.5));
@@ -488,7 +485,7 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         'cameraFile': source == 'gallery'
             ? {
                 'pickedName': galleryName,
-                'note': '갤러리 사진 — 원본은 기기 갤러리에 있다',
+                'note': '갤러리 사진. 원본은 기기 갤러리에 있다',
               }
             : cameraFile,
         // 카메라 파일 → 분석용 표준 사진 변환(해상도·밝기·EXIF 제거)
@@ -643,12 +640,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       if (!mounted) return; // screen may have been popped mid-capture
       if (autoMetered) {
         _showNotice(
-            tr('역광이라 줄기에 노출을 맞춰 다시 찍었습니다', 'Backlit — re-shot metered on the trunk'),
+            tr('역광이라 줄기에 맞춰 다시 찍었습니다', 'Backlit, re-shot on the trunk'),
             ms: 2600);
       } else if (backlight != null && backlight.silhouette) {
         _showNotice(
-            tr('역광으로 줄기가 까맣게 찍혔습니다. 해를 등지지 않는 쪽에서 다시 찍어 주세요',
-                'Backlit silhouette — retake from a side not facing the sun'),
+            tr('역광으로 줄기가 까맣게 찍혔습니다. 다른 쪽에서 다시 찍어 주세요',
+                'Backlit silhouette. Retake from another side'),
             ms: 3600);
       } else if (!tagged) {
         _showNotice(tr('이 방위는 GPS 없이 기록됨', 'Recorded without GPS'));
