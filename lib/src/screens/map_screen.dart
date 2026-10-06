@@ -144,15 +144,22 @@ class _MapScreenState extends State<MapScreen> {
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => const ProjectsScreen()));
     if (!mounted) return;
+    _refreshResume(); // 프로젝트 이름을 바꿨다면 진행 중인 조사도 새 이름을 따른다
     setState(() {});
     _load();
     _loadOverlays();
   }
 
   Future<void> _newTree() async {
+    final site = projectSite.value ?? '';
+    // 이 조사지에서 이미 저장했거나 진행 중인 번호는 건너뛴다.
+    final used = await DbService.instance.treeIdsForSite(site);
+    final resume = _resume;
+    if (resume != null && resume.site == site) used.add(resume.treeId);
+    if (!mounted) return;
     final draft = SurveyDraft()
-      ..treeId = nextTreeSeq().toString().padLeft(3, '0')
-      ..site = projectSite.value ?? ''
+      ..treeId = peekNextTreeSeq(used: used).toString().padLeft(3, '0')
+      ..site = site
       ..address = projectLocation.value
       ..species = lastSpecies.value // 직전 조사목에서 고른 수종을 이어받는다
       ..poleGapM = poleGapM.value; // 설정의 수고봉 경계 간격

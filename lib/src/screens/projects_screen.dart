@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
 import '../l10n.dart';
+import '../services/db_service.dart';
 import '../theme.dart';
 import 'register_screen.dart';
 
@@ -14,6 +15,19 @@ class ProjectsScreen extends StatefulWidget {
 }
 
 class _ProjectsScreenState extends State<ProjectsScreen> {
+  Map<String, int>? _counts; // 조사지별 저장된 조사목 수
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    final c = await DbService.instance.countBySite();
+    if (mounted) setState(() => _counts = c);
+  }
+
   Future<void> _new() async {
     final ok = await Navigator.push<bool>(
         context, MaterialPageRoute(builder: (_) => const ProjectScreen()));
@@ -24,6 +38,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     await Navigator.push<bool>(
         context, MaterialPageRoute(builder: (_) => ProjectScreen(project: p)));
     if (mounted) setState(() {});
+    _loadCounts(); // 이름을 바꾸면 기록도 새 이름으로 옮겨진다
   }
 
   void _select(Project p) {
@@ -127,10 +142,14 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 3),
                 Text(
-                  tr(
-                    '${proj.location.isEmpty ? '' : '${proj.location} · '}조사목 ${proj.treeSeq}${active ? ' · 사용 중' : ''}',
-                    '${proj.location.isEmpty ? '' : '${proj.location} · '}Trees ${proj.treeSeq}${active ? ' · Active' : ''}',
-                  ),
+                  [
+                    if (proj.location.isNotEmpty) proj.location,
+                    // 저장된 조사목 수. treeSeq는 마지막 번호라 개수와 다르다.
+                    if (_counts != null)
+                      tr('조사목 ${_counts![proj.site] ?? 0}',
+                          'Trees ${_counts![proj.site] ?? 0}'),
+                    if (active) tr('사용 중', 'Active'),
+                  ].join(' · '),
                   style: TextStyle(fontSize: 12, color: p.muted, fontFamily: 'monospace'),
                 ),
               ]),

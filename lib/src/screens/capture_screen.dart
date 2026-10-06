@@ -15,6 +15,7 @@ import '../app_prefs.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/backlight.dart';
+import '../services/db_service.dart';
 import '../services/demo_sample.dart';
 import '../services/exposure.dart';
 import '../services/geomag.dart';
@@ -801,6 +802,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
       ),
     );
     if (v != null && v.isNotEmpty && mounted) {
+      // 같은 조사지에 이미 저장된 번호로는 바꾸지 않는다(같은 번호가 두 그루 생긴다).
+      if (!sameTreeId(v, d.treeId)) {
+        final used = await DbService.instance.treeIdsForSite(d.site);
+        if (!mounted) return;
+        if (used.any((id) => sameTreeId(id, v))) {
+          _showNotice(tr('이미 사용 중인 조사목 번호입니다', 'This tree ID is already in use'));
+          return;
+        }
+      }
       setState(() => d.treeId = v);
       if (d.isInProgress) saveDraftJson(d.toJsonString());
     }

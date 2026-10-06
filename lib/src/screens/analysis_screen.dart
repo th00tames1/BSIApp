@@ -51,7 +51,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               'Analyzing ${az.label} · ${i + 1}/${azimuths.length}'));
         }
         final overlayPath =
-            p.join(overlayDir.path, '${d.treeId}_${az.code}_overlay.png');
+            AnalysisService.overlayPathFor(overlayDir.path, d.photos[az]!);
+        // 재촬영한 면이면 이전 사진의 오버레이는 더 쓰이지 않는다.
+        final stale = d.results[az]?.overlayPath;
+        if (stale != null && stale != overlayPath) {
+          try {
+            await File(stale).delete();
+          } catch (_) {}
+        }
         final res = await AnalysisService.instance.analyzeFace(
           az.code,
           d.photos[az]!,
@@ -61,7 +68,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           rawOutDir: d.rawDir, // 연구용 원시 산출물(없으면 건너뜀)
         );
         d.results[az] = res;
-        // 오버레이 경로는 조사목·방위마다 고정이라, 재촬영 후 다시 분석하면 같은
+        // 오버레이 경로는 사진마다 고정이라, 같은 사진을 다시 분석하면 같은
         // 파일을 덮어쓴다. 캐시를 비우지 않으면 이전 오버레이가 그대로 보인다.
         if (res.overlayPath != null) {
           await FileImage(File(res.overlayPath!)).evict();

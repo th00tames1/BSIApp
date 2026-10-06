@@ -14,7 +14,7 @@ import 'services/geomag.dart';
 class Project {
   String site; // 조사지명
   String location; // 위치(주소)
-  int treeSeq; // 마지막 조사목 번호
+  int treeSeq; // 마지막으로 저장한 조사목 번호
   Project({required this.site, this.location = '', this.treeSeq = 0});
 
   Map<String, dynamic> toJson() =>
@@ -33,7 +33,7 @@ final ValueNotifier<String?> activeSite = ValueNotifier(null);
 // Active-project mirrors — read directly by map/capture screens.
 final ValueNotifier<String?> projectSite = ValueNotifier(null); // 조사지명
 final ValueNotifier<String> projectLocation = ValueNotifier(''); // 위치(주소)
-final ValueNotifier<int> treeSeq = ValueNotifier(0); // 마지막 조사목 번호
+final ValueNotifier<int> treeSeq = ValueNotifier(0); // 마지막으로 저장한 조사목 번호
 
 Project? get activeProject {
   final s = activeSite.value;
@@ -176,6 +176,7 @@ bool upsertProject({
   }
   Project target;
   if (existing != null && list.contains(existing)) {
+    _followDraft(existing.site, site, existing.location, location);
     existing
       ..site = site
       ..location = location
@@ -209,15 +210,59 @@ void deleteProject(String site) {
   _persistProjects();
 }
 
-/// Next auto tree number for the active project (increments and persists).
-int nextTreeSeq() {
+/// 진행 중인 조사가 이름·위치를 바꾼 프로젝트의 것이면 함께 따라가게 한다.
+/// 그대로 두면 저장된 조사목이 옛 조사지명으로 들어가 지도에서 사라진다.
+void _followDraft(String oldSite, String newSite, String oldLoc, String newLoc) {
+  if (oldSite == newSite && oldLoc == newLoc) return;
+  final raw = loadDraftJson();
+  if (raw == null || raw.isEmpty) return;
+  try {
+    final j = jsonDecode(raw) as Map<String, dynamic>;
+    if (j['site'] != oldSite) return;
+    j['site'] = newSite;
+    // 조사 중에 따로 고친 주소가 아니라 프로젝트에서 받은 주소일 때만 바꾼다.
+    if (j['address'] == oldLoc) j['address'] = newLoc;
+    saveDraftJson(jsonEncode(j));
+  } catch (_) {}
+}
+
+/// 두 조사목 번호가 같은지. 숫자 번호는 자릿수와 무관하게 비교한다(5 = 005).
+bool sameTreeId(String a, String b) {
+  final x = int.tryParse(a.trim()), y = int.tryParse(b.trim());
+  return (x != null && y != null) ? x == y : a.trim() == b.trim();
+}
+
+/// [last] 다음 번호 중 [used]에 없는 가장 작은 번호.
+int nextFreeTreeSeq(int last, Iterable<String> used) {
+  final taken = used.map((id) => int.tryParse(id.trim())).whereType<int>().toSet();
+  var n = last + 1;
+  while (taken.contains(n)) {
+    n++;
+  }
+  return n;
+}
+
+/// 활성 프로젝트의 다음 자동 조사목 번호. 이미 쓴 번호([used])는 건너뛴다.
+/// 카운터는 바꾸지 않는다. 조사목을 저장할 때 [noteTreeIdSaved]가 올리므로
+/// 촬영 화면에 들어갔다가 그냥 나와도 번호가 소모되지 않는다.
+int peekNextTreeSeq({Iterable<String> used = const []}) {
   final p = activeProject;
   if (p == null) return 0;
-  p.treeSeq += 1;
-  projects.value = List.from(projects.value); // notify listeners
-  treeSeq.value = p.treeSeq;
-  _persistProjects();
-  return p.treeSeq;
+  return nextFreeTreeSeq(p.treeSeq, used);
+}
+
+/// 저장한 조사목 번호를 그 조사지의 카운터에 반영한다(더 큰 숫자 번호일 때만).
+void noteTreeIdSaved(String site, String treeId) {
+  final n = int.tryParse(treeId.trim());
+  if (n == null) return;
+  for (final p in projects.value) {
+    if (p.site != site || n <= p.treeSeq) continue;
+    p.treeSeq = n;
+    projects.value = List.from(projects.value); // notify listeners
+    _syncActive();
+    _persistProjects();
+    return;
+  }
 }
 
 void setTreeSeq(int n) {

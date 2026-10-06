@@ -124,6 +124,7 @@ class _ResultScreenState extends State<ResultScreen> {
     try {
       final rec = d.toRecord();
       await DbService.instance.insert(rec);
+      noteTreeIdSaved(rec.site, rec.treeId); // 저장한 번호까지 자동 번호 카운터를 올린다
       // 연구용: 저장 시점의 최종 레코드(판정·DBH·직접 입력 포함)를 번들에 남긴다.
       final raw = d.rawDir;
       if (raw != null) {

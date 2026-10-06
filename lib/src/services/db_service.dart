@@ -100,6 +100,22 @@ class DbService {
         where: 'site = ?', whereArgs: [oldSite]);
   }
 
+  /// 한 조사지에서 이미 쓴 조사목 번호(자동 번호가 겹치지 않게 건너뛴다).
+  Future<Set<String>> treeIdsForSite(String site) async {
+    final db = await _database;
+    final rows = await db.query('surveys',
+        columns: ['treeId'], where: 'site = ?', whereArgs: [site]);
+    return {for (final r in rows) r['treeId'] as String};
+  }
+
+  /// 조사지별 저장된 조사목 수.
+  Future<Map<String, int>> countBySite() async {
+    final db = await _database;
+    final rows =
+        await db.rawQuery('SELECT site, COUNT(*) c FROM surveys GROUP BY site');
+    return {for (final r in rows) (r['site'] as String?) ?? '': (r['c'] as int?) ?? 0};
+  }
+
   Future<int> count() async {
     final db = await _database;
     final r = await db.rawQuery('SELECT COUNT(*) c FROM surveys');

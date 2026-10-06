@@ -57,6 +57,12 @@ class AnalysisService {
         : (v[v.length ~/ 2 - 1] + v[v.length ~/ 2]) / 2;
   }
 
+  /// 한 방위 사진의 오버레이 PNG 경로. 원본 사진 파일명(조사목·방위·촬영 시각)에서
+  /// 만들므로 조사지가 달라도 겹치지 않고, 같은 사진을 다시 분석하면 같은 파일을
+  /// 덮어쓴다. 조사목 번호만으로 만들면 프로젝트마다 001이 있어 서로 덮어쓴다.
+  static String overlayPathFor(String overlayDir, String photoPath) => path.join(
+      overlayDir, '${path.basenameWithoutExtension(photoPath)}_overlay.png');
+
   /// Analyse one captured face: segment, scale with the pole, derive metrics,
   /// and (optionally) write an overlay PNG. Returns an [AzimuthResult].
   Future<AzimuthResult> analyzeFace(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app_prefs.dart';
 import '../l10n.dart';
 import '../services/db_service.dart';
+import '../services/overlay_store.dart';
 import '../theme.dart';
 
 /// Create or edit one project (조사지). 조사지명·위치는 한 번만 입력하고,
@@ -54,9 +55,11 @@ class _ProjectScreenState extends State<ProjectScreen> {
       }
       return;
     }
-    // Renamed an existing project → move its saved records to the new site key.
+    // Renamed an existing project → move its saved records and boundary to the
+    // new site key (the in-progress draft follows inside upsertProject).
     if (oldSite != null && oldSite != newSite) {
       await DbService.instance.renameSite(oldSite, newSite);
+      await OverlayStore.rename(oldSite, newSite);
     }
     if (mounted) Navigator.pop(context, true);
   }
@@ -101,8 +104,8 @@ class _ProjectScreenState extends State<ProjectScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                   hintText: '1',
-                  helperText: tr('이 번호부터 순차적으로 자동 부여됩니다',
-                      'Assigned sequentially from this number')),
+                  helperText: tr('이 번호부터 자동 부여되며 이미 사용한 번호는 건너뜁니다',
+                      'Assigned from this number, skipping IDs already used')),
             ),
             const SizedBox(height: 26),
             ElevatedButton(

@@ -202,8 +202,9 @@ class _SavedScreenState extends State<SavedScreen> {
         progress.value = tr(
             '${azimuthLabelFromCode(f.azimuth)} 분석 중 · ${i + 1}/${shots.length}',
             'Analyzing ${azimuthLabelFromCode(f.azimuth)} · ${i + 1}/${shots.length}');
-        final outPath = pp.join(
-            overlayDir.path, '${record.treeId}_${f.azimuth}_overlay.png');
+        // 예전 기록은 조사목 번호로 된 공용 파일을 가리킬 수 있어(다른 조사지의
+        // 같은 번호와 겹침) 그 파일은 지우지 않고 사진 기준의 새 경로에 쓴다.
+        final outPath = AnalysisService.overlayPathFor(overlayDir.path, f.imagePath!);
         fresh.add(await AnalysisService.instance.analyzeFace(
           f.azimuth,
           f.imagePath!,

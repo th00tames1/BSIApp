@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 프로젝트 화면의 "다음 조사목 번호"는 말 그대로 다음 번호다.
 /// 저장값 Project.treeSeq는 마지막 번호라서 화면과 1씩 차이가 난다.
 void main() {
-  final seqField = find.widgetWithText(TextFormField, '이 번호부터 순차적으로 자동 부여됩니다');
+  final seqField = find.widgetWithText(
+      TextFormField, '이 번호부터 자동 부여되며 이미 사용한 번호는 건너뜁니다');
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -39,7 +40,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(activeProject!.treeSeq, 0);
-    expect(nextTreeSeq().toString().padLeft(3, '0'), '001');
+    expect(peekNextTreeSeq().toString().padLeft(3, '0'), '001');
   });
 
   testWidgets('새 프로젝트: 21을 넣으면 첫 조사목이 021', (tester) async {
@@ -49,7 +50,7 @@ void main() {
     await tester.tap(find.text('프로젝트 생성'));
     await tester.pumpAndSettle();
 
-    expect(nextTreeSeq().toString().padLeft(3, '0'), '021');
+    expect(peekNextTreeSeq().toString().padLeft(3, '0'), '021');
   });
 
   testWidgets('편집: treeSeq 15면 16이 보이고 그대로 저장하면 15가 유지된다', (tester) async {
@@ -61,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(activeProject!.treeSeq, 15);
-    expect(nextTreeSeq().toString().padLeft(3, '0'), '016');
+    expect(peekNextTreeSeq().toString().padLeft(3, '0'), '016');
   });
 
   testWidgets('0을 넣어도 001부터 시작한다', (tester) async {
@@ -72,6 +73,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(activeProject!.treeSeq, 0);
-    expect(nextTreeSeq().toString().padLeft(3, '0'), '001');
+    expect(peekNextTreeSeq().toString().padLeft(3, '0'), '001');
   });
 }
