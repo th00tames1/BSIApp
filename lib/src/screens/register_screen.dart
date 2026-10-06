@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_prefs.dart';
@@ -20,8 +22,10 @@ class _ProjectScreenState extends State<ProjectScreen> {
       TextEditingController(text: widget.project?.site ?? '');
   late final TextEditingController _loc =
       TextEditingController(text: widget.project?.location ?? '');
-  late final TextEditingController _seq =
-      TextEditingController(text: (widget.project?.treeSeq ?? 0).toString());
+  // Project.treeSeq는 마지막 조사목 번호이므로 화면에는 그다음 번호를 보여 주고
+  // 저장할 때 1을 빼서 되돌린다.
+  late final TextEditingController _seq = TextEditingController(
+      text: ((widget.project?.treeSeq ?? 0) + 1).toString());
 
   @override
   void dispose() {
@@ -39,7 +43,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
       existing: widget.project,
       site: _site.text,
       location: _loc.text,
-      treeSeq: int.tryParse(_seq.text.trim()) ?? 0,
+      treeSeq: math.max((int.tryParse(_seq.text.trim()) ?? 1) - 1, 0),
     );
     if (!ok) {
       if (mounted) {
@@ -96,7 +100,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
               controller: _seq,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                  hintText: '0',
+                  hintText: '1',
                   helperText: tr('이 번호부터 순차적으로 자동 부여됩니다',
                       'Assigned sequentially from this number')),
             ),
