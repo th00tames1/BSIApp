@@ -15,6 +15,7 @@ import '../theme.dart';
 import 'about_screen.dart';
 import 'analysis_screen.dart';
 import 'bsi_table_screen.dart';
+import 'manual_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -521,6 +522,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+          _section(p, tr('도움말', 'HELP')),
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const ManualScreen())),
+              child: _row(p, Icons.menu_book_outlined, tr('사용 설명서', 'User guide'),
+                  sub: tr('촬영부터 백업까지 사용 방법', 'How to use the app'),
+                  trailing: Icon(Icons.chevron_right, color: p.muted)),
+            ),
+          ),
           _section(p, tr('판정 기준', 'DECISION CRITERIA')),
           Card(
             child: InkWell(

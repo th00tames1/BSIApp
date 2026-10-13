@@ -110,6 +110,12 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // 시연 모드는 카메라를 아예 쓰지 않으므로 권한 요청도 화면에 안 나온다.
     if (_demo) {
       _initing = false;
+      // 카메라는 쓰지 않지만 화면은 실제 촬영과 같아야 한다: 배율·노출 조작부를
+      // 그대로 띄우고, 조작하면 예시 사진에 같은 효과(확대·밝기)를 준다.
+      _zooms = _zoomSteps;
+      final range = Exposure.sliderRange(0, 0);
+      _evMin = range.min;
+      _evMax = range.max;
       _runDemoCapture();
     } else {
       _initCamera();
@@ -580,6 +586,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   }
 
   Future<void> _setZoom(double z) async {
+    if (_demo) {
+      setState(() => _zoom = z);
+      return;
+    }
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     try {
@@ -591,6 +601,10 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
   }
 
   Future<void> _setEv(double v) async {
+    if (_demo) {
+      setState(() => _ev = v);
+      return;
+    }
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     final prevHw = _hwEv;
@@ -890,15 +904,14 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
         ),
 
         // GPS 상태 — 좌표 숫자 대신 색만 보여 준다(초록 = 찍으면 좌표 기록).
-        if (!_demo)
-          Positioned(
-            top: padTop + 50,
-            left: 14,
-            child: GestureDetector(
-              onTap: _explainGps,
-              child: _GpsDot(level: _gpsLevel),
-            ),
+        Positioned(
+          top: padTop + 50,
+          left: 14,
+          child: GestureDetector(
+            onTap: _explainGps,
+            child: _GpsDot(level: _gpsLevel),
           ),
+        ),
 
         // real device compass (top-right) — 누르면 진북 ↔ 자북
         Positioned(
@@ -952,15 +965,15 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                if (!_demo && _evOpen && _evMax > _evMin) _evSlider(),
-                if (!_demo && _zooms.length > 1) _zoomBar(),
+                if (_evOpen && _evMax > _evMin) _evSlider(),
+                if (_zooms.length > 1) _zoomBar(),
                 const SizedBox(height: 8),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   _CamBtn(
                       icon: Icons.photo_library_outlined, onTap: _pickFromGallery),
                   Expanded(child: Center(child: _compassBlock(n))),
                   // 노출 보정 토글 — 역광일 때만 쓰므로 평소엔 접어 둔다.
-                  _evMax > _evMin && !_demo
+                  _evMax > _evMin
                       ? _CamBtn(
                           icon: _evOpen
                               ? Icons.brightness_6
@@ -1291,18 +1304,30 @@ class _CaptureScreenState extends State<CaptureScreen> with WidgetsBindingObserv
     // 조사자가 나무를 돌아간 것처럼 사진이 부드럽게 교체된다.
     // 예시 사진 비율(3:4) 그대로 보여줘 화면에 보이는 것이 곧 찍히는 사진이다.
     if (_demo) {
-      return Center(
-        child: AspectRatio(
-          aspectRatio: 3 / 4,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 450),
-            child: Image.asset(
-              DemoSample.assetFor(_selected),
-              key: ValueKey(_selected),
-              fit: BoxFit.cover,
-            ),
-          ),
+      // 배율 1배 미만(초광각)은 예시 사진으로 흉내 낼 수 없어 1배로 보여 준다.
+      final g = _swGain;
+      Widget photo = AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        child: Image.asset(
+          DemoSample.assetFor(_selected),
+          key: ValueKey(_selected),
+          fit: BoxFit.cover,
         ),
+      );
+      if (_zoom > 1) photo = Transform.scale(scale: _zoom, child: photo);
+      if (g != 1.0) {
+        photo = ColorFiltered(
+          colorFilter: ColorFilter.matrix(<double>[
+            g, 0, 0, 0, 0, //
+            0, g, 0, 0, 0, //
+            0, 0, g, 0, 0, //
+            0, 0, 0, 1, 0,
+          ]),
+          child: photo,
+        );
+      }
+      return Center(
+        child: AspectRatio(aspectRatio: 3 / 4, child: ClipRect(child: photo)),
       );
     }
     if (_error != null) {

@@ -117,8 +117,8 @@ class SegDecoder {
     // 통째로 사라졌다("그을음이 덮여 있는데 없다고 나옴"). 0.15로 낮추면
     // 검증용 예시 4장과 현장 사진의 계측값은 **완전히 그대로**이면서
     // 그 절벽만 없어진다(0.10까지 내리면 예시 S면이 흔들려 여기가 하한).
-    double confSoot = 0.15,
-    double confTree = 0.25,
+    double confSoot = 0.10,
+    double confTree = 0.10,
     double iou = 0.45,
     double? targetHintX,
     double? targetHintY,
