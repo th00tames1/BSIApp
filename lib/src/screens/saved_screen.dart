@@ -29,7 +29,7 @@ class SavedScreen extends StatefulWidget {
 class _SavedScreenState extends State<SavedScreen> {
   final _pager = PageController();
   int _page = 0;
-  late SurveyRecord record = widget.record;
+  late SurveyRecord record = Mortality.applyToRecord(widget.record);
 
   @override
   void dispose() {
@@ -439,12 +439,10 @@ class _SavedScreenState extends State<SavedScreen> {
               child: Column(children: [
                 _row(p, Icons.local_fire_department_outlined,
                     tr('통합 BSI', 'Integrated BSI'),
-                    record.bsi.isNaN ? '–' : record.bsi.toStringAsFixed(2)),
+                     record.bsi.isNaN ? '–' : Mortality.bsiForDecision(record.bsi).toStringAsFixed(0)),
                 Divider(height: 1, color: p.line),
                 _row(p, Icons.warning_amber_rounded, tr('고사 확률', 'Mortality'),
-                    record.mortalityProb.isNaN
-                        ? '–'
-                        : '${(record.mortalityProb * 100).round()}%'),
+                    Mortality.probabilityLabel(record.mortalityProb)),
               ]),
             ),
           ),

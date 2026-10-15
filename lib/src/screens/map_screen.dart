@@ -13,6 +13,7 @@ import '../models/survey.dart';
 import '../services/db_service.dart';
 import '../services/geo_import.dart';
 import '../services/location_service.dart';
+import '../services/mortality.dart';
 import '../services/geomag.dart';
 import '../services/overlay_store.dart';
 import '../services/tile_cache.dart';
@@ -485,11 +486,11 @@ class _MapScreenState extends State<MapScreen> {
                 _sheetRow(
                     Icons.local_fire_department_outlined,
                     tr('통합 BSI', 'Integrated BSI'),
-                    r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2),
+                    r.bsi.isNaN ? '–' : Mortality.bsiForDecision(r.bsi).toStringAsFixed(0),
                     p),
                 Divider(height: 1, color: p.line),
                 _sheetRow(Icons.warning_amber_rounded, tr('고사 확률', 'Mortality'),
-                    r.mortalityProb.isNaN ? '–' : '${(r.mortalityProb * 100).round()}%', p),
+                    Mortality.probabilityLabel(r.mortalityProb), p),
               ]),
             ),
           ),

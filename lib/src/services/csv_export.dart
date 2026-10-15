@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../app_prefs.dart';
 import '../models/survey.dart';
+import 'mortality.dart';
 import 'raw_archive.dart';
 
 class CsvExport {
@@ -18,7 +19,7 @@ class CsvExport {
     'face_azimuth', 'face_source', 'face_issue', 'soot_height_m', 'soot_proportion',
     'soot_proportion_whole',
     'soot_width_m', 'visible_stem_m', 'dbh_est_m', 'px_per_m', 'scale_source',
-    'created_at',
+    'created_at', 'bsi_for_decision',
   ];
 
   /// NaN은 CSV에서 빈 칸으로 낸다.
@@ -30,7 +31,8 @@ class CsvExport {
 
   static List<List<Object?>> _rows(List<SurveyRecord> recs) {
     final rows = <List<Object?>>[_header];
-    for (final r in recs) {
+    for (final original in recs) {
+      final r = Mortality.applyToRecord(original);
       // 수고·그을음 높이는 상세 화면과 같은 유효값(수정값 우선, 없으면 계측 최대).
       final base = [
         r.treeId, r.site, r.address, r.lat, r.lon, r.species, r.dbhCm,
@@ -41,8 +43,8 @@ class CsvExport {
       if (r.faces.isEmpty) {
         rows.add([
           ...base, '', '', '', '', '', '', '', '', '', '', '',
-          r.createdAt.toIso8601String()
-        ]); // face 칸 11개 + created_at — 헤더 칸 수와 맞아야 한다(테스트가 검증)
+          r.createdAt.toIso8601String(), _v(Mortality.bsiForDecision(r.bsi)),
+        ]); // face 칸 11개 + created_at + bsi_for_decision
       }
       for (final f in r.faces) {
         rows.add([
@@ -56,6 +58,7 @@ class CsvExport {
           _v(f.sootWidthM), _v(f.visibleStemHeightM), _v(f.dbhEstM), _v(f.pxPerMetre),
           f.scaleSource, // 'pole' | 'pole_rw'(빨강/흰 폴 0.2 m) | 'dbh'(흉고직경 추정, 정밀도 낮음) | 'manual' | ''
           r.createdAt.toIso8601String(),
+          _v(Mortality.bsiForDecision(r.bsi)),
         ]);
       }
     }

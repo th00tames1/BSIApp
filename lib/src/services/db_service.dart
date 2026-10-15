@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/survey.dart';
+import 'mortality.dart';
 
 /// Offline SQLite store for survey records (offline-first per the spec).
 class DbService {
@@ -70,20 +71,24 @@ class DbService {
 
   Future<int> insert(SurveyRecord r) async {
     final db = await _database;
-    return db.insert('surveys', r.toMap());
+    return db.insert('surveys', Mortality.applyToRecord(r).toMap());
   }
 
   /// 조사목 상세에서 수정한 값(수종·흉고직경·수고·그을음 높이 등)을 반영한다.
   Future<void> update(SurveyRecord r) async {
     if (r.dbId == null) return;
     final db = await _database;
-    await db.update('surveys', r.toMap(), where: 'id = ?', whereArgs: [r.dbId]);
+    await db.update('surveys', Mortality.applyToRecord(r).toMap(),
+        where: 'id = ?', whereArgs: [r.dbId]);
   }
 
   Future<List<SurveyRecord>> all() async {
     final db = await _database;
     final rows = await db.query('surveys', orderBy: 'createdAt DESC');
-    return rows.map(SurveyRecord.fromMap).toList();
+    // 원래 소수 BSI·DBH는 그대로 두고 파생 판정만 현재 기준으로 계산한다.
+    return rows
+        .map((row) => Mortality.applyToRecord(SurveyRecord.fromMap(row)))
+        .toList();
   }
 
   Future<void> delete(int id) async {

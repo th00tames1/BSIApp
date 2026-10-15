@@ -4,6 +4,7 @@ import '../l10n.dart';
 import '../models/survey.dart';
 import '../services/csv_export.dart';
 import '../services/db_service.dart';
+import '../services/mortality.dart';
 import '../theme.dart';
 import 'saved_screen.dart';
 
@@ -106,7 +107,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 3),
                   Text(
-                    '${r.site.isEmpty ? '' : '${r.site} · '}BSI ${r.bsi.isNaN ? '–' : r.bsi.toStringAsFixed(2)} · ${_date(r.createdAt)}',
+                    '${r.site.isEmpty ? '' : '${r.site} · '}BSI ${r.bsi.isNaN ? '–' : Mortality.bsiForDecision(r.bsi).toStringAsFixed(0)} · ${_date(r.createdAt)}',
                     style: TextStyle(fontSize: 12, color: p.muted, fontFamily: 'monospace'),
                   ),
                 ]),

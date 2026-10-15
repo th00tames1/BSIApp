@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:bsi_field/src/models/survey.dart';
 import 'package:bsi_field/src/services/bsi_table.dart';
+import 'package:bsi_field/src/services/csv_export.dart';
 import 'package:bsi_field/src/services/mortality.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,9 +36,11 @@ void main() {
     test('BSI가 오를수록·DBH가 굵을수록 단조', () {
       for (var j = 0; j < BsiTable.dbhCm.length; j++) {
         for (var i = 1; i < BsiTable.percent.length; i++) {
-          expect(BsiTable.percent[i][j],
-              greaterThanOrEqualTo(BsiTable.percent[i - 1][j]),
-              reason: 'BSI ${i + 1}, DBH ${BsiTable.dbhCm[j]}');
+          expect(
+            BsiTable.percent[i][j],
+            greaterThanOrEqualTo(BsiTable.percent[i - 1][j]),
+            reason: 'BSI ${i + 1}, DBH ${BsiTable.dbhCm[j]}',
+          );
         }
       }
       for (final row in BsiTable.percent) {
@@ -87,18 +91,67 @@ void main() {
   });
 
   group('앱 판정이 표와 일치', () {
+    test('BSI만 정수 반올림하고 DBH 35 cm는 그대로 사용한다', () {
+      expect(Mortality.bsiForDecision(14.49), 14);
+      expect(Mortality.percent(14.49, 35), 54.5);
+      expect((Mortality.probability(14.49, 35) * 100).round(), 55);
+      expect(Mortality.verdict(14.49, 35), '벌채');
+      expect(Mortality.percent(14.49, 34), 56);
+      expect(Mortality.percent(14.49, 36), 53);
+    });
+
+    test('BSI 0.5 경계에서 올림하며 DBH 소수 실측값도 보존한다', () {
+      expect(Mortality.bsiForDecision(14.49999), 14);
+      expect(Mortality.bsiForDecision(14.5), 15);
+      expect(Mortality.percent(14.5, 35), 61);
+      expect(Mortality.percent(14.49, 35.25), 54.125);
+    });
+
+    test('확률 표시의 이진 소수 오차를 보정하고 실제 판정 기준은 유지한다', () {
+      expect(Mortality.probabilityLabel(0.285), '29%');
+      expect(Mortality.probabilityLabel(0.2849), '28%');
+      expect(Mortality.probabilityLabel(0.545), '55%');
+      expect(Mortality.probabilityLabel(double.nan), '–');
+      expect(Mortality.verdict(10, 35), '존치');
+    });
+
+    test('30% 판정 경계도 반올림한 BSI로 결정한다', () {
+      expect(Mortality.percent(5.49, 20), 24);
+      expect(Mortality.verdict(5.49, 20), '존치');
+      expect(Mortality.percent(5.5, 20), 30);
+      expect(Mortality.verdict(5.5, 20), '벌채');
+      expect(Mortality.percent(6, 21), 28.5);
+      expect(Mortality.verdict(6, 21), '존치');
+    });
+
+    test('유효하지 않은 값은 반올림하거나 판정하지 않는다', () {
+      expect(Mortality.bsiForDecision(double.nan).isNaN, isTrue);
+      expect(Mortality.bsiForDecision(double.infinity).isNaN, isTrue);
+      expect(Mortality.percent(double.infinity, 35).isNaN, isTrue);
+      expect(Mortality.percent(14, double.infinity).isNaN, isTrue);
+    });
+
     test('500칸 전부에서 확률·판정이 표와 동일', () {
       for (var i = 0; i < BsiTable.percent.length; i++) {
         final bsi = (i + BsiTable.minBsi).toDouble();
         for (var j = 0; j < BsiTable.dbhCm.length; j++) {
           final dbh = BsiTable.dbhCm[j].toDouble();
           final cell = BsiTable.percent[i][j];
-          expect(Mortality.percent(bsi, dbh), closeTo(cell, 1e-9),
-              reason: 'BSI $bsi, DBH $dbh');
-          expect((Mortality.probability(bsi, dbh) * 100).round(), cell,
-              reason: '화면 표시값 BSI $bsi, DBH $dbh');
-          expect(Mortality.verdict(bsi, dbh), BsiTable.isCut(cell) ? '벌채' : '존치',
-              reason: 'BSI $bsi, DBH $dbh');
+          expect(
+            Mortality.percent(bsi, dbh),
+            closeTo(cell, 1e-9),
+            reason: 'BSI $bsi, DBH $dbh',
+          );
+          expect(
+            (Mortality.probability(bsi, dbh) * 100).round(),
+            cell,
+            reason: '화면 표시값 BSI $bsi, DBH $dbh',
+          );
+          expect(
+            Mortality.verdict(bsi, dbh),
+            BsiTable.isCut(cell) ? '벌채' : '존치',
+            reason: 'BSI $bsi, DBH $dbh',
+          );
         }
       }
     });
@@ -118,9 +171,54 @@ void main() {
 
     test('표 밖의 값은 가장자리로 고정', () {
       expect(Mortality.percent(30, 20), BsiTable.percent.last.first.toDouble());
-      expect(Mortality.percent(0.2, 20), BsiTable.percent.first.first.toDouble());
-      expect(Mortality.percent(10, 200),
-          BsiTable.percent[9].last.toDouble());
+      expect(
+        Mortality.percent(0.2, 20),
+        BsiTable.percent.first.first.toDouble(),
+      );
+      expect(Mortality.percent(10, 200), BsiTable.percent[9].last.toDouble());
+    });
+  });
+
+  group('기존 기록과 원자료 보존', () {
+    SurveyRecord oldRecord(List<AzimuthResult> faces) => SurveyRecord(
+      treeId: '001',
+      site: 'test',
+      address: '',
+      species: '소나무',
+      dbhCm: 35,
+      modelName: 'test',
+      faces: faces,
+      bsi: 14.49,
+      mortalityProb: 0.58,
+      verdict: '벌채',
+      createdAt: DateTime.utc(2026, 10, 15),
+    );
+
+    test('기존 판정은 새 기준으로 계산하되 원본 BSI·DBH와 레코드는 그대로 둔다', () {
+      final original = oldRecord([]);
+      final current = Mortality.applyToRecord(original);
+      expect(current.bsi, 14.49);
+      expect(current.dbhCm, 35);
+      expect(current.mortalityProb, 0.545);
+      expect(original.mortalityProb, 0.58);
+      final restored = SurveyRecord.fromMap(current.toMap());
+      expect(restored.bsi, 14.49);
+      expect(restored.dbhCm, 35);
+    });
+
+    test('CSV는 방위 유무와 관계없이 원본 BSI와 판정용 BSI를 함께 남긴다', () {
+      final rows = CsvExport.rowsForTest([
+        oldRecord([]),
+        oldRecord([const AzimuthResult(azimuth: 'E')]),
+      ]);
+      final header = rows.first;
+      for (final row in rows.skip(1)) {
+        expect(row.length, header.length);
+        expect(row[header.indexOf('bsi')], 14.49);
+        expect(row[header.indexOf('bsi_for_decision')], 14);
+        expect(row[header.indexOf('dbh_cm')], 35);
+        expect(row[header.indexOf('mortality_prob')], 0.545);
+      }
     });
   });
 }

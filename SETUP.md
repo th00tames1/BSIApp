@@ -134,9 +134,9 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 
 | 항목 | 기대값 |
 |---|---|
-| 통합 BSI | **14.5** |
+| 판정용 BSI (정수 반올림) | **14** |
 | 흉고직경 (자동 추정) | **35 cm** |
-| 고사 확률 | **58 %** |
+| 고사 확률 | **55 %** |
 | 판정 | 벌채 |
 | 방위별 그을음 비율 | 동 90 % · 서 92 % · 남 92 % · 북 94 % |
 
@@ -288,17 +288,17 @@ keyPassword=android
 
 ### 7.2 새 버전을 낼 때마다
 
-1. 버전을 올린다 — `pubspec.yaml`의 `version: 0.3.6+12`(뒤 숫자는 매번 +1)와
-   `lib/src/services/raw_archive.dart`의 `kAppVersion = '0.3.6'`. 둘이 다르면 배포가 멈춘다.
+1. 버전을 올린다 — `pubspec.yaml`의 `version: 0.4.2+14`(뒤 숫자는 매번 +1)와
+   `lib/src/services/raw_archive.dart`의 `kAppVersion = '0.4.2'`. 둘이 다르면 배포가 멈춘다.
 2. 커밋·푸시한 뒤 태그를 올린다.
    ```bash
-   git tag v0.3.6
+   git tag v0.4.2
    ```
    ```bash
-   git push origin v0.3.6
+   git push origin v0.4.2
    ```
 3. GitHub → **Actions**에서 "Android release"가 끝나면(약 10분) **Releases**에
-   `bsi_app2-v0.4.1-arm64.apk`가 생긴다. 릴리스 설명은 태그가 가리키는 커밋 메시지다
+   `bsi_app2-v0.4.2-arm64.apk`가 생긴다. 릴리스 설명은 태그가 가리키는 커밋 메시지다
    — 앱의 업데이트 창에 그대로 보이므로 조사자가 읽을 수 있게 쓴다.
 4. 폰에서 **설정 → 앱 업데이트**. 처음 한 번은 "이 출처 허용"을 켜라는 설정 화면이 뜬다.
 

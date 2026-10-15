@@ -122,7 +122,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final rec = d.toRecord();
+      final rec = Mortality.applyToRecord(d.toRecord());
       await DbService.instance.insert(rec);
       noteTreeIdSaved(rec.site, rec.treeId); // 저장한 번호까지 자동 번호 카운터를 올린다
       // 연구용: 저장 시점의 최종 레코드(판정·DBH·직접 입력 포함)를 번들에 남긴다.
@@ -137,9 +137,12 @@ class _ResultScreenState extends State<ResultScreen> {
               ? null
               : {
                   'bsi': d.integ!.bsi.isNaN ? null : d.integ!.bsi,
+                  'bsiForDecision': rec.bsi.isNaN
+                      ? null
+                      : Mortality.bsiForDecision(rec.bsi),
                   'facesUsed': d.integ!.facesUsed,
-                  'mortality': d.integ!.mortality.isNaN ? null : d.integ!.mortality,
-                  'verdict': d.integ!.verdict,
+                  'mortality': rec.mortalityProb.isNaN ? null : rec.mortalityProb,
+                  'verdict': rec.verdict,
                 },
           'dbh': {
             'enteredCm': d.dbhCm,
@@ -186,8 +189,8 @@ class _ResultScreenState extends State<ResultScreen> {
     final f = d.results[_sel];
     final integ = d.integ;
     final bsi = integ?.bsi ?? double.nan;
-    final prob = integ?.mortality ?? double.nan;
-    final verdict = integ?.verdict ?? '';
+    final prob = Mortality.probability(bsi, d.dbhCm);
+    final verdict = Mortality.verdict(bsi, d.dbhCm);
 
     return Scaffold(
       appBar: AppBar(
@@ -346,7 +349,7 @@ class _ResultScreenState extends State<ResultScreen> {
               value: prob.isNaN ? 0 : prob,
               track: p.surface2,
               fill: probColor,
-              label: prob.isNaN ? '–' : '${(prob * 100).round()}%',
+              label: Mortality.probabilityLabel(prob),
               ink: p.ink,
             ),
             const SizedBox(width: 16),
@@ -383,7 +386,7 @@ class _ResultScreenState extends State<ResultScreen> {
                               color: p.muted,
                               fontWeight: FontWeight.w600)),
                       const SizedBox(width: 10),
-                      Text(bsi.isNaN ? '–' : bsi.toStringAsFixed(1),
+                      Text(bsi.isNaN ? '–' : Mortality.bsiForDecision(bsi).toStringAsFixed(0),
                           style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 26,
