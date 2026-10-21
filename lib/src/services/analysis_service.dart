@@ -15,6 +15,7 @@ import 'onnx_service.dart';
 import 'pole_model.dart';
 import 'raw_archive.dart';
 import 'seg_decoder.dart';
+import 'target_tree_rescue.dart';
 
 class BsiIntegration {
   final double bsi;
@@ -26,8 +27,13 @@ class BsiIntegration {
   /// 4방위 기준으로 환산한 값이므로 화면에 그 사실을 알려야 한다.
   final int facesUsed;
 
-  const BsiIntegration(this.bsi, this.dbhCm, this.mortality, this.verdict,
-      {this.facesUsed = 4});
+  const BsiIntegration(
+    this.bsi,
+    this.dbhCm,
+    this.mortality,
+    this.verdict, {
+    this.facesUsed = 4,
+  });
 
   bool get isPartial => facesUsed > 0 && facesUsed < 4;
 }
@@ -49,7 +55,7 @@ class AnalysisService {
             f.scaleSource != 'dbh' && // 흉고직경으로 세운 스케일은 순환이라 제외
             !f.dbhEstM.isNaN &&
             f.dbhEstM > 0)
-          f.dbhEstM * 100
+          f.dbhEstM * 100,
     ]..sort();
     if (v.isEmpty) return double.nan;
     return v.length.isOdd
@@ -60,8 +66,11 @@ class AnalysisService {
   /// 한 방위 사진의 오버레이 PNG 경로. 원본 사진 파일명(조사목·방위·촬영 시각)에서
   /// 만들므로 조사지가 달라도 겹치지 않고, 같은 사진을 다시 분석하면 같은 파일을
   /// 덮어쓴다. 조사목 번호만으로 만들면 프로젝트마다 001이 있어 서로 덮어쓴다.
-  static String overlayPathFor(String overlayDir, String photoPath) => path.join(
-      overlayDir, '${path.basenameWithoutExtension(photoPath)}_overlay.png');
+  static String overlayPathFor(String overlayDir, String photoPath) =>
+      path.join(
+        overlayDir,
+        '${path.basenameWithoutExtension(photoPath)}_overlay.png',
+      );
 
   /// Analyse one captured face: segment, scale with the pole, derive metrics,
   /// and (optionally) write an overlay PNG. Returns an [AzimuthResult].
@@ -77,12 +86,19 @@ class AnalysisService {
     FaceTuning tuning = FaceTuning.none,
   }) async {
     final size = OnnxService.instance.inputSize;
-    final decoded = await _letterboxCapped(imagePath, size,
-        brightness: tuning.brightness,
-        contrast: tuning.contrast,
-        autoTone: tuning.autoTone);
+    final decoded = await _letterboxCapped(
+      imagePath,
+      size,
+      brightness: tuning.brightness,
+      contrast: tuning.contrast,
+      autoTone: tuning.autoTone,
+    );
     if (decoded == null) {
-      return AzimuthResult(azimuth: azimuth, imagePath: imagePath, analysed: false);
+      return AzimuthResult(
+        azimuth: azimuth,
+        imagePath: imagePath,
+        analysed: false,
+      );
     }
     var lb = decoded; // 확대 재분석에서 교체될 수 있다
     final analysedAt = DateTime.now();
@@ -121,14 +137,19 @@ class AnalysisService {
     // 그 점이 최우선이다.
     double? poleHintX;
     if (sol != null && sol.staff.points.isNotEmpty) {
-      poleHintX = sol.staff.points.map((q) => q.x).reduce((a, b) => a + b) /
+      poleHintX =
+          sol.staff.points.map((q) => q.x).reduce((a, b) => a + b) /
           sol.staff.points.length;
     } else if (pole.detected) {
       poleHintX = pole.x.toDouble();
     }
     final raw = await OnnxService.instance.infer(lb.chw, lb.size);
     var fa = SegDecoder.analyze(
-      raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+      raw.det,
+      raw.detShape,
+      raw.proto,
+      raw.protoShape,
+      lb.size,
       targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
       targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
       hintIsTap: tuning.targetX != null,
@@ -149,7 +170,11 @@ class AnalysisService {
     var treePass = 'normal';
     if (!fa.hasTree) {
       final relaxed = SegDecoder.analyze(
-        raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+        raw.det,
+        raw.detShape,
+        raw.proto,
+        raw.protoShape,
+        lb.size,
         confTree: 0.05,
         targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
         targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
@@ -171,19 +196,28 @@ class AnalysisService {
     // 단, 같은 보정이 그을음 마스크는 줄인다(비율 0.877 → 0.602). 그래서
     // 보정본에서는 **줄기(분모)만** 빌려 오고 그을음은 원본에서 잰 것을 쓴다.
     if (!fa.hasTree && tuning.autoTone != true) {
-      final toned = await _letterboxCapped(imagePath, size,
-          brightness: tuning.brightness,
-          contrast: tuning.contrast,
-          autoTone: true);
+      final toned = await _letterboxCapped(
+        imagePath,
+        size,
+        brightness: tuning.brightness,
+        contrast: tuning.contrast,
+        autoTone: true,
+      );
       if (toned != null) {
         try {
           final rawT = await OnnxService.instance.infer(toned.chw, toned.size);
           final ft = SegDecoder.analyze(
-            rawT.det, rawT.detShape, rawT.proto, rawT.protoShape, toned.size,
-            targetHintX:
-                tuning.targetX == null ? null : tuning.targetX! * toned.size,
-            targetHintY:
-                tuning.targetY == null ? null : tuning.targetY! * toned.size,
+            rawT.det,
+            rawT.detShape,
+            rawT.proto,
+            rawT.protoShape,
+            toned.size,
+            targetHintX: tuning.targetX == null
+                ? null
+                : tuning.targetX! * toned.size,
+            targetHintY: tuning.targetY == null
+                ? null
+                : tuning.targetY! * toned.size,
             hintIsTap: tuning.targetX != null,
             poleHintX: poleHintX,
             groundNorm: tuning.groundNorm,
@@ -201,7 +235,11 @@ class AnalysisService {
     var sootPass = 'normal';
     if (fa.hasTree && fa.interPx == 0) {
       final relaxed = SegDecoder.analyze(
-        raw.det, raw.detShape, raw.proto, raw.protoShape, lb.size,
+        raw.det,
+        raw.detShape,
+        raw.proto,
+        raw.protoShape,
+        lb.size,
         confSoot: 0.08,
         targetHintX: tuning.targetX == null ? null : tuning.targetX! * lb.size,
         targetHintY: tuning.targetY == null ? null : tuning.targetY! * lb.size,
@@ -214,14 +252,151 @@ class AnalysisService {
         sootPass = 'lowConf';
       }
     }
-    double pxPerM = manualPxPerMetre ??
+    var stemReference = fa;
+    final treeRescues = <Map<String, Object?>>[];
+    if (fa.hasTree) {
+      final anchor = fa;
+      for (final region in TargetTreeRescue.regions(anchor, lb)) {
+        final attempt = <String, Object?>{
+          'x': region.x,
+          'y': region.y,
+          'w': region.width,
+          'h': region.height,
+          'addedPixels': 0,
+        };
+        treeRescues.add(attempt);
+        try {
+          final cropped = ImageOps.letterbox(
+            img.copyCrop(
+              lb.source,
+              x: region.x,
+              y: region.y,
+              width: region.width,
+              height: region.height,
+            ),
+            lb.size,
+            brightness: tuning.brightness,
+            contrast: tuning.contrast,
+            autoTone: lb.toneApplied,
+          );
+          final extra = await OnnxService.instance.infer(
+            cropped.chw,
+            cropped.size,
+          );
+          final candidates = SegDecoder.branchEvidence(
+            extra.det,
+            extra.detShape,
+            extra.proto,
+            extra.protoShape,
+            cropped.size,
+          );
+          attempt['candidates'] = candidates.length;
+          var added = 0;
+          for (final evidence in candidates) {
+            final candidate = evidence.analysis;
+            Uint8List restore(Uint8List mask) => TargetTreeRescue.restoreMask(
+              mask,
+              candidate.mh,
+              candidate.mw,
+              cropped,
+              region,
+              lb,
+              fa.mh,
+              fa.mw,
+            );
+            final merged = SegDecoder.mergeBranchEvidence(
+              fa,
+              restore(candidate.treeMask),
+              restore(candidate.sootMask),
+              anchor: anchor,
+            );
+            added += merged.treePx - fa.treePx;
+            fa = merged;
+          }
+          attempt['addedPixels'] = added;
+        } catch (_) {
+          // An optional branch rescue must not discard a valid full-frame result.
+          attempt['failed'] = true;
+        }
+      }
+      final companionAttempt = <String, Object?>{
+        'kind': 'companion',
+        'model': TargetTreeRescue.modelAsset,
+        'addedPixels': 0,
+      };
+      treeRescues.add(companionAttempt);
+      try {
+        if (await OnnxService.treeRescue.tryLoad(TargetTreeRescue.modelAsset)) {
+          final companion = ImageOps.letterbox(
+            lb.source,
+            OnnxService.treeRescue.inputSize,
+            brightness: tuning.brightness,
+            contrast: tuning.contrast,
+            autoTone: lb.toneApplied,
+          );
+          final rawCompanion = await OnnxService.treeRescue.infer(
+            companion.chw,
+            companion.size,
+          );
+          final candidates = SegDecoder.branchEvidence(
+            rawCompanion.det,
+            rawCompanion.detShape,
+            rawCompanion.proto,
+            rawCompanion.protoShape,
+            companion.size,
+          );
+          companionAttempt['candidates'] = candidates.length;
+          var added = 0;
+          for (final evidence in candidates) {
+            final candidate = evidence.analysis;
+            final mapped = TargetTreeRescue.restoreMask(
+              candidate.treeMask,
+              candidate.mh,
+              candidate.mw,
+              companion,
+              (x: 0, y: 0, width: lb.source.width, height: lb.source.height),
+              lb,
+              fa.mh,
+              fa.mw,
+            );
+            final merged = SegDecoder.mergeCompanionTree(
+              fa,
+              mapped,
+              anchor: anchor,
+            );
+            added += merged.treePx - fa.treePx;
+            fa = merged;
+          }
+          companionAttempt['addedPixels'] = added;
+        } else {
+          companionAttempt['failed'] = true;
+        }
+      } catch (_) {
+        companionAttempt['failed'] = true;
+      }
+    }
+    fa = SegDecoder.applyExclusions(
+      fa,
+      FaceTuning.validatedExcludedAreas(tuning.excludedAreas),
+    );
+    stemReference = SegDecoder.applyExclusions(
+      stemReference,
+      FaceTuning.validatedExcludedAreas(tuning.excludedAreas),
+    );
+    // Ground and manual exclusions stay authoritative after every extra pass.
+    if (tuning.groundNorm != null) {
+      fa = SegDecoder.clipGround(fa, tuning.groundNorm!);
+      stemReference = SegDecoder.clipGround(stemReference, tuning.groundNorm!);
+    }
+    double pxPerM =
+        manualPxPerMetre ??
         sol?.pxPerMetre ??
         (modelUsable ? double.nan : pole.pxPerMetre);
     String scaleSource = manualPxPerMetre != null
         ? 'manual'
         : sol != null
-            ? (sol.redWhite ? 'pole_rw' : 'pole')
-            : (!modelUsable && !pole.pxPerMetre.isNaN ? 'heuristic' : '');
+        ? (sol.redWhite ? 'pole_rw' : 'pole')
+        : (!modelUsable && !pole.pxPerMetre.isNaN ? 'heuristic' : '');
 
     final protoToSize = lb.size / fa.mh; // proto rows/cols -> size px
 
@@ -229,8 +404,16 @@ class AnalysisService {
     // 마스크 격자가 4 px라 폭 36 px 기준 ±10 % 안팎). 수고봉·수동 스케일이 있으면
     // 절대 덮어쓰지 않는다.
     var scaleFromDbh = false;
-    if (pxPerM.isNaN && dbhCmForScale != null && dbhCmForScale > 0 && fa.hasTree) {
-      final s = scaleFromDbhCm(fa, protoToSize, dbhCmForScale);
+    if (pxPerM.isNaN &&
+        dbhCmForScale != null &&
+        dbhCmForScale > 0 &&
+        fa.hasTree) {
+      final s = scaleFromDbhCm(
+        stemReference,
+        protoToSize,
+        dbhCmForScale,
+        recoveredShape: fa,
+      );
       if (s != null && s > 0) {
         pxPerM = s;
         scaleSource = 'dbh';
@@ -249,7 +432,9 @@ class AnalysisService {
     double scaleAtRow(int protoRow) {
       if (sol == null) return pxPerM;
       final y = protoRow * protoToSize;
-      final x = sol.staff.points.isEmpty ? lb.size / 2 : sol.staff.points.first.x;
+      final x = sol.staff.points.isEmpty
+          ? lb.size / 2
+          : sol.staff.points.first.x;
       return sol.pxPerMetreAt(x, y);
     }
 
@@ -264,10 +449,13 @@ class AnalysisService {
       final s = scaleAtRow((fa.treeTop + fa.treeBottom) ~/ 2);
       visStemM = (fa.treeBottom - fa.treeTop) * protoToSize / s;
       // 밑둥에서 1.3 m 위 = 가슴높이. 스케일이 있으니 proto 행으로 환산할 수 있다.
-      final rowsUp =
-          (breastHeightM * scaleAtRow(fa.treeBottom) / protoToSize).round();
-      dbhSpan = fa.treeSpanAtHeight(rowsUp) ??
-          fa.treeSpanAtHeight((fa.treeBottom - fa.treeTop) ~/ 3);
+      final rowsUp = (breastHeightM * scaleAtRow(fa.treeBottom) / protoToSize)
+          .round();
+      // A recovered fork is not a new calibration ruler. Keep the selected
+      // primary stem width; abstain if the final shape is split at that height.
+      dbhSpan = fa.treeSpanAtHeight(rowsUp) == null
+          ? null
+          : stemReference.treeSpanAtHeight(rowsUp);
       // 스케일을 흉고직경에서 얻었으면 그 폭으로 흉고직경을 "추정"하는 건 순환이다.
       if (dbhSpan != null && !scaleFromDbh) {
         dbhM = dbhSpan.width * protoToSize / scaleAtRow(dbhSpan.row);
@@ -281,12 +469,15 @@ class AnalysisService {
       int px(int protoCol) => (protoCol * protoToSize).round();
       final stemSpan = fa.hasTree ? fa.treeSpanAtRow(fa.treeBottom) : null;
       final png = ImageOps.renderOverlay(
-        lb.square, treeUp, sootUp, lb.size,
+        lb.square,
+        treeUp,
+        sootUp,
+        lb.size,
         poleTopY: pole.detected ? pole.topY : null,
         poleBottomY: pole.detected ? pole.bottomY : null,
         poleX: pole.detected ? pole.x : null,
         poleBoundaries: [
-          for (final p in sol?.staff.points ?? const []) (x: p.x, y: p.y)
+          for (final p in sol?.staff.points ?? const []) (x: p.x, y: p.y),
         ],
         stemBase: stemSpan == null
             ? null
@@ -307,7 +498,11 @@ class AnalysisService {
     // 넣으면 안 된다(현장 001 동: 0.98). 계측값은 기록에 남기되 합에서는 뺀다.
     final backlight = fa.treePx > 0
         ? Backlight.scoreMask(lb.square, fa.treeMask, fa.mh, fa.mw)
-        : const MaskScore(median: double.nan, darkFraction: 0, surround: double.nan);
+        : const MaskScore(
+            median: double.nan,
+            darkFraction: 0,
+            surround: double.nan,
+          );
 
     final result = AzimuthResult(
       azimuth: azimuth,
@@ -323,17 +518,40 @@ class AnalysisService {
       sootPx: fa.sootPx,
       treePx: fa.treePx,
       analysed: true,
+      tuning: tuning,
       scaleSource: scaleSource,
-      issue: backlight.silhouette ? 'backlit' : '',
+      issue: !fa.hasTree && tuning.excludedAreas.isNotEmpty
+          ? 'tree_excluded'
+          : !fa.hasTree && tuning.targetX != null
+          ? 'target_not_found'
+          : backlight.silhouette
+          ? 'backlit'
+          : '',
     );
 
     // 연구용 원시 산출물 — 나중에 다른 모델·파이프라인으로 같은 입력을 다시 돌려
     // 비교할 수 있게 모델명·입력 기하·분할 통계·수고봉 경계점·마스크를 남긴다.
     if (rawOutDir != null) {
       _writeRawArtifacts(
-        rawOutDir, azimuth, analysedAt, imagePath, lb, fa, sol, pole,
-        result, dbhCmForScale, manualPxPerMetre, poleGapMetres,
-        tuning, treePass, sootPass, backlight,
+        rawOutDir,
+        azimuth,
+        analysedAt,
+        imagePath,
+        lb,
+        fa,
+        sol,
+        pole,
+        result,
+        dbhCmForScale,
+        manualPxPerMetre,
+        poleGapMetres,
+        tuning,
+        treePass,
+        sootPass,
+        backlight,
+        treeRescues,
+        stemReference,
+        dbhSpan,
       );
     }
     return result;
@@ -356,6 +574,9 @@ class AnalysisService {
     String treePass,
     String sootPass,
     MaskScore backlight,
+    List<Map<String, Object?>> treeRescues,
+    FaceAnalysis stemReference,
+    ({int width, int row, int lo, int hi})? dbhSpan,
   ) {
     try {
       Directory(dir).createSync(recursive: true);
@@ -368,6 +589,7 @@ class AnalysisService {
         'models': {
           'seg': OnnxService.instance.loadedAsset,
           'pole': OnnxService.pole.loadedAsset,
+          'treeRescue': OnnxService.treeRescue.loadedAsset,
           'inputSize': lb.size,
         },
         'letterbox': {
@@ -397,6 +619,22 @@ class AnalysisService {
         'autoTone': lb.toneApplied,
         'treePass': treePass,
         'sootPass': sootPass,
+        'treeRescues': treeRescues,
+        'stemReference': {
+          'treePx': stemReference.treePx,
+          'treeTop': stemReference.treeTop,
+          'treeBottom': stemReference.treeBottom,
+          'purpose':
+              'primary target after exclusions/ground, for DBH calibration',
+        },
+        'dbhMeasurement': dbhSpan == null
+            ? null
+            : {
+                'row': dbhSpan.row,
+                'lo': dbhSpan.lo,
+                'hi': dbhSpan.hi,
+                'width': dbhSpan.width,
+              },
         'inputRegion': {
           'x': lb.srcX,
           'y': lb.srcY,
@@ -420,7 +658,7 @@ class AnalysisService {
                   'gapMetres': sol.gapMetres,
                   'points': [
                     for (final q in sol.staff.points)
-                      {'x': q.x, 'y': q.y, 'score': q.score, 'cls': q.cls}
+                      {'x': q.x, 'y': q.y, 'score': q.score, 'cls': q.cls},
                   ],
                 },
           'poleHeuristic': {
@@ -444,12 +682,21 @@ class AnalysisService {
         'issue': r.issue,
         'overlay': r.overlayPath,
       };
-      File(path.join(dir, '${azimuth}_analysis.json'))
-          .writeAsStringSync(_pretty(json), flush: true);
-      File(path.join(dir, '${azimuth}_mask_tree.png'))
-          .writeAsBytesSync(_maskPng(fa.treeMask, fa.mw, fa.mh), flush: true);
-      File(path.join(dir, '${azimuth}_mask_soot.png'))
-          .writeAsBytesSync(_maskPng(fa.sootMask, fa.mw, fa.mh), flush: true);
+      File(
+        path.join(dir, '${azimuth}_analysis.json'),
+      ).writeAsStringSync(_pretty(json), flush: true);
+      File(
+        path.join(dir, '${azimuth}_mask_tree.png'),
+      ).writeAsBytesSync(_maskPng(fa.treeMask, fa.mw, fa.mh), flush: true);
+      File(
+        path.join(dir, '${azimuth}_mask_soot.png'),
+      ).writeAsBytesSync(_maskPng(fa.sootMask, fa.mw, fa.mh), flush: true);
+      File(
+        path.join(dir, '${azimuth}_mask_stem_reference.png'),
+      ).writeAsBytesSync(
+        _maskPng(stemReference.treeMask, stemReference.mw, stemReference.mh),
+        flush: true,
+      );
     } catch (_) {
       // 원시 산출물 기록 실패가 분석 결과를 막아서는 안 된다.
     }
@@ -477,8 +724,13 @@ class AnalysisService {
   /// 읽고, 크면 플랫폼 코덱으로 축소 디코딩해 같은 파이프라인에 넣는다.
   static const int _maxDartDecodeLongSide = 3200;
 
-  static Future<Letterboxed?> _letterboxCapped(String path, int size,
-      {double brightness = 0, double contrast = 1, bool? autoTone}) async {
+  static Future<Letterboxed?> _letterboxCapped(
+    String path,
+    int size, {
+    double brightness = 0,
+    double contrast = 1,
+    bool? autoTone,
+  }) async {
     try {
       final bytes = await File(path).readAsBytes();
       final info = img.JpegDecoder().startDecode(bytes);
@@ -495,8 +747,10 @@ class AnalysisService {
         } else {
           th = ImageOps.normLongSide * 2;
         }
-        final codec =
-            await desc.instantiateCodec(targetWidth: tw, targetHeight: th);
+        final codec = await desc.instantiateCodec(
+          targetWidth: tw,
+          targetHeight: th,
+        );
         final frame = await codec.getNextFrame();
         final image = frame.image;
         final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -507,24 +761,40 @@ class AnalysisService {
         buffer.dispose();
         if (rgba != null) {
           final im = img.Image.fromBytes(
-              width: ow,
-              height: oh,
-              bytes: rgba.buffer,
-              bytesOffset: rgba.offsetInBytes,
-              numChannels: 4,
-              order: img.ChannelOrder.rgba);
-          return ImageOps.letterbox(ImageOps.normalizeResolution(im), size,
-              brightness: brightness, contrast: contrast, autoTone: autoTone);
+            width: ow,
+            height: oh,
+            bytes: rgba.buffer,
+            bytesOffset: rgba.offsetInBytes,
+            numChannels: 4,
+            order: img.ChannelOrder.rgba,
+          );
+          return ImageOps.letterbox(
+            ImageOps.normalizeResolution(im),
+            size,
+            brightness: brightness,
+            contrast: contrast,
+            autoTone: autoTone,
+          );
         }
       }
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
-      return ImageOps.letterbox(ImageOps.normalizeResolution(decoded), size,
-          brightness: brightness, contrast: contrast, autoTone: autoTone);
+      return ImageOps.letterbox(
+        ImageOps.normalizeResolution(decoded),
+        size,
+        brightness: brightness,
+        contrast: contrast,
+        autoTone: autoTone,
+      );
     } catch (_) {
       // 마지막 안전망 — 기존 경로(전체 디코딩)라도 시도한다.
-      return ImageOps.letterboxFromFile(path, size,
-          brightness: brightness, contrast: contrast, autoTone: autoTone);
+      return ImageOps.letterboxFromFile(
+        path,
+        size,
+        brightness: brightness,
+        contrast: contrast,
+        autoTone: autoTone,
+      );
     }
   }
 
@@ -534,7 +804,12 @@ class AnalysisService {
   /// 지점의 폭으로 초기값을 잡고 "그 스케일로 1.3 m 행을 찾아 폭을 다시 재는"
   /// 과정을 몇 번 반복한다. 수간 폭은 높이에 따라 천천히 변하므로 금방 수렴한다.
   /// 수간이 없거나 폭을 못 재면 null.
-  static double? scaleFromDbhCm(FaceAnalysis fa, double protoToSize, double dbhCm) {
+  static double? scaleFromDbhCm(
+    FaceAnalysis fa,
+    double protoToSize,
+    double dbhCm, {
+    FaceAnalysis? recoveredShape,
+  }) {
     if (!fa.hasTree || dbhCm <= 0) return null;
     final dbhM = dbhCm / 100.0;
     final first = fa.treeSpanAtHeight((fa.treeBottom - fa.treeTop) ~/ 3);
@@ -543,7 +818,11 @@ class AnalysisService {
     for (var i = 0; i < 4; i++) {
       final rowsUp = (breastHeightM * s / protoToSize).round();
       final sp = fa.treeSpanAtHeight(rowsUp);
-      if (sp == null || sp.width <= 0) break;
+      if (sp == null || sp.width <= 0) return null;
+      if (recoveredShape != null &&
+          recoveredShape.treeSpanAtHeight(rowsUp) == null) {
+        return null;
+      }
       final next = sp.width * protoToSize / dbhM;
       final done = (next - s).abs() < 1e-9;
       s = next;

@@ -5,8 +5,12 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 
 /// 테스트·PC 재현에서 ONNX Runtime 플러그인 대신 추론을 맡는 쪽.
 /// 모델 출력 텐서들을 순서대로(데이터, 형태) 돌려준다.
-typedef InferenceBackend = Future<List<({Float32List data, List<int> shape})>>
-    Function(String asset, Float32List chw, int size);
+typedef InferenceBackend =
+    Future<List<({Float32List data, List<int> shape})>> Function(
+      String asset,
+      Float32List chw,
+      int size,
+    );
 
 /// Raw model outputs: detection head (rank 3) + mask prototypes (rank 4).
 class RawOutputs {
@@ -19,8 +23,8 @@ class RawOutputs {
 
 /// Wraps a cached ONNX Runtime session (loaded once from a bundled asset).
 ///
-/// 앱은 모델을 두 개 쓴다 — 수간·그을음 **분할**과 수고봉 **경계 검출**. 서로
-/// 다른 세션이 필요하므로 인스턴스를 나눠 쓴다([instance], [pole]).
+/// 주 수간·그을음 분할, 수고봉 경계 검출, 수간 복원용 보조 모델을 각각 별도
+/// 세션으로 올리고 재사용한다([instance], [pole], [treeRescue]).
 class OnnxService {
   OnnxService._();
 
@@ -29,6 +33,10 @@ class OnnxService {
 
   /// 수고봉 1 m 경계 검출 모델 세션.
   static final OnnxService pole = OnnxService._();
+
+  /// Lightweight, independently trained tree companion. Only its stem masks
+  /// may repair a missing upper fork; the primary soot model stays authoritative.
+  static final OnnxService treeRescue = OnnxService._();
 
   /// 설정하면 모든 세션이 플러그인 대신 이 함수로 추론한다. 앱의 Dart 분석 코드를
   /// 그대로 PC에서 돌려 현장 사진을 재현할 때 쓴다(test/field_replay_test.dart).
@@ -104,18 +112,25 @@ class OnnxService {
     }
     await input.dispose();
     if (det == null || proto == null) {
-      throw StateError('Unexpected model outputs (need one rank-3 and one rank-4 tensor)');
+      throw StateError(
+        'Unexpected model outputs (need one rank-3 and one rank-4 tensor)',
+      );
     }
     return RawOutputs(det, detShape!, proto, protoShape!);
   }
 
   /// 단일 rank-3 출력만 내는 검출 모델용(수고봉 경계). 형태 [1, 4+nc, anchors].
   Future<({Float32List data, List<int> shape})> inferDetect(
-      Float32List chw, int size) async {
+    Float32List chw,
+    int size,
+  ) async {
     final tb = testBackend;
     if (tb != null) {
-      final o = (await tb(_loadedAsset!, chw, size))
-          .firstWhere((o) => o.shape.length == 3);
+      final o = (await tb(
+        _loadedAsset!,
+        chw,
+        size,
+      )).firstWhere((o) => o.shape.length == 3);
       return (data: o.data, shape: o.shape);
     }
     final s = _session;

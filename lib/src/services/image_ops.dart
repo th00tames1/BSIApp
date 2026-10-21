@@ -171,8 +171,8 @@ class ImageOps {
       final row = y * size;
       for (int x = 0; x < size; x++) {
         final idx = row + x;
-        final soot = sootMask[idx] == 1;
         final tree = treeMask[idx] == 1;
+        final soot = tree && sootMask[idx] == 1;
         if (!soot && !tree) continue;
         final c = soot ? green : red; // soot overrides stem in display
         final px = out.getPixel(x, y);

@@ -1,0 +1,49 @@
+{
+  "coordinateSpace": "upright original image, normalized x/y; independently inspected photographs",
+  "annotationCorrections": [
+    "001_E initial point (0.66,0.05) was independently rechecked at original pixel (1267,128) by photo and forestry-operator reviewers. It lies on the twig/foliage boundary outside the thick fork. Replaced with thick-bark interior (0.62,0.05), original pixel (1190,128). This corrects annotation geometry; it does not redefine missing trunk pixels as acceptable.",
+    "014_W initial proposed basal point (0.51,0.90) was withdrawn after original-photo reinspection: it is in the uncertain merger between the foreground left trunk and central upright stem, whose shared-individual identity cannot be established from this photograph. The photo reviewer independently inspected the ORIGINAL image and confirmed (0.58,0.85) and (0.58,0.90) as unambiguous bark inside the central upright target's lower stem. These additional lower-stem annotations are backed by original-photo identity, not model output. The test separately compares every original/final basal-mask pixel."
+  ],
+  "cases": [
+    {
+      "id": "014_W",
+      "photo": "photos/37_014/014_W_1787708766028.jpg",
+      "bytes": 2068303,
+      "width": 1920,
+      "height": 2560,
+      "include": [[0.52,0.20],[0.53,0.50],[0.50,0.75],[0.58,0.85],[0.58,0.90]],
+      "exclude": [[0.67,0.80],[0.68,0.93],[0.80,0.25],[0.42,0.40]],
+      "reason": "Independent original-photo inspection: retain the unambiguous central target stem; do not add bare ground, distant right-side tree or person. The left foreground trunk and basal merger are deliberately not labeled because shared-base identity is uncertain."
+    },
+    {
+      "id": "013_E",
+      "photo": "photos/36_013/013_E_1787708356698.jpg",
+      "bytes": 2206741,
+      "width": 1920,
+      "height": 2560,
+      "include": [[0.52,0.20],[0.53,0.50],[0.52,0.67]],
+      "exclude": [[0.36,0.20],[0.33,0.60],[0.30,0.85],[0.45,0.30]],
+      "reason": "Retain the pole-side target; reject the separate left and background trees."
+    },
+    {
+      "id": "001_E",
+      "photo": "photos/26_001/001_E_1787702256417.jpg",
+      "bytes": 1070591,
+      "width": 1920,
+      "height": 2560,
+      "include": [[0.59,0.82],[0.59,0.65],[0.48,0.25],[0.51,0.08],[0.57,0.25],[0.62,0.05]],
+      "exclude": [[0.54,0.21],[0.56,0.14],[0.82,0.60]],
+      "reason": "Retain the shared base and both visible forks, keeping the sky gap empty."
+    },
+    {
+      "id": "004_S",
+      "photo": "photos/28_004/004_S_1787702833979.jpg",
+      "bytes": 2603744,
+      "width": 1920,
+      "height": 2560,
+      "include": [[0.53,0.72],[0.45,0.53],[0.40,0.23],[0.39,0.12],[0.46,0.23],[0.47,0.12]],
+      "exclude": [[0.43,0.19],[0.115,0.67],[0.56,0.45]],
+      "reason": "Retain the shared base and both forks; reject separate side trees."
+    }
+  ]
+}

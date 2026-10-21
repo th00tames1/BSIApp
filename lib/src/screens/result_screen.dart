@@ -622,6 +622,18 @@ class _ResultScreenState extends State<ResultScreen> {
   /// 선택된 방위의 검출 실패 사유. 없으면 null.
   String? _faceIssue(AzimuthResult? f) {
     if (f == null || !f.analysed || f.manual) return null;
+    if (f.issue == 'target_not_found' && !f.manualEdited) {
+      return tr(
+        '지정한 위치에서 수간을 찾지 못했습니다. 대상목 위치를 다시 지정하거나 재촬영하세요.',
+        'No stem was found at the selected point. Select the target again or retake the photo.',
+      );
+    }
+    if (f.issue == 'tree_excluded' && !f.manualEdited) {
+      return tr(
+        '제외 영역을 적용한 뒤 수간이 남지 않았습니다. 제외 영역을 되돌려 확인하세요.',
+        'No stem remains after exclusion. Undo the excluded area and check again.',
+      );
+    }
     if (f.issue == 'backlit' && !f.manualEdited) {
       return tr('역광으로 수간이 검게 촬영되어 그을음을 판별할 수 없으므로 이 방위는 BSI 산출에서 제외했습니다. 순광 방향에서 재촬영하거나 값을 직접 입력하세요.',
           'The stem is silhouetted by backlight, so char cannot be assessed and this aspect is excluded from the BSI. Retake with the sun behind you, or enter values manually.');
