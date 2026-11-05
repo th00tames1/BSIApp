@@ -83,17 +83,21 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _runDemoTour() async {
+    // Stop the tour when the user navigates themselves. A delayed pop must
+    // close only this tour's table, never the result or a later screen.
     await Future.delayed(const Duration(milliseconds: 3200)); // 결과 읽을 시간
-    if (!mounted) return;
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    final resultRoute = ModalRoute.of(context)!;
     final nav = Navigator.of(context);
-    nav.push(MaterialPageRoute(
+    final tableRoute = MaterialPageRoute<void>(
         builder: (_) =>
-            BsiTableScreen(bsi: d.integ?.bsi ?? double.nan, dbhCm: d.dbhCm)));
+            BsiTableScreen(bsi: d.integ?.bsi ?? double.nan, dbhCm: d.dbhCm));
+    nav.push(tableRoute);
     await Future.delayed(const Duration(milliseconds: 4000)); // 판정표 확인 시간
-    if (!mounted) return;
+    if (!mounted || !tableRoute.isCurrent) return;
     nav.pop(); // 판정표 닫기 → 결과 화면
     await Future.delayed(const Duration(milliseconds: 1000));
-    if (!mounted || _saving) return;
+    if (!mounted || !resultRoute.isCurrent || _saving || _rescaling) return;
     _save();
   }
 
@@ -688,16 +692,24 @@ class _ResultScreenState extends State<ResultScreen> {
   /// 수고봉·수동 스케일이 있는 방위는 건드리지 않는다(analyzeFace가 보장).
   Future<void> _rescaleFromDbh() async {
     if (_rescaling || d.dbhCm <= 0) return;
+    final route = ModalRoute.of(context);
+    bool active() => mounted && route?.isActive == true;
+    if (!active()) return;
     setState(() => _rescaling = true);
     try {
       await OnnxService.instance.load(d.modelAsset);
+      if (!active()) return;
       await OnnxService.pole.tryLoad(d.poleModelAsset);
+      if (!active()) return;
       for (final az in d.capturedAzimuths) {
+        if (!active()) return;
+        final imagePath = d.photos[az];
+        if (imagePath == null) return;
         final f = d.results[az];
         if (f == null || !_isUnscaled(f)) continue;
         final res = await AnalysisService.instance.analyzeFace(
           az.code,
-          d.photos[az]!,
+          imagePath,
           poleLengthM: d.poleLengthM,
           poleGapMetres: d.poleGapM,
           overlayOutPath: f.overlayPath,
@@ -705,11 +717,14 @@ class _ResultScreenState extends State<ResultScreen> {
           rawOutDir: d.rawDir, // 흉고직경 스케일 산출물로 덮어쓴다(scale.source='dbh')
           tuning: f.tuning,
         );
+        if (!active() || d.photos[az] != imagePath) return;
         if (res.overlayPath != null) {
           await FileImage(File(res.overlayPath!)).evict();
         }
+        if (!active() || d.photos[az] != imagePath) return;
         d.results[az] = res.copyWith(tuning: f.tuning);
       }
+      if (!active()) return;
       d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
     } catch (e) {
       if (mounted) {
@@ -814,6 +829,9 @@ class _ResultScreenState extends State<ResultScreen> {
   /// 준 면만 그 값으로 다시 계산한다.
   Future<void> _reanalyse({Azimuth? only, FaceTuning? tuning}) async {
     if (_rescaling) return;
+    final route = ModalRoute.of(context);
+    bool active() => mounted && route?.isActive == true;
+    if (!active()) return;
     final targets = (only != null ? [only] : d.capturedAzimuths)
         .where((a) => d.photos[a] != null)
         .toList();
@@ -821,8 +839,13 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _rescaling = true);
     try {
       await OnnxService.instance.load(d.modelAsset);
+      if (!active()) return;
       await OnnxService.pole.tryLoad(d.poleModelAsset);
+      if (!active()) return;
       for (final az in targets) {
+        if (!active()) return;
+        final imagePath = d.photos[az];
+        if (imagePath == null) return;
         final cur = d.results[az];
         if (only == null && (cur?.manualEdited ?? false)) continue;
         final t = (only != null && tuning != null)
@@ -830,7 +853,7 @@ class _ResultScreenState extends State<ResultScreen> {
             : (cur?.tuning ?? FaceTuning.none);
         final res = await AnalysisService.instance.analyzeFace(
           az.code,
-          d.photos[az]!,
+          imagePath,
           poleLengthM: d.poleLengthM,
           poleGapMetres: d.poleGapM,
           overlayOutPath: cur?.overlayPath,
@@ -838,11 +861,14 @@ class _ResultScreenState extends State<ResultScreen> {
           rawOutDir: d.rawDir,
           tuning: t,
         );
+        if (!active() || d.photos[az] != imagePath) return;
         if (res.overlayPath != null) {
           await FileImage(File(res.overlayPath!)).evict();
         }
+        if (!active() || d.photos[az] != imagePath) return;
         d.results[az] = res.copyWith(tuning: t);
       }
+      if (!active()) return;
       _refreshAutoDbh();
       d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
       if (mounted) {

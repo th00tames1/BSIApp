@@ -32,8 +32,9 @@ class _ManualScreenState extends State<ManualScreen> {
             ? NavigationDecision.navigate
             : NavigationDecision.prevent,
         onPageFinished: (_) {
+          if (!mounted) return;
           _applyTheme();
-          if (mounted) setState(() => _loading = false);
+          setState(() => _loading = false);
         },
       ))
       ..loadFlutterAsset(ManualScreen.asset);

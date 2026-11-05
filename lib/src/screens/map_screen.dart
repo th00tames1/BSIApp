@@ -935,29 +935,39 @@ class _Fab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      Material(
-        color: p.navy,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        elevation: 6,
-        shadowColor: p.navy.withValues(alpha: 0.6),
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(width: 66, height: 66, child: Icon(icon, size: 32, color: p.onNavy)),
-        ),
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Material(
+            color: p.navy,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            elevation: 6,
+            shadowColor: p.navy.withValues(alpha: 0.6),
+            child: InkWell(
+              onTap: onTap,
+              child: SizedBox(width: 66, height: 66, child: Icon(icon, size: 32, color: p.onNavy)),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
+            decoration: BoxDecoration(
+                color: p.surface.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: p.line)),
+            child: Text(label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink)),
+          ),
+        ]),
       ),
-      const SizedBox(height: 7),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
-        decoration: BoxDecoration(
-            color: p.surface.withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: p.line)),
-        child: Text(label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink)),
-      ),
-    ]);
+    );
   }
 }
 

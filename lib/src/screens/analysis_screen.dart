@@ -27,6 +27,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   SurveyDraft get d => widget.draft;
 
+  // A popped route remains mounted during its reverse animation. Check the
+  // route too, so a late inference cannot mutate a resumed capture draft or
+  // replace the screen the user has already returned to.
+  bool get _active => mounted && ModalRoute.of(context)?.isCurrent == true;
+
   @override
   void initState() {
     super.initState();
@@ -36,52 +41,58 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Future<void> _run() async {
     try {
       await OnnxService.instance.load(d.modelAsset);
+      if (!_active) return;
       // 수고봉 모델은 있으면 쓰고 없으면 건너뛴다(스케일은 휴리스틱으로 대체).
       await OnnxService.pole.tryLoad(d.poleModelAsset);
+      if (!_active) return;
       final dir = await getApplicationDocumentsDirectory();
+      if (!_active) return;
       final overlayDir = Directory(p.join(dir.path, 'overlays'));
       if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);
 
       final azimuths = d.capturedAzimuths;
       for (int i = 0; i < azimuths.length; i++) {
+        if (!_active) return;
         final az = azimuths[i];
+        final imagePath = d.photos[az];
+        if (imagePath == null) return;
         if (mounted) {
           setState(() => _status = tr(
               '${az.label} 분석 중 · ${i + 1}/${azimuths.length}',
               'Analyzing ${az.label} · ${i + 1}/${azimuths.length}'));
         }
         final overlayPath =
-            AnalysisService.overlayPathFor(overlayDir.path, d.photos[az]!);
-        // 재촬영한 면이면 이전 사진의 오버레이는 더 쓰이지 않는다.
+            AnalysisService.overlayPathFor(overlayDir.path, imagePath);
         final stale = d.results[az]?.overlayPath;
-        if (stale != null && stale != overlayPath) {
-          try {
-            await File(stale).delete();
-          } catch (_) {}
-        }
         final res = await AnalysisService.instance.analyzeFace(
           az.code,
-          d.photos[az]!,
+          imagePath,
           poleLengthM: d.poleLengthM,
           poleGapMetres: d.poleGapM,
           overlayOutPath: overlayPath,
           rawOutDir: d.rawDir, // 연구용 원시 산출물(없으면 건너뜀)
         );
-        d.results[az] = res;
+        if (!_active || d.photos[az] != imagePath) return;
         // 오버레이 경로는 사진마다 고정이라, 같은 사진을 다시 분석하면 같은
         // 파일을 덮어쓴다. 캐시를 비우지 않으면 이전 오버레이가 그대로 보인다.
         if (res.overlayPath != null) {
           await FileImage(File(res.overlayPath!)).evict();
         }
-        if (mounted) {
-          setState(() {
-            _currentOverlay = res.overlayPath;
-            _progress = (i + 1) / azimuths.length;
-          });
+        if (!_active || d.photos[az] != imagePath) return;
+        d.results[az] = res;
+        setState(() {
+          _currentOverlay = res.overlayPath;
+          _progress = (i + 1) / azimuths.length;
+        });
+        // Keep the previous overlay until its replacement is installed.
+        if (stale != null && stale != overlayPath) {
+          try {
+            await File(stale).delete();
+          } catch (_) {}
         }
       }
+      if (!mounted || !_active) return;
       d.integ = AnalysisService.instance.integrate(d.faces, d.dbhCm);
-      if (!mounted) return;
       await Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (_) => ResultScreen(draft: d)));
     } catch (e) {
