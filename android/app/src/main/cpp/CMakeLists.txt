@@ -38,8 +38,11 @@ else()
         INTERFACE_INCLUDE_DIRECTORIES "${ncnn_sdk}/include/ncnn"
     )
 endif()
-add_library(bsi_ncnn SHARED ../../../../../native/ncnn_bridge.cpp)
+set(bridge_source ../../../../../native/ncnn_bridge.cpp)
+add_library(bsi_ncnn SHARED ${bridge_source})
+# A source-level option follows ncnn's linked interface flags on x86.
+set_property(SOURCE "${bridge_source}" APPEND PROPERTY COMPILE_OPTIONS -fexceptions)
 target_compile_features(bsi_ncnn PRIVATE cxx_std_17)
-target_compile_options(bsi_ncnn PRIVATE -fexceptions -fvisibility=hidden)
+target_compile_options(bsi_ncnn PRIVATE -fvisibility=hidden)
 target_link_libraries(bsi_ncnn PRIVATE ncnn log android)
 target_link_options(bsi_ncnn PRIVATE "-Wl,-z,max-page-size=16384")
