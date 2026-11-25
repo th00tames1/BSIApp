@@ -13,7 +13,8 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # On-device inference
-  flutter_onnxruntime: ^1.8.0
+  ffi: ^2.1.4
+  crypto: ^3.0.6
 
   # Imaging
   image: ^4.0.0
@@ -63,6 +64,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/models/
+    - assets/third_party/
     - assets/sample/
     - assets/icon/
     # 앱 안 사용 설명서(설정 › 사용 설명서). 아래 fonts의 Pretendard를 ../fonts/ 상대 경로로 쓴다.

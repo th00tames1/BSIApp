@@ -26,11 +26,15 @@ class SurveyDraft {
   bool dbhFromAuto = false;
   /// 저장된 조사목을 다시 분석할 때도 같은 모델을 써야 하므로 기본값을 상수로 둔다.
   static const defaultModelName = 'YOLO26s@640';
-  static const defaultModelAsset = 'assets/models/bsi_seg_yolo26s_640.onnx';
-  static const defaultPoleModelAsset = 'assets/models/pole_boundary_640.onnx';
+  static const defaultModelAsset = 'assets/models/bsi_seg_yolo26s_640.param';
+  static const defaultPoleModelAsset = 'assets/models/pole_boundary_640.param';
 
   String modelName = defaultModelName;
   String modelAsset = defaultModelAsset;
+
+  // Drafts created by earlier releases stored the bundled ONNX asset path.
+  static String _restoredModelAsset(String? asset) =>
+      asset == null || asset.endsWith('.onnx') ? defaultModelAsset : asset;
   /// 수고봉 1 m 경계 검출 모델(스케일 산출). 없으면 노란픽셀 휴리스틱으로 내려간다.
   String poleModelAsset = defaultPoleModelAsset;
 
@@ -178,8 +182,7 @@ class SurveyDraft {
         ..poleGapM = (j['poleGapM'] as num?)?.toDouble() ?? 1.0
         ..rawDir = j['rawDir'] as String?
         ..modelName = j['modelName'] as String? ?? 'YOLO26s@640'
-        ..modelAsset = j['modelAsset'] as String? ??
-            'assets/models/bsi_seg_yolo26s_640.onnx';
+        ..modelAsset = _restoredModelAsset(j['modelAsset'] as String?);
       (j['photos'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
         // Only restore shots whose file survived (a wiped cache would otherwise
         // crash the analysis step later).

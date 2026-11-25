@@ -11,7 +11,7 @@ import '../models/tuning.dart';
 import 'backlight.dart';
 import 'image_ops.dart';
 import 'mortality.dart';
-import 'onnx_service.dart';
+import 'model_service.dart';
 import 'pole_model.dart';
 import 'raw_archive.dart';
 import 'seg_decoder.dart';
@@ -85,7 +85,7 @@ class AnalysisService {
     double poleGapMetres = 1.0,
     FaceTuning tuning = FaceTuning.none,
   }) async {
-    final size = OnnxService.instance.inputSize;
+    final size = ModelService.instance.inputSize;
     final decoded = await _letterboxCapped(
       imagePath,
       size,
@@ -120,10 +120,10 @@ class AnalysisService {
     //  빨강/흰 폴이 노랑으로 판정돼 1 m 간격이 붙는다 — 5배 오차. 그래서 없앴다.)
     PoleScaleSolution? sol;
     var modelUsable = false;
-    if (manualPxPerMetre == null && OnnxService.pole.isLoaded) {
+    if (manualPxPerMetre == null && ModelService.pole.isLoaded) {
       modelUsable = true;
       try {
-        final o = await OnnxService.pole.inferDetect(lb.chw, lb.size);
+        final o = await ModelService.pole.inferDetect(lb.chw, lb.size);
         final pts = PoleDetector.decode(o.data, o.shape, lb.size);
         sol = PoleDetector.solve(pts, lb.size, gapMetres: poleGapMetres);
       } catch (_) {
@@ -143,7 +143,7 @@ class AnalysisService {
     } else if (pole.detected) {
       poleHintX = pole.x.toDouble();
     }
-    final raw = await OnnxService.instance.infer(lb.chw, lb.size);
+    final raw = await ModelService.instance.infer(lb.chw, lb.size);
     var fa = SegDecoder.analyze(
       raw.det,
       raw.detShape,
@@ -205,7 +205,7 @@ class AnalysisService {
       );
       if (toned != null) {
         try {
-          final rawT = await OnnxService.instance.infer(toned.chw, toned.size);
+          final rawT = await ModelService.instance.infer(toned.chw, toned.size);
           final ft = SegDecoder.analyze(
             rawT.det,
             rawT.detShape,
@@ -279,7 +279,7 @@ class AnalysisService {
             contrast: tuning.contrast,
             autoTone: lb.toneApplied,
           );
-          final extra = await OnnxService.instance.infer(
+          final extra = await ModelService.instance.infer(
             cropped.chw,
             cropped.size,
           );
@@ -326,15 +326,15 @@ class AnalysisService {
       };
       treeRescues.add(companionAttempt);
       try {
-        if (await OnnxService.treeRescue.tryLoad(TargetTreeRescue.modelAsset)) {
+        if (await ModelService.treeRescue.tryLoad(TargetTreeRescue.modelAsset)) {
           final companion = ImageOps.letterbox(
             lb.source,
-            OnnxService.treeRescue.inputSize,
+            ModelService.treeRescue.inputSize,
             brightness: tuning.brightness,
             contrast: tuning.contrast,
             autoTone: lb.toneApplied,
           );
-          final rawCompanion = await OnnxService.treeRescue.infer(
+          final rawCompanion = await ModelService.treeRescue.infer(
             companion.chw,
             companion.size,
           );
@@ -587,9 +587,9 @@ class AnalysisService {
         'analysedTime': RawArchive.timeJson(analysedAt), // 시간대·UTC·epoch ms
         'image': imagePath,
         'models': {
-          'seg': OnnxService.instance.loadedAsset,
-          'pole': OnnxService.pole.loadedAsset,
-          'treeRescue': OnnxService.treeRescue.loadedAsset,
+          'seg': ModelService.instance.loadedAsset,
+          'pole': ModelService.pole.loadedAsset,
+          'treeRescue': ModelService.treeRescue.loadedAsset,
           'inputSize': lb.size,
         },
         'letterbox': {

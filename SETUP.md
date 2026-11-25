@@ -5,7 +5,7 @@
 
 - 저장소 : `https://github.com/th00tames1/BSIApp`
 - 기본 브랜치 : **`work`** (클론하면 자동으로 이 브랜치를 받는다)
-- 클론 용량 : 약 **90 MB** (모델 79 MB · 글꼴 5 MB · 예시 사진 2.4 MB)
+- 클론 용량 : 모델 약 **91 MB** 및 글꼴·예시 사진. 첫 네이티브 빌드는 엔진 SDK를 내려받는다.
 
 앱의 기능·구조 설명은 [README.md](README.md)를 참고한다. 이 문서는 설치·실행만 다룬다.
 
@@ -17,7 +17,7 @@
 |---|---|---|
 | Flutter SDK | **3.35.4** (Dart 3.9.2) | stable 채널 |
 | JDK | **17** | Android Studio 내장 JDK로 충분 |
-| Android SDK | **Platform 36** · Build-Tools 35 | compileSdk 36 · minSdk 24 · targetSdk 34 |
+| Android SDK | **Platform 36** · Build-Tools 35 · CMake 3.22.1 | Flutter가 지정한 NDK 사용. compileSdk 36 · minSdk 24 · targetSdk 34 |
 | Xcode | 15 이상 | iOS 빌드 시에만 필요 (macOS) |
 
 ```bash
@@ -52,8 +52,7 @@ cd BSIApp && git branch --show-current
 ls -lh assets/models assets/sample
 ```
 
-- `assets/models/bsi_seg_yolo26s_640.onnx` — 수간·그을음 분할 (41.8 MB)
-- `assets/models/pole_boundary_640.onnx` — 수고봉 경계 검출, 노랑/흰·빨강/흰 2클래스 (38.1 MB)
+- `assets/models/` — 수간·그을음 분할, 수고봉 경계 검출, 수간 복원 모델별로 `.param`과 `.bin` 파일이 있다.
 - `assets/sample/demo_N.jpg` · `demo_E.jpg` · `demo_S.jpg` · `demo_W.jpg` — 시험용 4방위 사진
 
 ---
@@ -81,10 +80,10 @@ BSI 판정표, 경계 파일 임포트를 검증한다.
 
 현장에서 받은 원시 번들(개발자 모드 → 기록 → 전체 내보내기 ZIP을 푼 폴더)을 넣으면
 **앱의 Dart 분석 코드를 PC에서 그대로** 돌려 "지금 앱이라면 무엇을 냈을지"를 본다.
-추론만 `tool/ort_server.py`가 앱과 같은 `.onnx`로 대신한다(`onnxruntime`이 있는 파이썬 필요).
+추론은 `tool/ncnn_server.py`가 앱과 같은 ncnn 그래프로 처리한다. Python 환경에 `numpy`와 `ncnn==1.0.20261020`을 설치한다.
 
 ```bash
-BSI_FIELD_DIR=<풀어 둔 폴더> BSI_ORT_PY=<python 경로> BSI_GAPS=1.0,0.2 flutter test test/field_replay_test.dart
+BSI_FIELD_DIR=<풀어 둔 폴더> BSI_NCNN_PY=<python 경로> BSI_GAPS=1.0,0.2 flutter test test/field_replay_test.dart
 ```
 
 `BSI_FACES=001:E,003:W`처럼 면을 고를 수 있고, `BSI_GAPS`에 수고봉 간격을 여러 개 주면 비교해 준다.
@@ -144,7 +143,7 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 흑색 = 나무 밑동 · 청색 = 흉고직경(가슴높이 1.3 m) · 적색 = 그을음 최고 높이 · 황색 원 = 수고봉 경계(노랑 봉 1 m · 빨강/흰 폴 20 cm).
 
 > 값이 크게 다르거나 BSI가 비어 있으면 수고봉 경계가 검출되지 않은 것이다.
-> `assets/models/pole_boundary_640.onnx`가 제대로 클론됐는지 먼저 확인한다.
+> `assets/models/pole_boundary_640.param 및 .bin`가 제대로 클론됐는지 먼저 확인한다.
 
 ---
 
@@ -193,8 +192,7 @@ open -a Simulator && flutter run
 **진북 고정**이며(자북 선택 불가), 카메라 권한은 `ios/Podfile`의
 `PERMISSION_CAMERA=1` 매크로로 켜져 있다(`pod install` 시 자동 반영).
 
-Apple Silicon 시뮬레이터도 정상이다 — `flutter_onnxruntime`의 podspec이 제외하는
-아키텍처는 `i386` 뿐이다.
+iOS는 `pod install`에서 해시가 고정된 ncnn과 MoltenVK SDK를 준비한다. 두 SDK에 iPhone과 시뮬레이터용 빌드가 포함되어 있다.
 
 ### 6.3 실기기 · 배포 — 여기서부터 Apple ID가 필요하다
 
@@ -216,10 +214,7 @@ flutter build ipa
   이미 쓰이는 ID면 Xcode에서 바꿔야 한다.
 - 무료 Apple ID로도 실기기 설치는 되지만 **7일마다 재설치**해야 하고 TestFlight는 안 된다.
   배포하려면 유료 Apple Developer Program.
-- **배포 타깃 16.0은 낮출 수 없다.** `flutter_onnxruntime` 1.8.0이 `onnxruntime-objc 1.24.2`를
-  요구하고 podspec이 16.0으로 고정돼 있다.
-- 카메라·위치·사진 권한 문구는 `Info.plist`에 이미 한국어로 들어 있다.
-- 앱에 ONNX 모델 80 MB가 들어가므로 IPA가 크다. 배포 시 용량을 감안할 것.
+- **배포 타깃은 iOS 16.0이다.**
 
 ### 6.4 AI 도구에게 맡길 때
 
@@ -327,7 +322,7 @@ Secrets를 아직 등록하지 않았으면 태그를 올려도 Actions는 빌�
 | `Your project path contains non-ASCII characters` | 경로에 한글이 있다. ASCII 경로로 옮겨 다시 클론한다 |
 | `cmdline-tools component is missing` | SDK Manager에서 Command-line Tools 설치 후 `flutter doctor --android-licenses` |
 | `Failed to install ... INSTALL_FAILED_INSUFFICIENT_STORAGE` | 에뮬레이터 저장 공간 부족. `adb shell pm uninstall com.bsi.bsi_field2` 후 `adb shell pm trim-caches 2G` |
-| 분할 결과가 비거나 앱이 분석 중 종료 | `assets/models/*.onnx`가 0 바이트이거나 없는 경우다. `git lfs`가 아닌 일반 파일이므로 재클론으로 해결된다 |
+| 분할 결과가 비거나 앱이 분석 중 종료 | `assets/models/*.param 또는 *.bin`가 0 바이트이거나 없는 경우다. `git lfs`가 아닌 일반 파일이므로 재클론으로 해결된다 |
 | BSI가 산출되지 않음 | 해당 방위에서 수고봉 1 m 경계가 검출되지 않으면 높이(m)를 구할 수 없어 합에서 빠진다. 수고봉이 사진에 온전히 보이도록 재촬영한다 |
 | 지도가 회색으로만 보임 | 타일은 온라인에서 받는다. 최초 1회는 네트워크가 필요하며 이후 디스크 캐시로 동작한다 |
 | Gradle이 메모리 부족으로 실패 | `android/gradle.properties`의 `org.gradle.jvmargs=-Xmx8G`를 장비에 맞춰 낮춘다 |

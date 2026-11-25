@@ -1,11 +1,11 @@
 /// 현장 사진 재현 — 앱의 Dart 분석 코드를 PC에서 그대로 돌린다.
 ///
 /// 전처리·구제 경로·디코더·수고봉 해·계측은 앱 코드 그대로이고, 추론만
-/// `tool/ort_server.py`가 앱과 같은 .onnx 파일로 대신한다. 현장에서 받은
+/// `tool/ncnn_server.py`가 앱과 같은 .param 파일로 대신한다. 현장에서 받은
 /// 원시 번들(개발자 모드 내보내기)을 넣으면 "지금 앱이라면 무엇을 냈을지"를 본다.
 ///
 /// 평소 `flutter test`에서는 건너뛴다. 돌리려면:
-///   BSI_FIELD_DIR=(내보내기 폴더) BSI_ORT_PY=(onnxruntime이 있는 python) \
+///   BSI_FIELD_DIR=(내보내기 폴더) BSI_NCNN_PY=(ncnn과 numpy가 있는 Python) \
 ///     flutter test test/field_replay_test.dart
 @TestOn('vm')
 library;
@@ -18,21 +18,21 @@ import 'dart:typed_data';
 import 'package:bsi_field/src/models/survey.dart';
 import 'package:bsi_field/src/services/analysis_service.dart';
 import 'package:bsi_field/src/services/backlight.dart';
-import 'package:bsi_field/src/services/onnx_service.dart';
+import 'package:bsi_field/src/services/model_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _dir = Platform.environment['BSI_FIELD_DIR'];
-final _py = Platform.environment['BSI_ORT_PY'];
+final _py = Platform.environment['BSI_NCNN_PY'];
 
 /// 파이썬 추론 서버 — 모델을 한 번만 올리고 요청마다 파일로 주고받는다.
-class _OrtServer {
+class _NcnnServer {
   late final Process _p;
   late final StreamIterator<String> _lines;
-  final Directory _tmp = Directory.systemTemp.createTempSync('bsi_ort_');
+  final Directory _tmp = Directory.systemTemp.createTempSync('bsi_ncnn_');
   int _n = 0;
 
   Future<void> start() async {
-    _p = await Process.start(_py!, ['tool/ort_server.py']);
+    _p = await Process.start(_py!, ['tool/ncnn_server.py']);
     _p.stderr.transform(utf8.decoder).listen(stderr.write);
     _lines = StreamIterator(
         _p.stdout.transform(utf8.decoder).transform(const LineSplitter()));
@@ -44,7 +44,7 @@ class _OrtServer {
     f.writeAsBytesSync(chw.buffer.asUint8List(chw.offsetInBytes, chw.lengthInBytes));
     _p.stdin.writeln('$asset\t${f.path}\t$size');
     await _p.stdin.flush();
-    if (!await _lines.moveNext()) throw StateError('ort_server 종료됨');
+    if (!await _lines.moveNext()) throw StateError('ncnn_server 종료됨');
     return [
       for (final part in _lines.current.split(';'))
         () {
@@ -82,19 +82,19 @@ String _f(double v, [int d = 3]) => v.isNaN ? '–' : v.toStringAsFixed(d);
 
 void main() {
   final skip = (_dir == null || _py == null)
-      ? 'BSI_FIELD_DIR · BSI_ORT_PY 가 없어 건너뜀(현장 재현용)'
+      ? 'BSI_FIELD_DIR · BSI_NCNN_PY 가 없어 건너뜀(현장 재현용)'
       : null;
 
   test('현장 사진 재현', () async {
-    final srv = _OrtServer();
+    final srv = _NcnnServer();
     await srv.start();
-    OnnxService.testBackend = srv.run;
+    ModelService.testBackend = srv.run;
     addTearDown(() async {
-      OnnxService.testBackend = null;
+      ModelService.testBackend = null;
       await srv.stop();
     });
-    await OnnxService.instance.load('assets/models/bsi_seg_yolo26s_640.onnx');
-    await OnnxService.pole.load('assets/models/pole_boundary_640.onnx');
+    await ModelService.instance.load('assets/models/bsi_seg_yolo26s_640.param');
+    await ModelService.pole.load('assets/models/pole_boundary_640.param');
 
     final faces = (Platform.environment['BSI_FACES'] ??
             '001:E,001:S,001:N,003:W,005:E,005:N')

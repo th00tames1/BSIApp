@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '16.0'   # flutter_onnxruntime requires iOS >= 16.0
+platform :ios, '16.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -29,6 +29,10 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks! :linkage => :static
+
+  pod 'BsiAppleNCNN', :podspec => '../native/BsiAppleNCNN.podspec'
+  pod 'BsiAppleMoltenVK', :podspec => '../native/BsiAppleMoltenVK.podspec'
+  pod 'BsiNativeInference', :path => '../native'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do

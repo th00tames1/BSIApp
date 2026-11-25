@@ -1,10 +1,10 @@
 /// Opt-in real-photo regression through the production AnalysisService.
 ///
 /// BSI_FIELD_DIR: private export root (photos are never committed).
-/// BSI_ORT_PY: Python with numpy/onnxruntime for tool/ort_server.py.
+/// BSI_NCNN_PY: Python with numpy와 ncnn for tool/ncnn_server.py.
 /// BSI_TARGET_OUT: optional retained artifact directory, default .dart_tool/target_tree_field.
 /// Uses the app's preprocessing, model files, decoder, rescue paths and metrics;
-/// only the ONNX execution provider is replaced by desktop CPU inference.
+/// only the mobile backend is replaced by desktop CPU inference.
 @TestOn('vm')
 library;
 
@@ -17,12 +17,12 @@ import 'package:bsi_field/src/models/survey.dart';
 import 'package:bsi_field/src/models/tuning.dart';
 import 'package:bsi_field/src/services/analysis_service.dart';
 import 'package:bsi_field/src/services/image_ops.dart';
-import 'package:bsi_field/src/services/onnx_service.dart';
+import 'package:bsi_field/src/services/model_service.dart';
 import 'package:bsi_field/src/services/seg_decoder.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
-class _OrtServer {
+class _NcnnServer {
   late Process process;
   late StreamIterator<String> lines;
   late Directory scratch;
@@ -32,7 +32,7 @@ class _OrtServer {
 
   Future<void> start(String python) async {
     scratch = Directory.systemTemp.createTempSync('bsi_target_');
-    process = await Process.start(python, ['tool/ort_server.py']);
+    process = await Process.start(python, ['tool/ncnn_server.py']);
     process.stderr.transform(utf8.decoder).listen(stderr.write);
     lines = StreamIterator(
       process.stdout.transform(utf8.decoder).transform(const LineSplitter()),
@@ -51,7 +51,7 @@ class _OrtServer {
     );
     process.stdin.writeln('$asset\t${input.path}\t$size');
     await process.stdin.flush();
-    if (!await lines.moveNext()) throw StateError('ONNX server terminated');
+    if (!await lines.moveNext()) throw StateError('ncnn server terminated');
     final outputs = [
       for (final part in lines.current.split(';'))
         () {
@@ -66,7 +66,7 @@ class _OrtServer {
           );
         }(),
     ];
-    if (asset == 'assets/models/bsi_seg_yolo26s_640.onnx') {
+    if (asset == 'assets/models/bsi_seg_yolo26s_640.param') {
       firstSegmentation ??= outputs;
     }
     return outputs;
@@ -156,27 +156,27 @@ void main() {
     },
   );
   final root = Platform.environment['BSI_FIELD_DIR'];
-  final python = Platform.environment['BSI_ORT_PY'];
+  final python = Platform.environment['BSI_NCNN_PY'];
   final skip = root == null || python == null
-      ? 'Requires private photos BSI_FIELD_DIR and ONNX Python BSI_ORT_PY'
+      ? 'Requires private photos BSI_FIELD_DIR and ncnn Python BSI_NCNN_PY'
       : null;
   final fixture =
       jsonDecode(
             File('test/fixtures/target_tree_field.json').readAsStringSync(),
           )
           as Map<String, dynamic>;
-  final server = _OrtServer();
+  final server = _NcnnServer();
 
   setUpAll(() async {
     if (skip != null) return;
     await server.start(python!);
-    OnnxService.testBackend = server.run;
-    await OnnxService.instance.load('assets/models/bsi_seg_yolo26s_640.onnx');
-    await OnnxService.pole.load('assets/models/pole_boundary_640.onnx');
+    ModelService.testBackend = server.run;
+    await ModelService.instance.load('assets/models/bsi_seg_yolo26s_640.param');
+    await ModelService.pole.load('assets/models/pole_boundary_640.param');
   });
   tearDownAll(() async {
     if (skip != null) return;
-    OnnxService.testBackend = null;
+    ModelService.testBackend = null;
     await server.stop();
   });
 
@@ -218,7 +218,7 @@ void main() {
               for (final asset in server.calls.keys)
                 asset: server.calls[asset]! - (callsBefore[asset] ?? 0),
             },
-            'provider': 'desktop ONNX Runtime CPU; not Android device latency',
+            'provider': 'desktop ncnn CPU FP32',
           }),
         );
         expect(result.analysed, isTrue);

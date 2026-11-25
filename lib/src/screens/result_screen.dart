@@ -11,7 +11,7 @@ import '../models/tuning.dart';
 import '../services/analysis_service.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
-import '../services/onnx_service.dart';
+import '../services/model_service.dart';
 import '../services/pole_model.dart';
 import '../services/raw_archive.dart';
 import '../theme.dart';
@@ -697,9 +697,9 @@ class _ResultScreenState extends State<ResultScreen> {
     if (!active()) return;
     setState(() => _rescaling = true);
     try {
-      await OnnxService.instance.load(d.modelAsset);
+      await ModelService.instance.load(d.modelAsset);
       if (!active()) return;
-      await OnnxService.pole.tryLoad(d.poleModelAsset);
+      await ModelService.pole.tryLoad(d.poleModelAsset);
       if (!active()) return;
       for (final az in d.capturedAzimuths) {
         if (!active()) return;
@@ -838,9 +838,9 @@ class _ResultScreenState extends State<ResultScreen> {
     if (targets.isEmpty) return;
     setState(() => _rescaling = true);
     try {
-      await OnnxService.instance.load(d.modelAsset);
+      await ModelService.instance.load(d.modelAsset);
       if (!active()) return;
-      await OnnxService.pole.tryLoad(d.poleModelAsset);
+      await ModelService.pole.tryLoad(d.poleModelAsset);
       if (!active()) return;
       for (final az in targets) {
         if (!active()) return;

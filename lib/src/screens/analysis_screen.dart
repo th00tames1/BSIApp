@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../l10n.dart';
 import '../models/draft.dart';
 import '../services/analysis_service.dart';
-import '../services/onnx_service.dart';
+import '../services/model_service.dart';
 import '../theme.dart';
 import 'result_screen.dart';
 
@@ -40,10 +40,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   Future<void> _run() async {
     try {
-      await OnnxService.instance.load(d.modelAsset);
+      await ModelService.instance.load(d.modelAsset);
       if (!_active) return;
       // 수고봉 모델은 있으면 쓰고 없으면 건너뛴다(스케일은 휴리스틱으로 대체).
-      await OnnxService.pole.tryLoad(d.poleModelAsset);
+      await ModelService.pole.tryLoad(d.poleModelAsset);
       if (!_active) return;
       final dir = await getApplicationDocumentsDirectory();
       if (!_active) return;

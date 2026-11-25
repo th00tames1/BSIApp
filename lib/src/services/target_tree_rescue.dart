@@ -9,7 +9,7 @@ typedef TreeRescueRegion = ({int x, int y, int width, int height});
 /// One bounded view of the upper stem. Regions depend only on the
 /// selected mask geometry, never a photo ID or field-case annotation.
 class TargetTreeRescue {
-  static const modelAsset = 'assets/models/bsi_tree_rescue_yolo11n_640.onnx';
+  static const modelAsset = 'assets/models/bsi_tree_rescue_yolo11n_640.param';
   static List<TreeRescueRegion> regions(FaceAnalysis tree, Letterboxed full) {
     if (!tree.hasTree) return const [];
     var minX = tree.mw, maxX = -1;

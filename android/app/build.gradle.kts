@@ -16,6 +16,16 @@ val releaseKey = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+val flutterAbiByTarget = mapOf(
+    "android-arm" to "armeabi-v7a",
+    "android-arm64" to "arm64-v8a",
+    "android-x64" to "x86_64",
+)
+val nativeAbis = (project.findProperty("target-platform") as? String)
+    ?.split(",")
+    ?.mapNotNull(flutterAbiByTarget::get)
+    .orEmpty()
+
 android {
     namespace = "com.bsi.bsi_field"
     compileSdk = 36
@@ -41,6 +51,19 @@ android {
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        externalNativeBuild {
+            cmake {
+                abiFilters += nativeAbis
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     signingConfigs {
@@ -58,12 +81,6 @@ android {
         release {
             signingConfig = if (releaseKey.isEmpty) signingConfigs.getByName("debug")
             else signingConfigs.getByName("release")
-            // R8 축소는 Flutter 기본값대로 켜 두되, ONNX Runtime(JNI) keep 규칙을
-            // 반드시 포함한다 — 없으면 릴리스 빌드가 분석 시작 직후 죽는다.
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
         }
     }
 }

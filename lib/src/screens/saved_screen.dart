@@ -13,7 +13,7 @@ import '../services/analysis_service.dart';
 import '../services/csv_export.dart';
 import '../services/db_service.dart';
 import '../services/mortality.dart';
-import '../services/onnx_service.dart';
+import '../services/model_service.dart';
 import '../services/pole_model.dart';
 import '../theme.dart';
 import '../widgets/pole_gap_dialog.dart';
@@ -181,9 +181,9 @@ class _SavedScreenState extends State<SavedScreen> {
     String? err;
     SurveyRecord? next;
     try {
-      await OnnxService.instance.load(SurveyDraft.defaultModelAsset);
+      await ModelService.instance.load(SurveyDraft.defaultModelAsset);
       // 수고봉 모델은 있으면 쓰고 없으면 휴리스틱으로 내려간다(분석 화면과 동일).
-      await OnnxService.pole.tryLoad(SurveyDraft.defaultPoleModelAsset);
+      await ModelService.pole.tryLoad(SurveyDraft.defaultPoleModelAsset);
       final dir = await getApplicationDocumentsDirectory();
       final overlayDir = Directory(pp.join(dir.path, 'overlays'));
       if (!overlayDir.existsSync()) overlayDir.createSync(recursive: true);
