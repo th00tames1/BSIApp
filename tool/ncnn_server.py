@@ -57,8 +57,7 @@ def run(asset, values):
         if code:
             raise RuntimeError(f"Could not read {name} for {asset}: {code}")
         outputs.append(np.array(tensor, dtype=np.float32, copy=True))
-    if stem != "bsi_tree_rescue_yolo11n_640":
-        outputs[0] = rank_detections(outputs[0])
+    outputs[0] = rank_detections(outputs[0])
     return [np.expand_dims(value, 0) for value in outputs]
 
 

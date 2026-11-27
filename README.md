@@ -67,12 +67,9 @@ flutter test
 
 ## AI 모델
 
-세 모델을 함께 내장하며 저장소에 포함돼 있다(별도 내려받기 불필요).
+분할과 수고봉 검출 모델을 앱에 내장한다(별도 내려받기 불필요).
 
 - **분할**: `assets/models/bsi_seg_yolo26s_640.param` + `.bin` (YOLO26s-seg @640, 수간=1 · 그을음=0)
-- **수간 복원 보조**: `assets/models/bsi_tree_rescue_yolo11n_640.param` + `.bin` (YOLO11n-seg @640).
-  주 모델과 공유하는 수간을 확인한 뒤 위쪽 갈래만 보완한다. 주 모델의 밑동과 그을음 추론은 유지한다.
-  모델 출처·해시·검증 범위는 [모델 기록](docs/target_tree_models.md)을 참고한다.
 - **수고봉**: `assets/models/pole_boundary_640.param` + `.bin` (YOLO26s @640, 경계점 검출 · 2클래스: 노랑/흰 수고봉(간격 = 설정값, 기본 1 m) /
   빨강/흰 측량 폴(20 cm 띠 → 0.2 m 자동). 봉 종류는 모델이 판정하므로 두 봉이 함께 찍혀도 각자 맞는 간격을 쓴다)
 - 디코더는 **두 출력 형식 자동 감지**: YOLO11 dense `[1,4+nc+nm,anchors]` / YOLO26 end2end `[1,nDet,6+nm]`

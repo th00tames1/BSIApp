@@ -258,55 +258,7 @@ void main() {
   });
 
   test(
-    'companion repairs upper forks while its extra roots and ground stay excluded',
-    () {
-      final f = _decode([(cls: kTree, pixels: (x, y) => x >= 14 && x <= 21)]);
-      final candidate = _mask(
-        (x, y) =>
-            (x >= 14 && x <= 21) ||
-            (y <= 10 && x >= 8 && x <= 10) ||
-            (y == 10 && x >= 8 && x <= 14) ||
-            y >= 30,
-      );
-      final merged = SegDecoder.mergeCompanionTree(f, candidate);
-      expect(_on(merged, 9, 5), isTrue);
-      expect(_on(merged, 12, 5), isFalse);
-      expect(_on(merged, 2, 31), isFalse);
-      expect(merged.treeBottom, f.treeBottom);
-      expect(merged.treeSpanAtRow(30), f.treeSpanAtRow(30));
-      expect(
-        f.treePx,
-        8 * _w,
-        reason: 'Original evidence must not be modified',
-      );
-    },
-  );
-
-  test(
-    'companion cannot add a separate basal stem joined by an upper crossing',
-    () {
-      final f = _decode([(cls: kTree, pixels: (x, y) => x >= 14 && x <= 21)]);
-      final crossing = _mask(
-        (x, y) =>
-            (x >= 14 && x <= 21) ||
-            (x >= 7 && x <= 9) ||
-            (y == 10 && x >= 7 && x <= 21),
-      );
-      expect(identical(SegDecoder.mergeCompanionTree(f, crossing), f), isTrue);
-    },
-  );
-
-  test(
-    'companion cannot exchange the original stem for a partial overlapping tree',
-    () {
-      final f = _decode([(cls: kTree, pixels: (x, y) => x >= 14 && x <= 21)]);
-      final cropped = _mask((x, y) => y < 24 && x >= 12 && x <= 21);
-      expect(identical(SegDecoder.mergeCompanionTree(f, cropped), f), isTrue);
-    },
-  );
-
-  test(
-    'uncropped prototype responses never become companion foreground evidence',
+    'uncropped prototype responses stay outside the branch evidence',
     () {
       final det = Float32List.fromList([8, 0, 12, 31, .9, 1, 20]);
       final proto = Float32List.fromList(List.filled(_w * _w, 1));
@@ -319,19 +271,11 @@ void main() {
       ).single;
       expect(_on(evidence.analysis, 10, 16), isTrue);
       expect(_on(evidence.analysis, 18, 16), isFalse);
-      final f = _decode([(cls: kTree, pixels: (x, y) => x >= 14 && x <= 21)]);
-      expect(
-        identical(
-          SegDecoder.mergeCompanionTree(f, evidence.analysis.treeMask),
-          f,
-        ),
-        isTrue,
-      );
     },
   );
 
   test(
-    'ROI and companion preserve negative space between existing fork arms',
+    'ROI preserves negative space between existing fork arms',
     () {
       final f = _decode([
         (
@@ -343,21 +287,18 @@ void main() {
       final filled = _mask(
         (x, y) => (x >= 10 && x <= 21) || (y <= 12 && x >= 8 && x <= 9),
       );
-      final roi = SegDecoder.mergeBranchEvidence(f, filled, filled);
-      final companion = SegDecoder.mergeCompanionTree(f, filled);
-      for (final result in [roi, companion]) {
-        expect(
-          _on(result, 15, 5),
-          isFalse,
-          reason: 'The sky gap must stay empty',
-        );
-        expect(
-          _on(result, 8, 5),
-          isTrue,
-          reason: 'A missing outer arm can still extend',
-        );
-        expect(result.sootMask[5 * _w + 15], 0);
-      }
+      final result = SegDecoder.mergeBranchEvidence(f, filled, filled);
+      expect(
+        _on(result, 15, 5),
+        isFalse,
+        reason: 'The sky gap must stay empty',
+      );
+      expect(
+        _on(result, 8, 5),
+        isTrue,
+        reason: 'A missing outer arm can still extend',
+      );
+      expect(result.sootMask[5 * _w + 15], 0);
     },
   );
 
@@ -376,14 +317,10 @@ void main() {
       final bridge = _mask(
         (x, y) => _on(f, x, y) || (x >= 14 && x <= 15 && y <= 16),
       );
-      for (final result in [
-        SegDecoder.mergeBranchEvidence(f, bridge, bridge),
-        SegDecoder.mergeCompanionTree(f, bridge),
-      ]) {
-        expect(_on(result, 14, 1), isFalse);
-        expect(result.treeTop, f.treeTop);
-        expect(result.treeMask, f.treeMask);
-      }
+      final result = SegDecoder.mergeBranchEvidence(f, bridge, bridge);
+      expect(_on(result, 14, 1), isFalse);
+      expect(result.treeTop, f.treeTop);
+      expect(result.treeMask, f.treeMask);
     },
   );
 
@@ -394,7 +331,9 @@ void main() {
     final wider = _mask(
       (x, y) => _on(reference, x, y) || (y <= 16 && x >= 8 && x <= 13),
     );
-    final recovered = SegDecoder.mergeCompanionTree(reference, wider);
+    final recovered = _decode([
+      (cls: kTree, pixels: (x, y) => wider[y * _w + x] == 1),
+    ]);
     expect(recovered.treePx, greaterThan(reference.treePx));
     final originalScale = AnalysisService.scaleFromDbhCm(reference, 1, 35);
     expect(
@@ -412,7 +351,9 @@ void main() {
           (y <= 16 && x >= 8 && x <= 10) ||
           (y == 16 && x >= 8 && x <= 14),
     );
-    final split = SegDecoder.mergeCompanionTree(reference, fork);
+    final split = _decode([
+      (cls: kTree, pixels: (x, y) => fork[y * _w + x] == 1),
+    ]);
     expect(
       AnalysisService.scaleFromDbhCm(reference, 1, 35, recoveredShape: split),
       isNull,

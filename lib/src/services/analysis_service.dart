@@ -319,61 +319,6 @@ class AnalysisService {
           attempt['failed'] = true;
         }
       }
-      final companionAttempt = <String, Object?>{
-        'kind': 'companion',
-        'model': TargetTreeRescue.modelAsset,
-        'addedPixels': 0,
-      };
-      treeRescues.add(companionAttempt);
-      try {
-        if (await ModelService.treeRescue.tryLoad(TargetTreeRescue.modelAsset)) {
-          final companion = ImageOps.letterbox(
-            lb.source,
-            ModelService.treeRescue.inputSize,
-            brightness: tuning.brightness,
-            contrast: tuning.contrast,
-            autoTone: lb.toneApplied,
-          );
-          final rawCompanion = await ModelService.treeRescue.infer(
-            companion.chw,
-            companion.size,
-          );
-          final candidates = SegDecoder.branchEvidence(
-            rawCompanion.det,
-            rawCompanion.detShape,
-            rawCompanion.proto,
-            rawCompanion.protoShape,
-            companion.size,
-          );
-          companionAttempt['candidates'] = candidates.length;
-          var added = 0;
-          for (final evidence in candidates) {
-            final candidate = evidence.analysis;
-            final mapped = TargetTreeRescue.restoreMask(
-              candidate.treeMask,
-              candidate.mh,
-              candidate.mw,
-              companion,
-              (x: 0, y: 0, width: lb.source.width, height: lb.source.height),
-              lb,
-              fa.mh,
-              fa.mw,
-            );
-            final merged = SegDecoder.mergeCompanionTree(
-              fa,
-              mapped,
-              anchor: anchor,
-            );
-            added += merged.treePx - fa.treePx;
-            fa = merged;
-          }
-          companionAttempt['addedPixels'] = added;
-        } else {
-          companionAttempt['failed'] = true;
-        }
-      } catch (_) {
-        companionAttempt['failed'] = true;
-      }
     }
     fa = SegDecoder.applyExclusions(
       fa,
@@ -589,7 +534,6 @@ class AnalysisService {
         'models': {
           'seg': ModelService.instance.loadedAsset,
           'pole': ModelService.pole.loadedAsset,
-          'treeRescue': ModelService.treeRescue.loadedAsset,
           'inputSize': lb.size,
         },
         'letterbox': {

@@ -211,13 +211,21 @@ void main() {
           overlayOutPath: '${out.path}/overlay.png',
         );
         stopwatch.stop();
+        final callsByAsset = {
+          for (final asset in server.calls.keys)
+            asset: server.calls[asset]! - (callsBefore[asset] ?? 0),
+        }..removeWhere((_, count) => count == 0);
+        expect(
+          callsByAsset.keys,
+          unorderedEquals([
+            'assets/models/bsi_seg_yolo26s_640.param',
+            'assets/models/pole_boundary_640.param',
+          ]),
+        );
         File('${out.path}/execution.json').writeAsStringSync(
           jsonEncode({
             'elapsedMilliseconds': stopwatch.elapsedMilliseconds,
-            'onnxCallsByAsset': {
-              for (final asset in server.calls.keys)
-                asset: server.calls[asset]! - (callsBefore[asset] ?? 0),
-            },
+            'onnxCallsByAsset': callsByAsset,
             'provider': 'desktop ncnn CPU FP32',
           }),
         );
@@ -232,7 +240,7 @@ void main() {
         )!;
         if (c['id'] == '014_W') {
           // Independent original-model reference, using the captured FIRST
-          // full-frame tensor before any extra ROI/companion inference.
+          // full-frame tensor before any extra ROI inference.
           final original = server.firstSegmentation!;
           final det = original.firstWhere((o) => o.shape.length == 3);
           final proto = original.firstWhere((o) => o.shape.length == 4);
@@ -286,18 +294,25 @@ void main() {
           }
         }
         final reports = <Map<String, dynamic>>[];
+        final missingWithoutCompanion =
+            c['missingWithoutCompanion'] as List<dynamic>? ?? const [];
         for (final type in ['include', 'exclude']) {
           for (final p in c[type] as List<dynamic>) {
             final point = p as List<dynamic>;
             final pixel = _maskPoint(point, raw, mask);
             final selected =
                 pixel != null && mask.getPixel(pixel.x, pixel.y).r > 127;
+            final expectedSelected = type == 'include' &&
+                !missingWithoutCompanion.any(
+                  (missing) => missing[0] == point[0] && missing[1] == point[1],
+                );
             reports.add({
               'kind': type,
               'originalNormalized': point,
               'maskPixel': pixel == null ? null : [pixel.x, pixel.y],
               'selected': selected,
-              'pass': selected == (type == 'include'),
+              'expectedSelected': expectedSelected,
+              'pass': selected == expectedSelected,
             });
           }
         }
@@ -395,7 +410,7 @@ void main() {
         expect(
           mask.getPixel(removed!.x, removed.y).r,
           0,
-          reason: 'ROI/companion rescues must not add excluded pixels back',
+          reason: 'ROI rescue must not add excluded pixels back',
         );
         final kept = _maskPoint(anchor, raw, mask);
         expect(kept, isNotNull);

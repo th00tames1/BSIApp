@@ -63,7 +63,10 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/models/
+    - assets/models/bsi_seg_yolo26s_640.param
+    - assets/models/bsi_seg_yolo26s_640.bin
+    - assets/models/pole_boundary_640.param
+    - assets/models/pole_boundary_640.bin
     - assets/third_party/
     - assets/sample/
     - assets/icon/

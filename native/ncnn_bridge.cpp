@@ -30,7 +30,7 @@ constexpr int anchorCount = 8400;
 constexpr int maskChannels = 32;
 constexpr int prototypeSize = 160;
 
-enum class Model { stem, pole, rescue };
+enum class Model { stem, pole };
 
 std::mutex inferenceMutex;
 bool gpuFailed = false;
@@ -172,17 +172,7 @@ public:
         }
 
         const ncnn::Mat head = unpack(host[0]);
-        if (model == Model::rescue) {
-            check(head.dims == 2 && head.h == 38 && head.w == anchorCount, "unexpected rescue head");
-            for (int i = 0; i < head.h; ++i) {
-                const float* values = head.row(i);
-                check(std::all_of(values, values + head.w, [](float value) { return std::isfinite(value); }),
-                      "non-finite rescue output");
-                std::copy_n(values, head.w, det + i * head.w);
-            }
-        } else {
-            rankDetections(head, model == Model::stem ? maskChannels : 0, det);
-        }
+        rankDetections(head, model == Model::stem ? maskChannels : 0, det);
 
         if (outputs == 2) {
             const ncnn::Mat masks = unpack(host[1]);
@@ -227,7 +217,7 @@ struct Session {
 BSI_EXPORT void* bsi_ncnn_open(const char* base, int model) {
     std::lock_guard<std::mutex> guard(inferenceMutex);
     try {
-        check(base && model >= 0 && model <= 2, "invalid model");
+        check(base && model >= 0 && model <= 1, "invalid model");
         auto session = std::make_unique<Session>(base, static_cast<Model>(model));
         const int gpu = gpuFailed ? -1 : findGpu();
         if (gpu >= 0) {

@@ -27,8 +27,7 @@ class RawOutputs {
 
 enum _Model {
   stem([1, 300, 38]),
-  pole([1, 300, 6]),
-  rescue([1, 38, 8400]);
+  pole([1, 300, 6]);
 
   const _Model(this.detectionShape);
 
@@ -44,7 +43,6 @@ class ModelService {
 
   static final instance = ModelService._(_Model.stem);
   static final pole = ModelService._(_Model.pole);
-  static final treeRescue = ModelService._(_Model.rescue);
 
   @visibleForTesting
   static InferenceBackend? testBackend;
